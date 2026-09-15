@@ -371,6 +371,12 @@
         <b>SC WEIGHT</b> = DGD WEIGHT &times; cartons = exact declared quantity on each label.
         Paste the PLT / WEIGHT / DIMENSIONS / QTY rows from the customer packing list, or type them.
       </div>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+        <label style="margin:0;">Attach Packing List PDF:</label>
+        <input type="file" id="pt_file" accept=".pdf" style="font-size:12.5px;">
+        <button class="btn btn-save" style="background:#7b2d8b;" onclick="ptReadPdf()">&#129302; AI EXTRACT PALLETS FROM PDF</button>
+        <span id="pt_pdfmsg" style="font-size:12px; color:#7a4b00;"></span>
+      </div>
       <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:8px;">
         <div><label>Pallet tare (kg)</label><input type="text" id="pt_tare" value="16" style="width:80px;" oninput="ptRecalc()"></div>
         <div><label>Package type on DGD</label><input type="text" id="pt_boxtype" value="FIBREBOARD BOXES" style="width:190px;"></div>
@@ -2148,6 +2154,60 @@ function ptFillDgd(){
   refresh();
   document.getElementById("pt_summary").textContent =
     "✓ DGD filled — " + PT.length + " overpack(s), " + ptGroups().length + " group(s) in official format. Check the preview!";
+}
+async function ptReadPdf(){
+  const f = document.getElementById("pt_file").files[0];
+  const msg = document.getElementById("pt_pdfmsg");
+  if(!f){ alert("Choose the packing list PDF first."); return; }
+  if(!aiKey()){ msg.textContent = "Add your Claude API key in SETTINGS → AI to extract pallets from PDF. (You can still paste the rows manually.)"; return; }
+  msg.textContent = "Reading PDF...";
+  try{
+    await loadPdfjs();
+    const buf = await f.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({data: buf}).promise;
+    let text = "";
+    for(let p = 1; p <= Math.min(pdf.numPages, 5); p++){
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      let lastY = null, line = [];
+      const lines = [];
+      tc.items.forEach(it => {
+        const y = Math.round(it.transform[5]);
+        if(lastY !== null && Math.abs(y - lastY) > 4){ lines.push(line.join(" ")); line = []; }
+        line.push(it.str); lastY = y;
+      });
+      lines.push(line.join(" "));
+      text += lines.join("\n") + "\n";
+    }
+    const scanned = text.trim().length < 200;
+    msg.textContent = scanned ? "🤖 Scanned PDF — AI reading the page image(s)..." : "🤖 AI extracting pallet table...";
+    const imgs = await pdfPageImages(pdf, 2);
+    const sys = `You are a dangerous-goods assistant for JFS Logistics. From this customer PACKING LIST, extract the pallet/overpack table.
+Respond with ONLY JSON, no markdown:
+{"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15}],"tare":pallet tare weight in kg if stated else null}
+"weight" = GROSS weight of that pallet in kg (number). "qty" = number of cartons/boxes on that pallet (integer). "dims" = dimensions text as printed.
+One entry per pallet, in printed order. Never invent pallets or numbers not in the document.`;
+    const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
+    content.push({type:"text", text: "Packing list" + (text.trim().length > 30 ? " — extracted text as an extra hint, trust the page image(s) first:\n\n" + text.slice(0, 8000) : " — scanned page image(s) above. Read them carefully.")});
+    const j = aiJson(await aiCall(sys, content, 1800));
+    const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0})).filter(r => r.w && r.q);
+    if(!rows.length){ msg.textContent = "AI found no pallet rows in this PDF — paste them manually below."; return; }
+    PT = rows;
+    if(j.tare && parseFloat(j.tare) > 0) document.getElementById("pt_tare").value = String(j.tare);
+    ptRender();
+    // this PDF IS the packing list → attach it (cross-check + unlock DGD printing) and pull DG items too
+    if(text.trim().length >= 30){
+      if(plCrossCheck(text)){
+        plSet(f.name);
+        document.getElementById("f_pl").value = text;
+        if(plUNs(text).length) plExtractItems(text);
+      }
+    } else {
+      plSet(f.name + " (scanned — AI read)");
+    }
+    refresh();
+    msg.textContent = "Done — " + rows.length + " pallet(s) extracted & packing list attached. Check the table, then click ➡ FILL DGD FROM PALLETS.";
+  }catch(e){ msg.textContent = "Failed (" + e.message.slice(0, 80) + ") — paste the rows manually."; }
 }
 
 /* ---------- custom items ---------- */
