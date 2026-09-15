@@ -294,6 +294,20 @@
     <!-- ============ WAREHOUSE TAB ============ -->
     <div class="tab" id="tab-wh">
       <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#127981; WAREHOUSE &mdash; create packing list &amp; send to operations</h2><div class="body">
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px;">
+          <div><label>JFS JOB NUMBER (required)</label><input type="text" id="wh_job" placeholder="e.g. JFS-2026-0451" style="width:200px; font-weight:bold;"></div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; background:#faf5ec; border:1px dashed #d8b98a; border-radius:8px; padding:9px 12px;">
+          <b style="font-size:12px; color:#7a4b00;">&#128247; PHOTO &rarr; &#129302; AI :</b>
+          <label style="margin:0; font-size:12px;">Shipper/consignee photo:</label>
+          <input type="file" id="wh_addrfile" accept="image/*,.pdf" capture="environment" style="font-size:12px; max-width:200px;">
+          <button class="smallbtn sb-blue" onclick="whAddrPhoto()">&#129302; READ ADDRESS</button>
+          <span style="color:#d8b98a;">|</span>
+          <label style="margin:0; font-size:12px;">Packing list photo(s):</label>
+          <input type="file" id="wh_plfile" accept="image/*,.pdf" capture="environment" multiple style="font-size:12px; max-width:200px;">
+          <button class="smallbtn sb-blue" onclick="whPlPhoto()">&#129302; READ PACKING LIST</button>
+          <span id="wh_aimsg" style="font-size:12px; color:#7a4b00; font-weight:bold;"></span>
+        </div>
         <div class="grid g2">
           <div><label>Shipper (name &amp; address &mdash; exactly as on the label)</label><textarea id="wh_shipper" style="min-height:84px;" placeholder="LATTAFA PERFUMES INDUSTRIES LLC,&#10;P O BOX 69793,&#10;SHARJAH-UAE&#10;TEL: +971 65352603"></textarea></div>
           <div><label>Consignee (name &amp; address)</label><textarea id="wh_consignee" style="min-height:84px;" placeholder="SERENA GROUP S.A.&#10;..."></textarea></div>
@@ -2309,6 +2323,7 @@ function autosaveCurrent(){
 }
 function jobGateShow(){
   const g = document.getElementById("jobgate");
+  const note = document.getElementById("jg_note"); if(note) note.textContent = "";
   let hasCur = false;
   try{ const s = JSON.parse(localStorage.getItem("jfs_dgd_current")||"null"); hasCur = !!(s && (s.job || s.awb || s.shipper)); }catch(e){}
   document.getElementById("jg_cont").style.display = hasCur ? "" : "none";
@@ -2351,7 +2366,7 @@ function jobContinue(){
   document.getElementById("jobgate").style.display = "none";
   showTab("dgd");
 }
-function jobNew(){ jobGateShow(); }
+function jobNew(){ _acceptRow = null; document.getElementById("jg_job").value = ""; jobGateShow(); }
 function jobLogPrint(){
   const s = snapshot();
   const key = (s.job||"").trim().toUpperCase();
@@ -2497,19 +2512,92 @@ function whParse(){
 async function whSend(){
   const msg = document.getElementById("wh_msg");
   if(!sb || !sbUser){ alert("Log in first."); return; }
+  const job = v("wh_job").trim().toUpperCase();
+  if(!job){ alert("JOB NUMBER REQUIRED!\n\nEnter the JFS Job Number first — it travels with the packing list to operations."); document.getElementById("wh_job").focus(); return; }
   if(!WH.length){ alert("Add the pallet rows first."); return; }
   if(!v("wh_shipper").trim() || !v("wh_consignee").trim()){ alert("Shipper and consignee are required."); return; }
   msg.textContent = "Sending..."; msg.style.color = "#7a4b00";
-  const payload = { ref:v("wh_ref"), awb:v("wh_awb"), route:v("wh_route"), tare:v("wh_tare"),
+  const payload = { job, ref:v("wh_ref") || job, awb:v("wh_awb"), route:v("wh_route"), tare:v("wh_tare"),
     shipper:v("wh_shipper"), consignee:v("wh_consignee"), notes:v("wh_notes"), pallets: WH,
     totals:{ plt: WH.length, gross: ptR3(WH.reduce((a,r) => a+(r.w||0), 0)), ctns: WH.reduce((a,r) => a+(r.q||0), 0) } };
-  const { error } = await sb.from("dgd_queue").insert({ payload });
+  const { error } = await sb.from("dgd_queue").insert({ payload, job_no: job });
   if(error){ msg.textContent = "Send failed: " + error.message.slice(0,80); msg.style.color = "#a40000"; return; }
-  msg.textContent = "✓ Sent to operations — it is now in their INBOX.";
+  msg.textContent = "✓ Sent to operations — job " + job + " is now in their INBOX.";
   msg.style.color = "#1d6b34";
   WH = []; whRender();
-  ["wh_ref","wh_awb","wh_route","wh_notes","wh_shipper","wh_consignee"].forEach(id => document.getElementById(id).value = "");
+  ["wh_job","wh_ref","wh_awb","wh_route","wh_notes","wh_shipper","wh_consignee"].forEach(id => document.getElementById(id).value = "");
   whRefreshSent(); inboxPoll();
+}
+async function imgFileToB64(file, maxDim){
+  maxDim = maxDim || 1568;
+  const url = URL.createObjectURL(file);
+  try{
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error("image load failed")); im.src = url; });
+    const sc = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.85).split(",")[1];
+  } finally { URL.revokeObjectURL(url); }
+}
+async function filesToImgs(files, maxPages){
+  const imgs = [];
+  for(const f of files){
+    if(f.type === "application/pdf" || /\.pdf$/i.test(f.name)){
+      await loadPdfjs();
+      const pdf = await window.pdfjsLib.getDocument({data: await f.arrayBuffer()}).promise;
+      (await pdfPageImages(pdf, maxPages || 2)).forEach(b => imgs.push(b));
+    } else {
+      imgs.push(await imgFileToB64(f));
+    }
+    if(imgs.length >= 3) break;
+  }
+  return imgs.slice(0, 3);
+}
+async function whAddrPhoto(){
+  const f = document.getElementById("wh_addrfile").files[0];
+  const msg = document.getElementById("wh_aimsg");
+  if(!f){ alert("Choose or take the photo first."); return; }
+  if(!aiKey()){ msg.textContent = "Add the Claude API key in SETTINGS → AI first."; return; }
+  msg.textContent = "🤖 AI reading the address photo...";
+  try{
+    const imgs = await filesToImgs([f], 2);
+    const sys = `You read logistics documents and photos for a freight forwarder (JFS Logistics).
+Extract the SHIPPER (sender/exporter) and CONSIGNEE (receiver/importer) name and FULL address as CLEAN TEXT, ready to print on an IATA Dangerous Goods Declaration.
+Format each: company name on line 1, then the address lines, then "TEL: ..." as the last line — ALL CAPITALS.
+The photo may be handwritten, a label, an invoice or low quality — read carefully, fix obvious OCR/handwriting slips in city and country names, but NEVER invent details that are not visible.
+Respond ONLY JSON: {"shipper":"multi-line text or empty","consignee":"multi-line text or empty"}`;
+    const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
+    content.push({type:"text", text:"Extract the shipper and consignee from the photo(s) above."});
+    const j = aiJson(await aiCall(sys, content, 900));
+    if(j.shipper) document.getElementById("wh_shipper").value = j.shipper;
+    if(j.consignee) document.getElementById("wh_consignee").value = j.consignee;
+    msg.textContent = (j.shipper || j.consignee) ? "✓ Address read from the photo — check the spelling before sending!" : "Nothing found — take a clearer photo.";
+  }catch(e){ msg.textContent = "AI failed: " + e.message.slice(0,70); }
+}
+async function whPlPhoto(){
+  const fs = [...document.getElementById("wh_plfile").files];
+  const msg = document.getElementById("wh_aimsg");
+  if(!fs.length){ alert("Choose or take the packing list photo(s) first."); return; }
+  if(!aiKey()){ msg.textContent = "Add the Claude API key in SETTINGS → AI first."; return; }
+  msg.textContent = "🤖 AI reading the packing list (handwriting OK)...";
+  try{
+    const imgs = await filesToImgs(fs, 2);
+    const sys = `You read WAREHOUSE PACKING LISTS for a freight forwarder. They are often HANDWRITTEN by warehouse staff with imperfect, rushed writing — read like an expert who knows the context.
+Extract every pallet row into clean columns.
+Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15}],"tare":pallet tare kg if written else null}
+"weight" = GROSS weight of that pallet in kg (number). "qty" = number of cartons on that pallet (integer). "dims" = dimensions text like 120*100*135.
+Sanity-check unclear digits from context: a loaded pallet is usually 50–999 kg, qty usually 1–60 cartons, dims in cm. Keep the written order. NEVER invent pallets that are not on the paper.`;
+    const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
+    content.push({type:"text", text:"Extract the pallet table from the packing list photo(s) above."});
+    const j = aiJson(await aiCall(sys, content, 1800));
+    const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0})).filter(r => r.w && r.q);
+    if(!rows.length){ msg.textContent = "AI found no pallet rows — type them below."; return; }
+    WH = rows;
+    if(j.tare && parseFloat(j.tare) > 0) document.getElementById("wh_tare").value = String(j.tare);
+    whRender();
+    msg.textContent = "✓ " + rows.length + " pallet(s) read — CHECK every weight & qty against the paper before sending!";
+  }catch(e){ msg.textContent = "AI failed: " + e.message.slice(0,70); }
 }
 async function whRefreshSent(){
   if(!sb || !sbUser) return;
@@ -2518,13 +2606,14 @@ async function whRefreshSent(){
     .eq("sender_id", sbUser.id).order("created_at", {ascending:false}).limit(30);
   const TH = "padding:5px 8px; font-size:11.5px; background:#eef2f7; border:1px solid #dde5ee; color:#0f2b4c; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #e8edf3; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">SENT</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">STATUS</th></tr>`;
+  let h = `<tr><th style="${TH}">SENT</th><th style="${TH}">JOB</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">STATUS</th></tr>`;
   (data||[]).forEach(r => {
     const p = r.payload || {};
     const st = r.status === "NEW"
       ? `<b style="color:#b45309;">&#9203; WAITING</b>`
-      : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}${r.job_no ? " — job " + esc(r.job_no) : ""}</span>`;
+      : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}</span>`;
     h += `<tr><td style="${TD}">${new Date(r.created_at).toLocaleString("en-GB")}</td>
+      <td style="${TD} font-weight:bold;">${esc(p.job || r.job_no || "")}</td>
       <td style="${TD}">${esc((p.shipper||"").split("\n")[0])}</td><td style="${TD}">${esc((p.consignee||"").split("\n")[0])}</td>
       <td style="${TD} text-align:center;">${(p.totals||{}).plt||""}</td><td style="${TD}">${st}</td></tr>`;
   });
@@ -2546,15 +2635,16 @@ function renderInbox(){
   const tb = document.getElementById("inbox_table"); if(!tb) return;
   const TH = "padding:5px 8px; font-size:11.5px; background:#b45309; color:#fff; border:1px solid #b45309; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #f0e6d8; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">RECEIVED</th><th style="${TH}">FROM</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">GROSS</th><th style="${TH}">NOTES</th><th style="${TH}">STATUS</th></tr>`;
-  if(!INBOX.length) h += `<tr><td colspan="8" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
+  let h = `<tr><th style="${TH}">RECEIVED</th><th style="${TH}">JOB</th><th style="${TH}">FROM</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">GROSS</th><th style="${TH}">NOTES</th><th style="${TH}">STATUS</th></tr>`;
+  if(!INBOX.length) h += `<tr><td colspan="9" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
   INBOX.forEach(r => {
     const p = r.payload || {};
     const st = r.status === "NEW"
       ? `<button class="smallbtn sb-green" onclick="inboxAccept('${r.id}')">&#10004; ACCEPT &amp; START</button>`
-      : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}${r.job_no ? " — " + esc(r.job_no) : ""}</span>`;
+      : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}</span>`;
     h += `<tr${r.status === "NEW" ? ' style="background:#fffaf0;"' : ""}>
       <td style="${TD}">${new Date(r.created_at).toLocaleString("en-GB")}</td>
+      <td style="${TD} font-weight:bold;">${esc(p.job || r.job_no || "")}</td>
       <td style="${TD}">${esc(r.sender_email||"")}</td>
       <td style="${TD} font-weight:bold;">${esc((p.shipper||"").split("\n")[0])}</td>
       <td style="${TD}">${esc((p.consignee||"").split("\n")[0])}</td>
@@ -2571,6 +2661,7 @@ function inboxAccept(id){
   _acceptRow = row;
   jobGateShow();
   const p = row.payload || {};
+  document.getElementById("jg_job").value = p.job || row.job_no || "";
   document.getElementById("jg_note").textContent =
     "Accepting packing list from " + (row.sender_email||"warehouse") + ": " +
     ((p.shipper||"").split("\n")[0]) + " → " + ((p.consignee||"").split("\n")[0]) +
