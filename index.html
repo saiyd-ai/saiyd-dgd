@@ -388,6 +388,7 @@
       <div style="display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap;">
         <button class="smallbtn sb-green" onclick="ptAddRow()">+ Add pallet</button>
         <button class="btn btn-save" style="background:#7a4b00;" onclick="ptFillDgd()">&#10145; FILL DGD FROM PALLETS (official format)</button>
+        <button class="btn btn-save" style="background:#1d6b34;" onclick="xlDownload()">&#11015; DOWNLOAD EXCEL (packing list + labels)</button>
         <button class="smallbtn sb-red" onclick="ptClearAll()">Clear</button>
         <span id="pt_summary" style="font-size:12.5px; font-weight:bold; color:#7a4b00;"></span>
       </div>
@@ -2208,6 +2209,126 @@ One entry per pallet, in printed order. Never invent pallets or numbers not in t
     refresh();
     msg.textContent = "Done — " + rows.length + " pallet(s) extracted & packing list attached. Check the table, then click ➡ FILL DGD FROM PALLETS.";
   }catch(e){ msg.textContent = "Failed (" + e.message.slice(0, 80) + ") — paste the rows manually."; }
+}
+
+/* ---------- Excel download (packing list + labels, JFS tool format) ---------- */
+async function loadExcelJS(){
+  if(window.ExcelJS) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
+    s.onload = res; s.onerror = () => rej(new Error("ExcelJS load failed"));
+    document.head.appendChild(s);
+  });
+}
+async function xlDownload(){
+  if(!PT.length){ alert("Add or extract the pallet rows first — the Excel is built from the pallet table."); return; }
+  try{ await loadExcelJS(); }catch(e){ alert("Could not load the Excel engine — check the internet connection."); return; }
+  ptCompute();
+  const YEL = {type:"pattern", pattern:"solid", fgColor:{argb:"FFFFF2CC"}};
+  const TAN = {type:"pattern", pattern:"solid", fgColor:{argb:"FFEFE6D6"}};
+  const NAVY = {type:"pattern", pattern:"solid", fgColor:{argb:"FF0F2B4C"}};
+  const BORD = {top:{style:"thin"},left:{style:"thin"},bottom:{style:"thin"},right:{style:"thin"}};
+  const shipLines = v("f_shipper").split("\n").map(s=>s.trim()).filter(Boolean).slice(0,4);
+  const consLines = v("f_consignee").split("\n").map(s=>s.trim()).filter(Boolean).slice(0,6);
+  const item = getItems().find(r => r.un) || {un:"ID8000", psn:"CONSUMER COMMODITY"};
+  const unDisp = (item.un||"").replace(/^(UN|ID)/, "$1 ");
+  const tare = parseFloat(v("pt_tare")) || 0;
+  const route = [v("f_dep"), v("f_dest")].filter(Boolean).join(" - ");
+  const emg = v("f_emergency") || "+971 50 138 3146";
+  const wb = new ExcelJS.Workbook();
+
+  /* ---- DG TOOL sheet (same layout as the JFS tool) ---- */
+  const ws = wb.addWorksheet("DG TOOL");
+  ws.columns = [{width:22},{width:14},{width:18},{width:12},{width:14},{width:44},{width:16},{width:20}];
+  const set = (addr, val, opt) => { const c = ws.getCell(addr); c.value = val; if(opt){ Object.assign(c, opt); } };
+  set("A1", "JFS LOGISTICS   |   DG PACKING LIST  &  OVERPACK LABEL TOOL", {font:{bold:true,size:14,color:{argb:"FFFFFFFF"}}, fill:NAVY});
+  ws.mergeCells("A1:H1");
+  set("A2", "Yellow cells = type / paste here.   White cells = automatic.   Sheet ALL LABELS: one overpack label per page.", {font:{italic:true,size:9}});
+  ws.mergeCells("A2:H2");
+  set("A4","SHIPMENT DETAILS",{font:{bold:true}, fill:TAN}); set("E4","SHIPPER   (label lines 1-4)",{font:{bold:true}, fill:TAN});
+  set("A5","AWB No."); set("C5", v("f_awb"), {fill:YEL, font:{bold:true}});
+  set("A6","Reference"); set("C6", v("f_ref"), {fill:YEL});
+  set("A7","Route"); set("C7", route, {fill:YEL});
+  set("A8","Pallet tare weight (kg)"); set("C8", tare, {fill:YEL});
+  for(let i=0;i<4;i++){ set("E"+(5+i), "Line "+(i+1)); set("F"+(5+i), shipLines[i]||"", {fill:YEL, font:{bold:true}}); }
+  set("A9","DGD WEIGHT = (PLT WEIGHT - pallet tare) / QTY, 3 decimals cut not rounded.   SC WEIGHT = DGD WEIGHT x QTY = exact declared quantity on the label.",{font:{italic:true,size:8.5}});
+  ws.mergeCells("A9:H9");
+  set("A10","SUMMARY",{font:{bold:true}, fill:TAN}); set("E10","CONSIGNEE   (label lines 1-6)",{font:{bold:true}, fill:TAN});
+  const N = PT.length, hdr = 18, first = 19, last = first + N - 1, tot = last + 1;
+  set("A11","Total PLT (overpacks)"); set("C11",{formula:`COUNT(A${first}:A${last})`});
+  set("A12","Total gross weight (kg)"); set("C12",{formula:`SUM(B${first}:B${last})`});
+  set("A13","Total SC weight (kg G)"); set("C13",{formula:`SUM(E${first}:E${last})`});
+  set("A14","Total cartons (QTY)"); set("C14",{formula:`SUM(D${first}:D${last})`});
+  set("A15","Max DGD weight (kg G/pkg)"); set("C15",{formula:`MAX(G${first}:G${last})`});
+  set("A16","Labels to print"); set("C16",{formula:`COUNT(A${first}:A${last})`});
+  for(let r=11;r<=16;r++) ws.getCell("C"+r).font = {bold:true};
+  for(let i=0;i<6;i++){ set("E"+(11+i), "Line "+(i+1)); set("F"+(11+i), consLines[i]||"", {fill:YEL, font:{bold:true}}); }
+  ["PLT","WEIGHT (KGS)","DIMENSIONS (cm)","QNTY (CTNS)","SC WEIGHT (KGS)","QTY","DGD WEIGHT (kg G)","LABEL NO"].forEach((t,ci)=>{
+    const c = ws.getRow(hdr).getCell(ci+1); c.value = t; c.font = {bold:true}; c.fill = TAN; c.border = BORD; c.alignment = {horizontal:"center"};
+  });
+  PT.forEach((r,i) => {
+    const row = ws.getRow(first + i), rn = first + i;
+    row.getCell(1).value = i+1;
+    row.getCell(2).value = r.w;   row.getCell(2).fill = YEL;
+    row.getCell(3).value = r.d;   row.getCell(3).fill = YEL;
+    row.getCell(4).value = r.q;   row.getCell(4).fill = YEL;
+    row.getCell(5).value = {formula:`ROUND(G${rn}*D${rn},3)`};
+    row.getCell(6).value = {formula:`D${rn}`};
+    row.getCell(7).value = {formula:`TRUNC((B${rn}-$C$8)/D${rn},3)`};
+    row.getCell(8).value = "OVERPACK#SC" + String(i+1).padStart(2,"0");
+    for(let ci=1;ci<=8;ci++){ row.getCell(ci).border = BORD; if(ci!==3) row.getCell(ci).alignment = {horizontal:"center"}; }
+  });
+  const tr = ws.getRow(tot);
+  tr.getCell(1).value = "TOTAL";
+  tr.getCell(2).value = {formula:`SUM(B${first}:B${last})`};
+  tr.getCell(4).value = {formula:`SUM(D${first}:D${last})`};
+  tr.getCell(5).value = {formula:`SUM(E${first}:E${last})`};
+  tr.getCell(6).value = {formula:`SUM(F${first}:F${last})`};
+  tr.getCell(7).value = {formula:`SUM(E${first}:E${last})`};
+  tr.getCell(8).value = N + " LABELS";
+  for(let ci=1;ci<=8;ci++){ tr.getCell(ci).font = {bold:true}; tr.getCell(ci).fill = TAN; tr.getCell(ci).border = BORD; tr.getCell(ci).alignment = {horizontal:"center"}; }
+
+  /* ---- ALL LABELS sheet: one overpack label per page ---- */
+  const wl = wb.addWorksheet("ALL LABELS", {pageSetup:{paperSize:9, orientation:"portrait", fitToPage:true, fitToWidth:1, fitToHeight:0,
+    margins:{left:0.4,right:0.4,top:0.4,bottom:0.4,header:0.2,footer:0.2}}});
+  wl.columns = [{width:64}];
+  let rowN = 1;
+  const put = (txt, size, opts) => { const c = wl.getCell("A"+rowN); c.value = txt;
+    c.font = Object.assign({bold:true, size:size, name:"Arial"}, (opts&&opts.font)||{});
+    c.alignment = {wrapText:true, vertical:"middle", horizontal:(opts&&opts.center)?"center":"left"};
+    wl.getRow(rowN).height = (opts&&opts.h)||undefined; rowN++; };
+  PT.forEach((r, i) => {
+    const startRow = rowN;
+    put("   SHIPPER  :", 12);
+    shipLines.forEach(l => put(l, 13));
+    put("", 8);
+    put("  CONSIGNEE :", 12);
+    consLines.forEach(l => put(l, 13));
+    put("", 8);
+    put(unDisp, 46, {center:true, h:58});
+    put((item.psn||"").toUpperCase(), 22, {center:true, h:30});
+    put("OVERPACK#SC" + String(i+1).padStart(2,"0"), 26, {center:true, h:34});
+    put("TOTAL QUANTITY :  " + fmtDot(r.sc) + " kg G", 16, {center:true, h:24});
+    put("24 HOURS EMERGENCY", 13, {center:true});
+    put("CONTACT NO: " + emg, 13, {center:true});
+    // frame around the label
+    for(let rr = startRow; rr < rowN; rr++){
+      const c = wl.getCell("A"+rr);
+      c.border = {left:{style:"medium"}, right:{style:"medium"},
+        top: rr===startRow ? {style:"medium"} : undefined,
+        bottom: rr===rowN-1 ? {style:"medium"} : undefined};
+    }
+    if(i < PT.length - 1){ wl.getRow(rowN - 1).addPageBreak(); rowN++; }
+  });
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "JFS_DG_PackingList_" + (v("f_awb").replace(/\D/g,"") || "DGD") + ".xlsx";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
 /* ---------- custom items ---------- */
