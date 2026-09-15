@@ -364,6 +364,30 @@
       </div>
     </div></div>
 
+    <!-- OVERPACK / PALLET CALCULATOR (JFS rule) -->
+    <div class="card" style="border-left:5px solid #7a4b00;"><h2 style="background:#f6efe3; color:#7a4b00;">&#129518; PALLET / OVERPACK CALCULATOR &mdash; packing list &rarr; DGD &amp; labels (JFS rule)</h2><div class="body">
+      <div style="font-size:12px; color:#555; margin-bottom:8px;">
+        <b>DGD WEIGHT</b> = (pallet gross &minus; tare) &divide; cartons, 3 decimals <b>cut</b> (not rounded) &nbsp;&bull;&nbsp;
+        <b>SC WEIGHT</b> = DGD WEIGHT &times; cartons = exact declared quantity on each label.
+        Paste the PLT / WEIGHT / DIMENSIONS / QTY rows from the customer packing list, or type them.
+      </div>
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:8px;">
+        <div><label>Pallet tare (kg)</label><input type="text" id="pt_tare" value="16" style="width:80px;" oninput="ptRecalc()"></div>
+        <div><label>Package type on DGD</label><input type="text" id="pt_boxtype" value="FIBREBOARD BOXES" style="width:190px;"></div>
+        <div style="flex:1; min-width:230px;"><label>Paste pallet rows (one per line: PLT &nbsp;WEIGHT &nbsp;DIMENSIONS &nbsp;QTY)</label>
+          <textarea id="pt_paste" style="min-height:44px;" placeholder="1&#9;387&#9;120*100*135&#9;15&#10;2&#9;390&#9;120*100*135&#9;15"></textarea></div>
+        <button class="smallbtn sb-blue" style="margin-bottom:2px;" onclick="ptParse()">&#8595; PARSE ROWS</button>
+      </div>
+      <div style="overflow-x:auto;"><table id="pt_table" style="border-collapse:collapse; width:100%;"></table></div>
+      <div style="display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+        <button class="smallbtn sb-green" onclick="ptAddRow()">+ Add pallet</button>
+        <button class="btn btn-save" style="background:#7a4b00;" onclick="ptFillDgd()">&#10145; FILL DGD FROM PALLETS (official format)</button>
+        <button class="smallbtn sb-red" onclick="ptClearAll()">Clear</button>
+        <span id="pt_summary" style="font-size:12.5px; font-weight:bold; color:#7a4b00;"></span>
+      </div>
+      <div id="pt_warn" class="spellwarn" style="display:none; margin-top:6px;"></div>
+    </div></div>
+
     <!-- SHIPPER / CONSIGNEE -->
     <div class="card"><h2>1 &nbsp;SHIPPER &amp; CONSIGNEE</h2><div class="body grid g2">
       <div>
@@ -786,7 +810,7 @@ function addItem(data){
     </div>
     <div class="grid g2" style="margin-top:10px;">
       <div><label>Quantity and type of packing</label>
-        <input type="text" class="i_qty" placeholder="e.g. 1 Fibreboard box x 4.5 L"></div>
+        <textarea class="i_qty" style="min-height:38px;" placeholder="e.g. 1 Fibreboard box x 4.5 L (multi-line allowed — pallet calculator fills the official overpack format here)"></textarea></div>
       <div><label>Authorization (if any)</label><input type="text" class="i_auth" placeholder="e.g. Ltd Qty / Special Provision"></div>
     </div>`;
   document.getElementById("items").appendChild(div);
@@ -905,7 +929,7 @@ function refresh(){
     html += `<tr>
     <td>${esc(r.un)}</td><td>${esc(r.psn)}</td>
     <td class="center">${esc(r.cls)}${r.sub ? " " + esc(r.sub):""}</td>
-    <td class="center">${esc(r.pg)}</td><td>${esc(r.qty)}</td>
+    <td class="center">${esc(r.pg)}</td><td style="white-space:pre-wrap;">${esc(r.qty)}</td>
     <td class="center">${esc(r.pi)}</td><td class="center">${esc(r.auth)}</td></tr>`;
     used++;
     if(r.op){
@@ -914,7 +938,8 @@ function refresh(){
       if(!nextInSameOp){ html += opRowHtml; used++; }
     }
   });
-  if(!anyOp && rv("f_overpack") === "Y"){ html += opRowHtml; used++; }
+  const opEmbedded = rows.some(r => /OVERPACK USED/i.test(r.qty || ""));   // pallet calculator writes it inside the qty block
+  if(!anyOp && !opEmbedded && rv("f_overpack") === "Y"){ html += opRowHtml; used++; }
   for(let i=used; i<min; i++) html += `<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
   body.innerHTML = html;
   if(typeof updateAirline === "function") updateAirline();
@@ -926,7 +951,8 @@ function snapshot(){
     ref:v("f_ref"), dep:v("f_dep"), dest:v("f_dest"), pax:rv("f_pax"), radio:rv("f_radio"),
     handling:v("f_handling"), emergency:v("f_emergency"), signname:v("f_signname"),
     place:v("f_place"), date:v("f_date"), items:getItems(),
-    overpack:rv("f_overpack"), opcount:v("f_opcount"), opqty:v("f_opqty"), pl:PL };
+    overpack:rv("f_overpack"), opcount:v("f_opcount"), opqty:v("f_opqty"), pl:PL,
+    pt:PT, ptTare:v("pt_tare"), ptBox:v("pt_boxtype") };
 }
 function applySnapshot(s){
   document.getElementById("f_shipper").value = s.shipper||"";
@@ -946,6 +972,10 @@ function applySnapshot(s){
   document.querySelector(`input[name=f_overpack][value=${s.overpack||"N"}]`).checked = true;
   document.getElementById("f_opcount").value = s.opcount||"1";
   document.getElementById("f_opqty").value = s.opqty||"";
+  PT = Array.isArray(s.pt) ? s.pt : [];
+  if(s.ptTare) document.getElementById("pt_tare").value = s.ptTare;
+  if(s.ptBox) document.getElementById("pt_boxtype").value = s.ptBox;
+  ptRender();
   if(s.pl && s.pl.name){ PL = s.pl;
     const el = document.getElementById("plstatus");
     el.innerHTML = "&#10004; Packing list attached: <u>" + esc(PL.name) + "</u> (" + esc(PL.when||"") + ") — DGD printing unlocked";
@@ -2001,6 +2031,125 @@ function custAfterFill(role){
   }
 }
 
+/* ---------- pallet / overpack calculator (JFS rule) ---------- */
+let PT = [];
+function ptTrunc3(x){ return Math.floor((x + 1e-9) * 1000) / 1000; }
+function ptR3(x){ return Math.round(x * 1000) / 1000; }
+function fmtDot(x){ const s = String(x); return s.includes(".") ? s.replace(".", " . ") : s; }
+function ptCompute(){
+  const tare = parseFloat(v("pt_tare")) || 0;
+  PT.forEach((r, i) => {
+    r.dgd = (r.w > tare && r.q > 0) ? ptTrunc3((r.w - tare) / r.q) : 0;
+    r.sc = ptR3(r.dgd * r.q);
+    r.label = "OVERPACK#SC" + String(i + 1).padStart(2, "0");
+  });
+}
+function ptRender(){
+  ptCompute();
+  const tb = document.getElementById("pt_table");
+  if(!tb) return;
+  const TH = "padding:5px 8px; font-size:11.5px; background:#efe6d6; border:1px solid #d8cdb8; color:#5b4a1e;";
+  const TD = "padding:3px 6px; border:1px solid #e2dccd; font-size:12.5px;";
+  let h = `<tr><th style="${TH}">PLT</th><th style="${TH}">GROSS WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QTY (CTNS)</th><th style="${TH}">DGD WT (kg G)</th><th style="${TH}">SC WT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>`;
+  PT.forEach((r, i) => {
+    h += `<tr>
+      <td style="${TD} text-align:center;">${i + 1}</td>
+      <td style="${TD}"><input type="text" value="${r.w || ""}" style="width:90px;" oninput="PT[${i}].w=parseFloat(this.value)||0; ptRecalc();"></td>
+      <td style="${TD}"><input type="text" value="${esc(r.d || "")}" style="width:120px;" oninput="PT[${i}].d=this.value;"></td>
+      <td style="${TD}"><input type="text" value="${r.q || ""}" style="width:70px;" oninput="PT[${i}].q=parseInt(this.value)||0; ptRecalc();"></td>
+      <td style="${TD} text-align:center; font-weight:bold;" id="pt_dgd_${i}"></td>
+      <td style="${TD} text-align:center; font-weight:bold;" id="pt_sc_${i}"></td>
+      <td style="${TD} text-align:center;" id="pt_lb_${i}"></td>
+      <td style="${TD}"><button class="smallbtn sb-red" onclick="PT.splice(${i},1); ptRender();">x</button></td></tr>`;
+  });
+  tb.innerHTML = h;
+  ptRecalc();
+}
+function ptRecalc(){
+  ptCompute();
+  const warn = document.getElementById("pt_warn");
+  let maxD = 0;
+  PT.forEach((r, i) => {
+    const d = document.getElementById("pt_dgd_" + i), s = document.getElementById("pt_sc_" + i), l = document.getElementById("pt_lb_" + i);
+    if(d){ d.textContent = r.dgd || ""; d.style.color = r.dgd > 30 ? "#a40000" : "#1d6b34"; }
+    if(s) s.textContent = r.sc || "";
+    if(l) l.textContent = r.label;
+    if(r.dgd > maxD) maxD = r.dgd;
+  });
+  const tw = ptR3(PT.reduce((a, r) => a + (r.w || 0), 0));
+  const tq = PT.reduce((a, r) => a + (r.q || 0), 0);
+  const ts = ptR3(PT.reduce((a, r) => a + (r.sc || 0), 0));
+  document.getElementById("pt_summary").textContent = PT.length
+    ? `Total PLT: ${PT.length} • Gross: ${tw} kg • Cartons: ${tq} • SC total: ${ts} kg G • Max DGD wt: ${maxD} kg G/pkg`
+    : "";
+  if(warn){
+    if(maxD > 30){
+      warn.innerHTML = "&#9888; <b>DGD WEIGHT ABOVE 30 kg G</b> — over the IATA <b>Y963 (ID8000)</b> per-package limit! Reduce cartons per pallet or verify the PI limit for your item in DGR 4.2.";
+      warn.style.display = "block";
+    } else warn.style.display = "none";
+  }
+}
+function ptAddRow(){ PT.push({w: 0, d: "", q: 0}); ptRender(); }
+function ptClearAll(){ if(PT.length && !confirm("Clear all pallet rows?")) return; PT = []; ptRender(); }
+function ptParse(){
+  const raw = document.getElementById("pt_paste").value;
+  if(!raw.trim()){ alert("Paste the pallet rows first (PLT  WEIGHT  DIMENSIONS  QTY)."); return; }
+  const rows = [];
+  raw.split(/\r?\n/).forEach(line => {
+    const t = line.trim().split(/[\t;]+|\s+/).filter(Boolean);
+    if(t.length < 3) return;
+    let w, d, q;
+    if(t.length >= 4){ w = t[1]; d = t[2]; q = t[3]; } else { w = t[0]; d = t[1]; q = t[2]; }
+    w = parseFloat(String(w).replace(/,/g, "")); q = parseInt(String(q).replace(/,/g, ""));
+    if(!w || !q) return;
+    rows.push({w, d: String(d), q});
+  });
+  if(!rows.length){ alert("No valid rows found. Format: PLT  WEIGHT  DIMENSIONS  QTY (one pallet per line)."); return; }
+  PT = rows; ptRender();
+  document.getElementById("pt_paste").value = "";
+}
+function ptGroups(){
+  ptCompute();
+  const groups = [];
+  PT.forEach((r, i) => {
+    const key = r.q + "@" + r.dgd;
+    let g = groups.find(x => x.key === key);
+    if(!g){ g = {key, q: r.q, dgd: r.dgd, sc: r.sc, idx: []}; groups.push(g); }
+    g.idx.push(i);
+  });
+  groups.forEach(g => {
+    // contiguous run => "#SC01 - #SC03", otherwise "#SC01, #SC06"
+    const contiguous = g.idx.every((n, j) => j === 0 || n === g.idx[j-1] + 1);
+    const sc = n => "#SC" + String(n + 1).padStart(2, "0");
+    g.scList = g.idx.length === 1 ? sc(g.idx[0])
+      : contiguous ? sc(g.idx[0]) + " - " + sc(g.idx[g.idx.length - 1])
+      : g.idx.map(sc).join(", ");
+  });
+  return groups;
+}
+function ptFillDgd(){
+  if(!PT.length){ alert("Add or paste the pallet rows first."); return; }
+  ptCompute();
+  const box = (v("pt_boxtype") || "FIBREBOARD BOXES").toUpperCase();
+  const blocks = ptGroups().map(g => {
+    const head = `${g.q} ${box}\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(g.dgd)} kg G`;
+    return g.idx.length > 1
+      ? head + `\nOVERPACK USED x ${String(g.idx.length).padStart(2, "0")}\n${g.scList}\nTOTAL QUANTITY PER\nOVERPACK ${fmtDot(g.sc)} kg G`
+      : head + `\nOVERPACK USED ${g.scList}\nTOTAL QUANTITY ${fmtDot(g.sc)} kg G`;
+  });
+  if(!document.querySelectorAll(".item").length) addItem();
+  const first = document.querySelector(".item");
+  first.querySelector(".i_qty").value = blocks.join("\n\n");
+  first.querySelector(".i_op").checked = false;   // overpack text already inside the quantity block
+  document.querySelector('input[name=f_overpack][value=Y]').checked = true;
+  document.getElementById("f_opcount").value = String(PT.length);
+  document.getElementById("f_opqty").value = "";
+  document.getElementById("op_start") && (document.getElementById("op_start").value = "1");
+  refresh();
+  document.getElementById("pt_summary").textContent =
+    "✓ DGD filled — " + PT.length + " overpack(s), " + ptGroups().length + " group(s) in official format. Check the preview!";
+}
+
 /* ---------- custom items ---------- */
 function addCustomItem(){
   const un = document.getElementById("it_un").value.trim().toUpperCase().replace(/\s/g,"");
@@ -2300,13 +2449,16 @@ function buildOpStickers(){
   const items = s.items.filter(r => r.un);
   const out = document.getElementById("opstickerArea");
   if(!items.length){ out.innerHTML = "<p>No DG items on the DGD tab yet — add items first.</p>"; return; }
-  const n = Math.max(1, Math.min(20, parseInt(v("f_opcount")) || 1));
+  const usePT = typeof PT !== "undefined" && PT.length > 0;      // pallet calculator drives the labels
+  if(usePT) ptCompute();
+  const n = usePT ? Math.min(60, PT.length) : Math.max(1, Math.min(20, parseInt(v("f_opcount")) || 1));
   const prefix = (document.getElementById("op_prefix").value || "SC").toUpperCase();
   const start = parseInt(document.getElementById("op_start").value) || 1;
-  const qty = document.getElementById("op_qty").value.trim() || s.opqty || "";
+  const qtyOverride = document.getElementById("op_qty").value.trim();
   let h = "";
   for(let i = 0; i < n; i++){
     const opno = prefix + String(start + i).padStart(2, "0");
+    const qty = qtyOverride || (usePT ? fmtDot(PT[i].sc) + " kg G" : (s.opqty || ""));
     h += `<div style="page-break-after:always; font-family:Arial; color:#000; background:#fff;
         border:1px solid #ccc; padding:10mm 8mm; margin-bottom:14px; max-width:190mm;">
       <div style="font-size:11pt; font-weight:bold;">SHIPPER :</div>
@@ -2571,6 +2723,7 @@ if(aiKey()) document.getElementById("ai_status").textContent = "Key saved — AI
 document.querySelectorAll("img.jfslogo").forEach(i => { i.src = window.JFS_LOGO || ""; });
 addItem();
 refreshDraftList();
+ptRender();
 refresh();
 authInit();
 </script>
