@@ -200,6 +200,33 @@
     body.pm-alt #printzone{display:block;}
   }
   @media (max-width:900px){ .g2,.g3,.g4{grid-template-columns:1fr;} .sheet{width:100%; padding:8mm 10mm;} }
+
+  /* ============ MOBILE (phones) ============ */
+  @media (max-width:768px){
+    .app{padding:8px;}
+    .topbar{padding:12px 14px; border-radius:8px;}
+    .topbar .dgwm{font-size:24px !important;}
+    .topbar .pwrd{font-size:10.5px;}
+    .userchip{font-size:11px; padding:4px 10px; gap:6px; flex-wrap:wrap;}
+    .nav{flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; gap:3px; padding-bottom:3px; scrollbar-width:none;}
+    .nav::-webkit-scrollbar{display:none;}
+    .nav button{white-space:nowrap; font-size:11.5px; padding:10px 11px; flex:0 0 auto;}
+    .card{margin:10px 0; border-radius:8px;}
+    .card .body{padding:10px;}
+    .card h2{font-size:13px !important; padding:9px 10px !important;}
+    input, textarea, select{font-size:16px !important;}   /* stops iPhone auto-zoom on focus */
+    label{font-size:11px;}
+    .btn{width:100%; text-align:center; font-size:14px; padding:13px 10px;}
+    .smallbtn{padding:9px 11px; font-size:12.5px;}
+    .radios{display:flex; flex-wrap:wrap; gap:8px 14px;}
+    .previewwrap{overflow-x:auto; -webkit-overflow-scrolling:touch; padding:8px;}
+    .previewwrap .sheet{width:210mm; min-width:210mm;}    /* keep true A4 preview — scroll sideways */
+    #dashkpi > div{min-width:calc(50% - 7px) !important; padding:12px 10px !important;}
+    #dashkpi > div div:first-child{font-size:24px !important;}
+    #jobgate > div{padding:20px 16px;}
+    .item{padding:10px 8px;}
+    h1{font-size:20px;}
+  }
 </style>
 </head>
 <body>
