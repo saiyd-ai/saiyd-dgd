@@ -37,7 +37,7 @@
   .userchip button{border:0; background:#c00000; color:#fff; border-radius:12px; padding:3px 10px;
     font-size:11px; font-weight:bold; cursor:pointer;}
   #syncdot{display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;}
-  @media print{ #authgate{display:none !important;} .userchip{display:none !important;} }
+  @media print{ #authgate{display:none !important;} .userchip{display:none !important;} #jobgate{display:none !important;} }
 
   /* ============ DGDOC BRAND (sAiyd.ai design language) ============ */
   .dgwm{font-family:'Poppins', Arial, sans-serif; font-weight:800; letter-spacing:.5px; line-height:1;}
@@ -255,6 +255,7 @@
     </div>
 
     <div class="nav">
+      <button id="nav-dash" onclick="showTab('dash')">&#128202; DASHBOARD</button>
       <button id="nav-dgd" class="on" onclick="showTab('dgd')">&#128203; DGD PREPARE</button>
       <button id="nav-checklist" onclick="showTab('checklist')">&#9989; CHECKLIST</button>
       <button id="nav-stickers" onclick="showTab('stickers')">&#127991; STICKERS</button>
@@ -265,7 +266,31 @@
       <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
     </div>
 
+    <!-- ============ DASHBOARD TAB ============ -->
+    <div class="tab" id="tab-dash">
+      <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#128202; DGD DASHBOARD &mdash; jobs &amp; printed declarations</h2><div class="body">
+        <div id="dashkpi" style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px;"></div>
+        <div style="font-weight:bold; color:var(--navy); font-size:13.5px; margin:6px 0;">MONTH-WISE &mdash; DGD PRINTED</div>
+        <div id="dashbars" style="max-width:640px;"></div>
+        <div style="display:flex; gap:12px; align-items:center; margin:18px 0 8px; flex-wrap:wrap;">
+          <div style="font-weight:bold; color:var(--navy); font-size:13.5px;">JOB REPORT</div>
+          <input type="text" id="dash_search" placeholder="Search job / AWB / customer..." style="width:250px;" oninput="renderDash()">
+          <button class="smallbtn sb-green" onclick="dashReport()">&#11015; DOWNLOAD REPORT (Excel)</button>
+          <button class="btn btn-save" style="background:#0f2b4c;" onclick="jobNew()">&#10133; NEW DGD (new job)</button>
+        </div>
+        <div style="overflow-x:auto;"><table id="dash_table" style="border-collapse:collapse; width:100%;"></table></div>
+      </div></div>
+    </div>
+
     <div class="tab on" id="tab-dgd">
+
+    <!-- JOB NUMBER BAR -->
+    <div class="card" style="border-left:5px solid #0f2b4c;"><div class="body" style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap;">
+      <div><label>JFS JOB NUMBER (required to start &amp; print)</label>
+        <input type="text" id="f_job" placeholder="e.g. JFS-2026-0451" style="width:210px; font-weight:bold;"></div>
+      <button class="btn btn-save" style="background:#0f2b4c;" onclick="jobNew()">&#10133; NEW DGD (new job)</button>
+      <span id="jobmsg" style="font-size:12.5px; color:#5b6b7d;"></span>
+    </div></div>
 
     <div class="warnbar">
       &#9888; <b>IMPORTANT:</b> This tool formats the declaration only. Packing Instruction numbers, quantity limits,
@@ -771,6 +796,20 @@
     </div>
   </div>
 
+  <!-- JOB GATE — shown on every app open -->
+  <div id="jobgate" style="display:none; position:fixed; inset:0; background:rgba(10,25,47,.78); z-index:9000; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:14px; padding:28px 30px; width:min(430px, 92vw); box-shadow:0 20px 60px rgba(0,0,0,.4); text-align:center;">
+      <div class="dgwm" style="font-size:30px; font-weight:800;"><span class="b1">dg</span><span class="b2">doc</span></div>
+      <div style="font-weight:bold; color:#0f2b4c; font-size:16px; margin:10px 0 2px;">START NEW DGD</div>
+      <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:12px;">Enter the JFS Job Number to begin &mdash; every DGD is counted on the dashboard.</div>
+      <input type="text" id="jg_job" placeholder="JFS JOB NUMBER — e.g. JFS-2026-0451" style="width:100%; text-align:center; font-weight:bold; font-size:15px; padding:10px;" onkeydown="if(event.key==='Enter') jobStart()">
+      <button class="btn btn-save" style="background:#0f2b4c; width:100%; margin-top:12px;" onclick="jobStart()">&#9654; START</button>
+      <button class="btn btn-load" id="jg_cont" style="width:100%; margin-top:8px;" onclick="jobContinue()">&#8617; CONTINUE LAST WORK</button>
+      <button class="smallbtn sb-blue" style="margin-top:10px;" onclick="document.getElementById('jobgate').style.display='none'; showTab('dash');">&#128202; Open dashboard</button>
+      <div style="font-size:11px; color:#8a97a5; margin-top:10px;">Powered by <b>s<span style="color:#3ec9a7;">Ai</span>yd.ai</b></div>
+    </div>
+  </div>
+
   <div id="printzone"></div>
 </div>
 
@@ -950,11 +989,12 @@ function refresh(){
   for(let i=used; i<min; i++) html += `<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
   body.innerHTML = html;
   if(typeof updateAirline === "function") updateAirline();
+  if(typeof autosaveCurrent === "function") autosaveCurrent();
 }
 
 /* ---------- drafts (localStorage) ---------- */
 function snapshot(){
-  return { shipper:v("f_shipper"), consignee:v("f_consignee"), awb:v("f_awb"), page:v("f_page"),
+  return { job:v("f_job"), shipper:v("f_shipper"), consignee:v("f_consignee"), awb:v("f_awb"), page:v("f_page"),
     ref:v("f_ref"), dep:v("f_dep"), dest:v("f_dest"), pax:rv("f_pax"), radio:rv("f_radio"),
     handling:v("f_handling"), emergency:v("f_emergency"), signname:v("f_signname"),
     place:v("f_place"), date:v("f_date"), items:getItems(),
@@ -962,6 +1002,7 @@ function snapshot(){
     pt:PT, ptTare:v("pt_tare"), ptBox:v("pt_boxtype") };
 }
 function applySnapshot(s){
+  document.getElementById("f_job").value = s.job||"";
   document.getElementById("f_shipper").value = s.shipper||"";
   document.getElementById("f_consignee").value = s.consignee||"";
   document.getElementById("f_awb").value = s.awb||"";
@@ -1306,6 +1347,7 @@ function showTab(name){
   document.getElementById("tab-"+name).classList.add("on");
   document.getElementById("nav-"+name).classList.add("on");
   document.querySelector(".previewwrap").style.display = (name === "dgd") ? "" : "none";
+  if(name === "dash") renderDash();
   if(name === "customers") renderCustomers();
   if(name === "items") renderItems();
   if(name === "docs") renderDocs();
@@ -1327,12 +1369,17 @@ window.addEventListener("afterprint", () => {
   document.getElementById("printzone").innerHTML = "";
 });
 function printDGD(){
+  if(!v("f_job").trim()){
+    alert("JOB NUMBER REQUIRED!\n\nEnter the JFS Job Number at the top of the DGD tab before printing — every DGD is tracked on the dashboard.");
+    const jEl = document.getElementById("f_job"); if(jEl.scrollIntoView) jEl.scrollIntoView({behavior:"smooth", block:"center"}); jEl.focus();
+    return;
+  }
   if(!PL.name){
     alert("PACKING LIST REQUIRED!\n\nAttach the packing list (PDF or text) in the blue PACKING LIST section before printing the DGD.");
     const plEl = document.getElementById("plfile"); if(plEl.scrollIntoView) plEl.scrollIntoView({behavior:"smooth", block:"center"});
     return;
   }
-  saveDocument(false); window.print();
+  saveDocument(false); jobLogPrint(); window.print();
 }
 
 /* ---------- Claude AI integration ---------- */
@@ -2211,6 +2258,141 @@ One entry per pallet, in printed order. Never invent pallets or numbers not in t
   }catch(e){ msg.textContent = "Failed (" + e.message.slice(0, 80) + ") — paste the rows manually."; }
 }
 
+/* ---------- job gate + dashboard ---------- */
+let _curT = null;
+function autosaveCurrent(){
+  clearTimeout(_curT);
+  _curT = setTimeout(() => { try{ localStorage.setItem("jfs_dgd_current", JSON.stringify(snapshot())); }catch(e){} }, 800);
+}
+function jobGateShow(){
+  const g = document.getElementById("jobgate");
+  let hasCur = false;
+  try{ const s = JSON.parse(localStorage.getItem("jfs_dgd_current")||"null"); hasCur = !!(s && (s.job || s.awb || s.shipper)); }catch(e){}
+  document.getElementById("jg_cont").style.display = hasCur ? "" : "none";
+  g.style.display = "flex";
+  setTimeout(() => { const el = document.getElementById("jg_job"); if(el) el.focus(); }, 250);
+}
+function jobStart(){
+  const j = document.getElementById("jg_job").value.trim().toUpperCase();
+  if(!j){ alert("Enter the JFS Job Number to start."); return; }
+  applySnapshot({items:[null]});                       // fresh form (no confirm)
+  if(typeof loadDefaults === "function") loadDefaults();
+  document.getElementById("f_date").value = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+  document.getElementById("f_job").value = j;
+  document.getElementById("jg_job").value = "";
+  document.getElementById("jobgate").style.display = "none";
+  document.getElementById("jobmsg").textContent = "Job " + j + " started " + new Date().toLocaleString("en-GB");
+  showTab("dgd"); refresh();
+}
+function jobContinue(){
+  try{ const s = JSON.parse(localStorage.getItem("jfs_dgd_current")||"null"); if(s) applySnapshot(s); }catch(e){}
+  document.getElementById("jobgate").style.display = "none";
+  showTab("dgd");
+}
+function jobNew(){ jobGateShow(); }
+function jobLogPrint(){
+  const s = snapshot();
+  const key = (s.job||"").trim().toUpperCase();
+  if(!key) return;
+  const list = store("jfs_joblog");
+  let e = list.find(x => x.job === key);
+  if(!e){ e = {job:key, first: Date.now(), prints: 0, months:{}}; list.unshift(e); }
+  e.awb = s.awb; e.shipper = (s.shipper||"").split("\n")[0]; e.consignee = (s.consignee||"").split("\n")[0];
+  e.route = [s.dep, s.dest].filter(Boolean).join(" - ");
+  e.un = (s.items||[]).map(r => r.un).filter(Boolean).join(", ");
+  e.prints = (e.prints||0) + 1; e.last = Date.now();
+  e.months = e.months || {};
+  const mk = new Date().toISOString().slice(0,7);
+  e.months[mk] = (e.months[mk]||0) + 1;
+  setStore("jfs_joblog", list);
+}
+function kpiChip(num, label, color){
+  return `<div style="background:${color}; color:#fff; border-radius:12px; padding:14px 22px; min-width:130px; text-align:center;">
+    <div style="font-size:30px; font-weight:800; line-height:1;">${num}</div>
+    <div style="font-size:11px; letter-spacing:.5px; margin-top:5px; opacity:.9;">${label}</div></div>`;
+}
+function renderDash(){
+  const log = store("jfs_joblog");
+  const docs = store("jfs_documents");
+  const mk = new Date().toISOString().slice(0,7);
+  const tot = log.reduce((a,e) => a + (e.prints||0), 0);
+  const mon = log.reduce((a,e) => a + ((e.months||{})[mk]||0), 0);
+  const today = new Date().toDateString();
+  const todayN = log.filter(e => e.last && new Date(e.last).toDateString() === today).length;
+  document.getElementById("dashkpi").innerHTML =
+    kpiChip(tot, "DGD PRINTED (TOTAL)", "#0f2b4c") +
+    kpiChip(mon, "THIS MONTH", "#1d6b34") +
+    kpiChip(log.length, "JOBS", "#7a4b00") +
+    kpiChip(todayN, "JOBS PRINTED TODAY", "#7b2d8b") +
+    kpiChip(docs.length, "SAVED DOCUMENTS", "#5b6b7d");
+  // month-wise bars (last 8 months)
+  const months = {};
+  log.forEach(e => Object.entries(e.months||{}).forEach(([m,n]) => months[m] = (months[m]||0) + n));
+  const keys = Object.keys(months).sort().slice(-8);
+  const max = Math.max(1, ...keys.map(k => months[k]));
+  document.getElementById("dashbars").innerHTML = keys.length ? keys.map(k => {
+    const d = new Date(k + "-01");
+    const nm = d.toLocaleDateString("en-GB", {month:"short", year:"2-digit"}).toUpperCase();
+    return `<div style="display:flex; align-items:center; gap:8px; margin:3px 0;">
+      <div style="width:64px; font-size:11px; font-weight:bold; color:#5b6b7d;">${nm}</div>
+      <div style="flex:1; background:#e8edf3; border-radius:6px; overflow:hidden;">
+        <div style="width:${Math.round(months[k]/max*100)}%; background:linear-gradient(90deg,#0f2b4c,#3ec9a7); color:#fff; font-size:11px; font-weight:bold; padding:3px 8px; min-width:26px;">${months[k]}</div>
+      </div></div>`;
+  }).join("") : "<div style='color:#8a97a5; font-size:12.5px;'>No DGDs printed yet — the chart fills automatically every time a DGD is printed.</div>";
+  // jobs table
+  const q = (document.getElementById("dash_search").value||"").toLowerCase();
+  const TH = "padding:6px 8px; font-size:11.5px; background:#0f2b4c; color:#fff; border:1px solid #0f2b4c; text-align:left;";
+  const TD = "padding:5px 8px; border:1px solid #e2e8f0; font-size:12.5px;";
+  let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">LAST PRINT</th><th style="${TH}">AWB</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
+  log.slice().sort((a,b) => (b.last||0) - (a.last||0)).forEach(e => {
+    if(q && !((e.job||"")+" "+(e.awb||"")+" "+(e.shipper||"")+" "+(e.consignee||"")).toLowerCase().includes(q)) return;
+    const di = docs.findIndex(d => (d.job||"") === e.job);
+    h += `<tr><td style="${TD} font-weight:bold;">${esc(e.job)}</td>
+      <td style="${TD}">${e.last ? new Date(e.last).toLocaleString("en-GB") : ""}</td>
+      <td style="${TD}">${esc(e.awb||"")}</td><td style="${TD}">${esc(e.shipper||"")}</td>
+      <td style="${TD}">${esc(e.consignee||"")}</td><td style="${TD}">${esc(e.route||"")}</td>
+      <td style="${TD}">${esc(e.un||"")}</td>
+      <td style="${TD} text-align:center; font-weight:bold; color:#0f2b4c;">${e.prints||0}</td>
+      <td style="${TD}">${di >= 0 ? `<button class="smallbtn sb-green" onclick="loadDoc(${di})">Open</button>` : ""}</td></tr>`;
+  });
+  document.getElementById("dash_table").innerHTML = h;
+}
+async function dashReport(){
+  const log = store("jfs_joblog");
+  if(!log.length){ alert("No jobs yet — print a DGD first."); return; }
+  try{ await loadExcelJS(); }catch(e){ alert("Could not load the Excel engine — check the internet connection."); return; }
+  const wb = new ExcelJS.Workbook();
+  const NAVY = {type:"pattern", pattern:"solid", fgColor:{argb:"FF0F2B4C"}};
+  const BORD = {top:{style:"thin"},left:{style:"thin"},bottom:{style:"thin"},right:{style:"thin"}};
+  const ws = wb.addWorksheet("JOBS");
+  ws.columns = [{width:16},{width:19},{width:15},{width:30},{width:30},{width:26},{width:16},{width:9}];
+  ["JOB NO","LAST PRINT","AWB","SHIPPER","CONSIGNEE","ROUTE","UN/ID","PRINTS"].forEach((t,i) => {
+    const c = ws.getRow(1).getCell(i+1); c.value = t; c.font = {bold:true,color:{argb:"FFFFFFFF"}}; c.fill = NAVY; c.border = BORD;
+  });
+  log.slice().sort((a,b) => (b.last||0) - (a.last||0)).forEach((e,i) => {
+    const r = ws.getRow(i+2);
+    [e.job, e.last ? new Date(e.last).toLocaleString("en-GB") : "", e.awb||"", e.shipper||"", e.consignee||"", e.route||"", e.un||"", e.prints||0]
+      .forEach((val,ci) => { r.getCell(ci+1).value = val; r.getCell(ci+1).border = BORD; });
+  });
+  const wm = wb.addWorksheet("MONTHLY");
+  wm.columns = [{width:14},{width:14}];
+  wm.getCell("A1").value = "MONTH"; wm.getCell("B1").value = "DGD PRINTED";
+  ["A1","B1"].forEach(a => { wm.getCell(a).font = {bold:true,color:{argb:"FFFFFFFF"}}; wm.getCell(a).fill = NAVY; wm.getCell(a).border = BORD; });
+  const months = {};
+  log.forEach(e => Object.entries(e.months||{}).forEach(([m,n]) => months[m] = (months[m]||0) + n));
+  Object.keys(months).sort().forEach((k,i) => {
+    wm.getCell("A"+(i+2)).value = k; wm.getCell("B"+(i+2)).value = months[k];
+    wm.getCell("A"+(i+2)).border = BORD; wm.getCell("B"+(i+2)).border = BORD;
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "DGD_REPORT_" + new Date().toISOString().slice(0,10) + ".xlsx";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
 /* ---------- Excel download (packing list + labels, JFS tool format) ---------- */
 async function loadExcelJS(){
   if(window.ExcelJS) return;
@@ -2382,7 +2564,7 @@ function saveDocument(tellUser){
   if(!s.awb && !s.consignee){ if(tellUser) alert("Form is empty."); return; }
   const list = store("jfs_documents");
   const id = (s.awb || "NOAWB") + "|" + new Date().toISOString();
-  list.unshift({ id, when: new Date().toLocaleString("en-GB"), awb: s.awb,
+  list.unshift({ id, ts: Date.now(), job: s.job || "", when: new Date().toLocaleString("en-GB"), awb: s.awb,
     shipper: (s.shipper||"").split("\n")[0], consignee: (s.consignee||"").split("\n")[0], snap: s });
   if(list.length > 300) list.pop();
   setStore("jfs_documents", list);
@@ -2747,7 +2929,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog"];
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
   const blob = new Blob([JSON.stringify({when: new Date().toISOString(), data}, null, 1)], {type:"application/json"});
@@ -2835,6 +3017,7 @@ async function enterApp(user){
     }
   }catch(e){}
   await cloudPullAll(false);
+  jobGateShow();
 }
 function setSync(state){ // green ok, orange syncing, red error
   const dot = document.getElementById("syncdot");
