@@ -262,12 +262,21 @@
       <button id="nav-labels" onclick="showTab('labels')">&#9888; DG LABELS</button>
       <button id="nav-customers" onclick="showTab('customers')">&#128101; CUSTOMERS</button>
       <button id="nav-items" onclick="showTab('items')">&#128218; ITEM DATABASE</button>
+      <button id="nav-wh" onclick="showTab('wh')">&#127981; WAREHOUSE</button>
       <button id="nav-docs" onclick="showTab('docs')">&#128193; DOCUMENTS</button>
       <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
     </div>
 
     <!-- ============ DASHBOARD TAB ============ -->
     <div class="tab" id="tab-dash">
+      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128229; INBOX &mdash; packing lists sent by the warehouse</h2><div class="body">
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <span style="font-size:12.5px; color:#5b6b7d;">Accept a packing list to start the DGD job — shipper, consignee and pallets fill automatically.</span>
+          <button class="smallbtn sb-blue" onclick="inboxPoll()">&#8635; Refresh</button>
+        </div>
+        <div style="overflow-x:auto;"><table id="inbox_table" style="border-collapse:collapse; width:100%;"></table></div>
+      </div></div>
+
       <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#128202; DGD DASHBOARD &mdash; jobs &amp; printed declarations</h2><div class="body">
         <div id="dashkpi" style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px;"></div>
         <div style="font-weight:bold; color:var(--navy); font-size:13.5px; margin:6px 0;">MONTH-WISE &mdash; DGD PRINTED</div>
@@ -279,6 +288,38 @@
           <button class="btn btn-save" style="background:#0f2b4c;" onclick="jobNew()">&#10133; NEW DGD (new job)</button>
         </div>
         <div style="overflow-x:auto;"><table id="dash_table" style="border-collapse:collapse; width:100%;"></table></div>
+      </div></div>
+    </div>
+
+    <!-- ============ WAREHOUSE TAB ============ -->
+    <div class="tab" id="tab-wh">
+      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#127981; WAREHOUSE &mdash; create packing list &amp; send to operations</h2><div class="body">
+        <div class="grid g2">
+          <div><label>Shipper (name &amp; address &mdash; exactly as on the label)</label><textarea id="wh_shipper" style="min-height:84px;" placeholder="LATTAFA PERFUMES INDUSTRIES LLC,&#10;P O BOX 69793,&#10;SHARJAH-UAE&#10;TEL: +971 65352603"></textarea></div>
+          <div><label>Consignee (name &amp; address)</label><textarea id="wh_consignee" style="min-height:84px;" placeholder="SERENA GROUP S.A.&#10;..."></textarea></div>
+        </div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:10px;">
+          <div><label>Reference / booking no.</label><input type="text" id="wh_ref" style="width:170px;"></div>
+          <div><label>AWB (if known)</label><input type="text" id="wh_awb" style="width:150px;"></div>
+          <div><label>Route (e.g. DWC - MIA)</label><input type="text" id="wh_route" style="width:150px;"></div>
+          <div><label>Pallet tare (kg)</label><input type="text" id="wh_tare" value="16" style="width:80px;"></div>
+        </div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:10px;">
+          <div style="flex:1; min-width:240px;"><label>Paste pallet rows (PLT &nbsp;WEIGHT &nbsp;DIMENSIONS &nbsp;QTY &mdash; one per line)</label>
+            <textarea id="wh_paste" style="min-height:42px;" placeholder="1&#9;387&#9;120*100*135&#9;15"></textarea></div>
+          <button class="smallbtn sb-blue" style="margin-bottom:2px;" onclick="whParse()">&#8595; PARSE ROWS</button>
+          <button class="smallbtn sb-green" style="margin-bottom:2px;" onclick="whAddRow()">+ Add pallet</button>
+        </div>
+        <div style="overflow-x:auto; margin-top:8px;"><table id="wh_table" style="border-collapse:collapse; width:100%;"></table></div>
+        <div style="margin-top:10px;"><label>Notes for operations</label><textarea id="wh_notes" style="min-height:40px;" placeholder="e.g. 10 pallets ready, DG perfume, collection 4 pm"></textarea></div>
+        <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+          <button class="btn btn-save" style="background:#b45309;" onclick="whSend()">&#128228; SEND TO OPERATIONS</button>
+          <span id="wh_msg" style="font-size:12.5px; font-weight:bold;"></span>
+        </div>
+      </div></div>
+      <div class="card"><h2>&#128203; MY SENT PACKING LISTS</h2><div class="body">
+        <button class="smallbtn sb-blue" onclick="whRefreshSent()">&#8635; Refresh</button>
+        <div style="overflow-x:auto; margin-top:8px;"><table id="wh_sent" style="border-collapse:collapse; width:100%;"></table></div>
       </div></div>
     </div>
 
@@ -802,10 +843,11 @@
       <div class="dgwm" style="font-size:30px; font-weight:800;"><span class="b1">dg</span><span class="b2">doc</span></div>
       <div style="font-weight:bold; color:#0f2b4c; font-size:16px; margin:10px 0 2px;">START NEW DGD</div>
       <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:12px;">Enter the JFS Job Number to begin &mdash; every DGD is counted on the dashboard.</div>
+      <div id="jg_note" style="font-size:12px; color:#b45309; font-weight:bold; margin-bottom:8px;"></div>
       <input type="text" id="jg_job" placeholder="JFS JOB NUMBER — e.g. JFS-2026-0451" style="width:100%; text-align:center; font-weight:bold; font-size:15px; padding:10px;" onkeydown="if(event.key==='Enter') jobStart()">
       <button class="btn btn-save" style="background:#0f2b4c; width:100%; margin-top:12px;" onclick="jobStart()">&#9654; START</button>
       <button class="btn btn-load" id="jg_cont" style="width:100%; margin-top:8px;" onclick="jobContinue()">&#8617; CONTINUE LAST WORK</button>
-      <button class="smallbtn sb-blue" style="margin-top:10px;" onclick="document.getElementById('jobgate').style.display='none'; showTab('dash');">&#128202; Open dashboard</button>
+      <button class="smallbtn sb-blue" style="margin-top:10px;" onclick="_acceptRow=null; document.getElementById('jobgate').style.display='none'; showTab('dash');">&#128202; Open dashboard</button>
       <div style="font-size:11px; color:#8a97a5; margin-top:10px;">Powered by <b>s<span style="color:#3ec9a7;">Ai</span>yd.ai</b></div>
     </div>
   </div>
@@ -1347,7 +1389,8 @@ function showTab(name){
   document.getElementById("tab-"+name).classList.add("on");
   document.getElementById("nav-"+name).classList.add("on");
   document.querySelector(".previewwrap").style.display = (name === "dgd") ? "" : "none";
-  if(name === "dash") renderDash();
+  if(name === "dash"){ renderDash(); inboxPoll(); }
+  if(name === "wh"){ whRender(); whRefreshSent(); }
   if(name === "customers") renderCustomers();
   if(name === "items") renderItems();
   if(name === "docs") renderDocs();
@@ -2282,6 +2325,25 @@ function jobStart(){
   document.getElementById("jg_job").value = "";
   document.getElementById("jobgate").style.display = "none";
   document.getElementById("jobmsg").textContent = "Job " + j + " started " + new Date().toLocaleString("en-GB");
+  if(_acceptRow){
+    const p = _acceptRow.payload || {};
+    document.getElementById("f_shipper").value = p.shipper || ""; custAfterFill("shipper");
+    document.getElementById("f_consignee").value = p.consignee || ""; custAfterFill("consignee");
+    if(p.awb) document.getElementById("f_awb").value = p.awb;
+    if(p.ref) document.getElementById("f_ref").value = p.ref;
+    if(p.route){
+      const pr = p.route.split(/[-–>]+/).map(s => s.trim()).filter(Boolean);
+      if(pr[0]) document.getElementById("f_dep").value = pr[0].toUpperCase();
+      if(pr[1]) document.getElementById("f_dest").value = pr[1].toUpperCase();
+    }
+    if(p.tare) document.getElementById("pt_tare").value = p.tare;
+    PT = (p.pallets || []).map(r => ({w: r.w, d: r.d, q: r.q}));
+    ptRender();
+    if(p.notes) document.getElementById("jobmsg").textContent = "Job " + j + " — from warehouse. Notes: " + p.notes.slice(0, 80);
+    sb.from("dgd_queue").update({status: "ACCEPTED", accepted_by: (sbUser && sbUser.email) || "", accepted_at: new Date().toISOString(), job_no: j})
+      .eq("id", _acceptRow.id).then(() => inboxPoll());
+    _acceptRow = null;
+  }
   showTab("dgd"); refresh();
 }
 function jobContinue(){
@@ -2391,6 +2453,128 @@ async function dashReport(){
   a.download = "DGD_REPORT_" + new Date().toISOString().slice(0,10) + ".xlsx";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ---------- warehouse → operations queue ---------- */
+let WH = [], INBOX = [], _acceptRow = null, _inboxT = null;
+function whRender(){
+  const tb = document.getElementById("wh_table"); if(!tb) return;
+  const TH = "padding:5px 8px; font-size:11.5px; background:#fff4e5; border:1px solid #eedcc3; color:#7a4b00;";
+  const TD = "padding:3px 6px; border:1px solid #f0e6d8; font-size:12.5px;";
+  let h = `<tr><th style="${TH}">PLT</th><th style="${TH}">GROSS WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QTY (CTNS)</th><th style="${TH}"></th></tr>`;
+  WH.forEach((r,i) => {
+    h += `<tr><td style="${TD} text-align:center;">${i+1}</td>
+      <td style="${TD}"><input type="text" value="${r.w||""}" style="width:90px;" oninput="WH[${i}].w=parseFloat(this.value)||0; whTotals();"></td>
+      <td style="${TD}"><input type="text" value="${esc(r.d||"")}" style="width:120px;" oninput="WH[${i}].d=this.value;"></td>
+      <td style="${TD}"><input type="text" value="${r.q||""}" style="width:70px;" oninput="WH[${i}].q=parseInt(this.value)||0; whTotals();"></td>
+      <td style="${TD}"><button class="smallbtn sb-red" onclick="WH.splice(${i},1); whRender();">x</button></td></tr>`;
+  });
+  h += `<tr><td style="${TD} font-weight:bold;">TOTAL</td><td style="${TD} font-weight:bold;" id="wh_tw"></td><td style="${TD}"></td><td style="${TD} font-weight:bold;" id="wh_tq"></td><td style="${TD}"></td></tr>`;
+  tb.innerHTML = h; whTotals();
+}
+function whTotals(){
+  const tw = document.getElementById("wh_tw"), tq = document.getElementById("wh_tq");
+  if(tw) tw.textContent = ptR3(WH.reduce((a,r) => a+(r.w||0), 0));
+  if(tq) tq.textContent = WH.reduce((a,r) => a+(r.q||0), 0);
+}
+function whAddRow(){ WH.push({w:0, d:"", q:0}); whRender(); }
+function whParse(){
+  const raw = document.getElementById("wh_paste").value;
+  if(!raw.trim()){ alert("Paste the pallet rows first (PLT  WEIGHT  DIMENSIONS  QTY)."); return; }
+  const rows = [];
+  raw.split(/\r?\n/).forEach(line => {
+    const t = line.trim().split(/[\t;]+|\s+/).filter(Boolean);
+    if(t.length < 3) return;
+    let w, d, q;
+    if(t.length >= 4){ w = t[1]; d = t[2]; q = t[3]; } else { w = t[0]; d = t[1]; q = t[2]; }
+    w = parseFloat(String(w).replace(/,/g, "")); q = parseInt(String(q).replace(/,/g, ""));
+    if(!w || !q) return;
+    rows.push({w, d: String(d), q});
+  });
+  if(!rows.length){ alert("No valid rows found."); return; }
+  WH = rows; whRender(); document.getElementById("wh_paste").value = "";
+}
+async function whSend(){
+  const msg = document.getElementById("wh_msg");
+  if(!sb || !sbUser){ alert("Log in first."); return; }
+  if(!WH.length){ alert("Add the pallet rows first."); return; }
+  if(!v("wh_shipper").trim() || !v("wh_consignee").trim()){ alert("Shipper and consignee are required."); return; }
+  msg.textContent = "Sending..."; msg.style.color = "#7a4b00";
+  const payload = { ref:v("wh_ref"), awb:v("wh_awb"), route:v("wh_route"), tare:v("wh_tare"),
+    shipper:v("wh_shipper"), consignee:v("wh_consignee"), notes:v("wh_notes"), pallets: WH,
+    totals:{ plt: WH.length, gross: ptR3(WH.reduce((a,r) => a+(r.w||0), 0)), ctns: WH.reduce((a,r) => a+(r.q||0), 0) } };
+  const { error } = await sb.from("dgd_queue").insert({ payload });
+  if(error){ msg.textContent = "Send failed: " + error.message.slice(0,80); msg.style.color = "#a40000"; return; }
+  msg.textContent = "✓ Sent to operations — it is now in their INBOX.";
+  msg.style.color = "#1d6b34";
+  WH = []; whRender();
+  ["wh_ref","wh_awb","wh_route","wh_notes","wh_shipper","wh_consignee"].forEach(id => document.getElementById(id).value = "");
+  whRefreshSent(); inboxPoll();
+}
+async function whRefreshSent(){
+  if(!sb || !sbUser) return;
+  const tb = document.getElementById("wh_sent"); if(!tb) return;
+  const { data } = await sb.from("dgd_queue").select("id,created_at,status,accepted_by,job_no,payload")
+    .eq("sender_id", sbUser.id).order("created_at", {ascending:false}).limit(30);
+  const TH = "padding:5px 8px; font-size:11.5px; background:#eef2f7; border:1px solid #dde5ee; color:#0f2b4c; text-align:left;";
+  const TD = "padding:5px 8px; border:1px solid #e8edf3; font-size:12.5px;";
+  let h = `<tr><th style="${TH}">SENT</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">STATUS</th></tr>`;
+  (data||[]).forEach(r => {
+    const p = r.payload || {};
+    const st = r.status === "NEW"
+      ? `<b style="color:#b45309;">&#9203; WAITING</b>`
+      : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}${r.job_no ? " — job " + esc(r.job_no) : ""}</span>`;
+    h += `<tr><td style="${TD}">${new Date(r.created_at).toLocaleString("en-GB")}</td>
+      <td style="${TD}">${esc((p.shipper||"").split("\n")[0])}</td><td style="${TD}">${esc((p.consignee||"").split("\n")[0])}</td>
+      <td style="${TD} text-align:center;">${(p.totals||{}).plt||""}</td><td style="${TD}">${st}</td></tr>`;
+  });
+  tb.innerHTML = h;
+}
+async function inboxPoll(){
+  if(!sb || !sbUser) return;
+  try{
+    const { data } = await sb.from("dgd_queue").select("id,created_at,sender_email,status,accepted_by,job_no,payload")
+      .order("created_at", {ascending:false}).limit(50);
+    INBOX = data || [];
+  }catch(e){ return; }
+  renderInbox();
+  const n = INBOX.filter(r => r.status === "NEW").length;
+  const nav = document.getElementById("nav-dash");
+  if(nav) nav.innerHTML = "&#128202; DASHBOARD" + (n ? ` <span style="background:#e03a3a; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px;">${n}</span>` : "");
+}
+function renderInbox(){
+  const tb = document.getElementById("inbox_table"); if(!tb) return;
+  const TH = "padding:5px 8px; font-size:11.5px; background:#b45309; color:#fff; border:1px solid #b45309; text-align:left;";
+  const TD = "padding:5px 8px; border:1px solid #f0e6d8; font-size:12.5px;";
+  let h = `<tr><th style="${TH}">RECEIVED</th><th style="${TH}">FROM</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">GROSS</th><th style="${TH}">NOTES</th><th style="${TH}">STATUS</th></tr>`;
+  if(!INBOX.length) h += `<tr><td colspan="8" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
+  INBOX.forEach(r => {
+    const p = r.payload || {};
+    const st = r.status === "NEW"
+      ? `<button class="smallbtn sb-green" onclick="inboxAccept('${r.id}')">&#10004; ACCEPT &amp; START</button>`
+      : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}${r.job_no ? " — " + esc(r.job_no) : ""}</span>`;
+    h += `<tr${r.status === "NEW" ? ' style="background:#fffaf0;"' : ""}>
+      <td style="${TD}">${new Date(r.created_at).toLocaleString("en-GB")}</td>
+      <td style="${TD}">${esc(r.sender_email||"")}</td>
+      <td style="${TD} font-weight:bold;">${esc((p.shipper||"").split("\n")[0])}</td>
+      <td style="${TD}">${esc((p.consignee||"").split("\n")[0])}</td>
+      <td style="${TD} text-align:center;">${(p.totals||{}).plt||""}</td>
+      <td style="${TD} text-align:center;">${(p.totals||{}).gross||""} kg</td>
+      <td style="${TD}">${esc((p.notes||"").slice(0,60))}</td>
+      <td style="${TD}">${st}</td></tr>`;
+  });
+  tb.innerHTML = h;
+}
+function inboxAccept(id){
+  const row = INBOX.find(r => r.id === id);
+  if(!row) return;
+  _acceptRow = row;
+  jobGateShow();
+  const p = row.payload || {};
+  document.getElementById("jg_note").textContent =
+    "Accepting packing list from " + (row.sender_email||"warehouse") + ": " +
+    ((p.shipper||"").split("\n")[0]) + " → " + ((p.consignee||"").split("\n")[0]) +
+    " (" + ((p.totals||{}).plt||"?") + " PLT)";
 }
 
 /* ---------- Excel download (packing list + labels, JFS tool format) ---------- */
@@ -3018,6 +3202,9 @@ async function enterApp(user){
   }catch(e){}
   await cloudPullAll(false);
   jobGateShow();
+  inboxPoll();
+  if(_inboxT) clearInterval(_inboxT);
+  _inboxT = setInterval(inboxPoll, 60000);
 }
 function setSync(state){ // green ok, orange syncing, red error
   const dot = document.getElementById("syncdot");
