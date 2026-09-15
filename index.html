@@ -315,8 +315,14 @@
     </div>
 
     <!-- MSDS DG CHECKER -->
-    <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128269; MSDS CHECKER &mdash; DG or NON-DG?</h2><div class="body">
-      <label>Open the MSDS/SDS, copy the text (especially Section 9 &amp; Section 14) and paste here</label>
+    <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128269; MSDS CHECKER &mdash; DG or NON-DG? + PAX/CAO + UN suggestion</h2><div class="body">
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+        <label style="margin:0;">Attach MSDS PDF:</label>
+        <input type="file" id="msdsfile" accept=".pdf" style="font-size:12.5px;">
+        <button class="btn btn-save" style="background:#7b2d8b;" onclick="readMsdsPdf()">&#129302; UPLOAD &amp; AI CHECK</button>
+        <span id="msdspdfmsg" style="font-size:12px; color:#7a4b00;"></span>
+      </div>
+      <label>...or copy the MSDS/SDS text (especially Section 9 &amp; Section 14) and paste here</label>
       <textarea id="f_msds" style="min-height:110px;" placeholder="Paste MSDS text here...&#10;e.g.&#10;Flash point: 14 °C (closed cup)&#10;SECTION 14: Transport information&#10;UN number: 1266&#10;Proper shipping name: PERFUMERY PRODUCTS&#10;Class: 3, Packing group: II"></textarea>
       <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
         <button class="btn btn-save" style="background:#b45309;" onclick="msdsCheck()">&#128269; CHECK MSDS</button>
@@ -590,15 +596,18 @@
       <div class="card" style="border-left:5px solid #7b2d8b;"><h2 style="background:#f5eaf8; color:#7b2d8b;">&#129302; AI &mdash; CLAUDE API (optional, for maximum accuracy)</h2><div class="body">
         <p style="font-size:13px; line-height:1.55;">
           With an API key, the EXTRACT buttons (AWB, Packing List, MSDS) use Claude AI &mdash; any document format is understood,
-          and an <b>AI REVIEW</b> button checks the whole DGD for mistakes. Cost is tiny (~AED 0.01&ndash;0.05 per document).<br>
+          and an <b>AI REVIEW</b> button checks the whole DGD for mistakes. <b>For dangerous goods we recommend Fable 5 or Opus 5</b> &mdash;
+          maximum intelligence for a safety-critical job (cost per document is still small).<br>
           Setup: <b>console.anthropic.com</b> &rarr; sign up &rarr; add credit &rarr; API Keys &rarr; Create Key &rarr; paste below.</p>
         <div class="grid g3" style="margin-top:10px;">
           <div style="grid-column:span 2;"><label>Anthropic API key</label>
             <input type="text" id="ai_key" placeholder="sk-ant-..." autocomplete="off"></div>
           <div><label>Model</label>
             <select id="ai_model">
+              <option value="claude-fable-5">Fable 5 (most intelligent — best for DG)</option>
+              <option value="claude-opus-5">Opus 5 (very intelligent)</option>
+              <option value="claude-sonnet-5">Sonnet 5 (balanced)</option>
               <option value="claude-haiku-4-5-20251001">Haiku (fast &amp; cheapest)</option>
-              <option value="claude-sonnet-5">Sonnet (most accurate)</option>
             </select></div>
         </div>
         <div class="actions" style="margin:10px 0 0 0;">
@@ -1072,6 +1081,8 @@ function msdsCheck(){
       sub: db && db.sub ? "("+db.sub+")" : "", pg: pg, pi: "", qty: "", auth: ""
     };
     const lines = ["MSDS Section 14 shows <b>" + unNo + "</b>" + (db ? " — " + esc(db.psn) : ""), ...facts];
+    if(db){ const fl = paxCaoFromDb(db);
+      lines.push("✈ Passenger aircraft (PAX): " + flightBadge(fl.pax) + " &nbsp;&nbsp; 🛩 Cargo aircraft (CAO): " + flightBadge(fl.cao)); }
     if(db && (db.pipax || db.picao)) lines.push("Typical PI — PAX: <b>" + (db.pipax||"—") + "</b> | CAO: <b>" + (db.picao||"—") + "</b> (VERIFY in DGR 4.2)");
     if(db && db.note) lines.push(esc(db.note));
     lines.push("<i>Verify classification against the current IATA DGR before shipping.</i>");
@@ -1289,7 +1300,7 @@ function printDGD(){
 
 /* ---------- Claude AI integration ---------- */
 function aiKey(){ return localStorage.getItem("jfs_ai_key") || ""; }
-function aiModel(){ return localStorage.getItem("jfs_ai_model") || "claude-haiku-4-5-20251001"; }
+function aiModel(){ return localStorage.getItem("jfs_ai_model") || "claude-fable-5"; }
 function aiSave(){
   const k = document.getElementById("ai_key").value.trim();
   localStorage.setItem("jfs_ai_key", k);
@@ -1426,32 +1437,103 @@ End every review knowing the final authority is the current IATA DGR; do not inv
     }
   }catch(e){ box.innerHTML = "AI review failed: " + esc(e.message.slice(0,120)); }
 }
+async function readMsdsPdf(){
+  const f = document.getElementById("msdsfile").files[0];
+  const msg = document.getElementById("msdspdfmsg");
+  if(!f){ alert("Choose the MSDS PDF file first."); return; }
+  msg.textContent = "Reading PDF...";
+  try{
+    await loadPdfjs();
+    const buf = await f.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({data: buf}).promise;
+    let text = "";
+    for(let p = 1; p <= Math.min(pdf.numPages, 12); p++){
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      let lastY = null, line = [];
+      const lines = [];
+      tc.items.forEach(it => {
+        const y = Math.round(it.transform[5]);
+        if(lastY !== null && Math.abs(y - lastY) > 4){ lines.push(line.join(" ")); line = []; }
+        line.push(it.str); lastY = y;
+      });
+      lines.push(line.join(" "));
+      text += lines.join("\n") + "\n";
+    }
+    if(text.trim().length < 30){
+      msg.textContent = "No text in this PDF (scanned image) — copy-paste the text instead.";
+      return;
+    }
+    document.getElementById("f_msds").value = text;
+    msg.textContent = "Text extracted (" + Math.min(pdf.numPages,12) + " pages) — analysing...";
+    if(aiKey()) await aiMsdsCheck(); else msdsCheck();
+    msg.textContent = "Done — see the result below.";
+  }catch(e){ msg.textContent = "PDF read failed (" + e.message + "). Paste the text instead."; }
+}
+function flightBadge(state){
+  if(state === "ALLOWED") return "<b style='color:#1d6b34;'>✔ ALLOWED</b>";
+  if(state === "FORBIDDEN") return "<b style='color:#a40000;'>✘ FORBIDDEN</b>";
+  return "<b style='color:#b45309;'>? VERIFY IN DGR</b>";
+}
+function paxCaoFromDb(db){
+  const st = v => !v ? "UNKNOWN" : (v === "FORBIDDEN" ? "FORBIDDEN" : "ALLOWED");
+  return db ? { pax: st(db.pipax), cao: st(db.picao) } : { pax:"UNKNOWN", cao:"UNKNOWN" };
+}
 async function aiMsdsCheck(){
   const raw = document.getElementById("f_msds").value;
-  if(!raw.trim()){ alert("Paste the MSDS text first."); return; }
+  if(!raw.trim()){ alert("Paste the MSDS text first (or attach the PDF)."); return; }
   if(!aiKey()){ alert("No API key — add it in SETTINGS → AI (CLAUDE API). Using standard check instead."); msdsCheck(); return; }
   const out = document.getElementById("msdsresult");
-  out.innerHTML = "🤖 AI analysing MSDS...";
-  const sys = `You are a dangerous-goods classifier for air transport (IATA DGR). Analyse the MSDS/SDS text.
-Respond ONLY JSON: {"verdict":"DG|NONDG|UNKNOWN","un":"UNxxxx or ID8000 or empty","psn":"","cls":"","sub":"","pg":"",
-"flashpoint_c":number or null,"reason":"one or two sentences"}.
-Use Section 14 if present; else classify from properties (flash point <=60C => Class 3). Never invent a UN number not supported by the data.`;
+  out.innerHTML = "🤖 AI analysing MSDS (" + aiModel().split("-").slice(1,2) + ")...";
+  const sys = `You are an expert IATA DGR dangerous-goods classifier for air transport, working for a freight forwarder.
+Analyse the MSDS/SDS text carefully (Sections 2, 3, 9 and 14 are most important).
+Respond with ONLY a JSON object, no markdown:
+{"verdict":"DG|NONDG|UNKNOWN",
+ "un":"best UN or ID number suggestion e.g. UN1266 or ID8000, empty if non-DG",
+ "psn":"proper shipping name","cls":"class/division","sub":"subsidiary risk or empty","pg":"I/II/III or empty",
+ "flashpoint_c":number or null,
+ "pax":"ALLOWED|FORBIDDEN|UNKNOWN"  (may this item fly on PASSENGER aircraft per IATA DGR),
+ "cao":"ALLOWED|FORBIDDEN|UNKNOWN"  (may it fly on CARGO aircraft),
+ "pi_pax":"packing instruction for PAX if known, else empty","pi_cao":"packing instruction for CAO if known, else empty",
+ "alt":"easier/cheaper compliant alternative if applicable (e.g. ID8000 Consumer commodity for retail-packed, Ltd Qty Y-PI, Excepted Quantity for samples), else empty",
+ "reason":"2-3 sentence expert explanation of the classification"}
+Rules: Use Section 14 when present. If no Section 14, classify from properties (flash point <=60C => Class 3 flammable liquid; PG II if FP<23C, PG III if 23-60C).
+Never invent a UN number that contradicts the data. If genuinely not regulated, verdict NONDG. Be precise — this is safety-critical.`;
   try{
-    const j = aiJson(await aiCall(sys, raw.slice(0, 10000), 800));
+    const j = aiJson(await aiCall(sys, raw.slice(0, 24000), 1200));
+    const unNo = (j.un||"").toUpperCase().replace(/\s/g,"");
+    const db = UNDB.find(r => r.un === unNo);
+    // cross-check PAX/CAO with built-in database (FORBIDDEN entries win)
+    const dbFlight = paxCaoFromDb(db);
+    const pax = dbFlight.pax === "FORBIDDEN" ? "FORBIDDEN" : (j.pax || dbFlight.pax || "UNKNOWN");
+    const cao = dbFlight.cao === "FORBIDDEN" ? "FORBIDDEN" : (j.cao || dbFlight.cao || "UNKNOWN");
     if(j.verdict === "DG"){
-      const db = UNDB.find(r => r.un === (j.un||"").toUpperCase().replace(/\s/g,""));
-      msdsItem = { un:(j.un||"").toUpperCase().replace(/\s/g,""), psn:j.psn || (db ? db.psn : ""),
-        cls:j.cls || (db ? db.cls : ""), sub:j.sub ? "("+j.sub+")" : "", pg:(j.pg||"").toUpperCase(), pi:"", qty:"", auth:"" };
-      const lines = ["🤖 " + esc(j.reason||"")];
-      if(db && (db.pipax || db.picao)) lines.push("Typical PI — PAX: <b>" + (db.pipax||"—") + "</b> | CAO: <b>" + (db.picao||"—") + "</b> (VERIFY in DGR 4.2)");
-      lines.push("<i>Verify against the current IATA DGR before shipping.</i>");
-      out.innerHTML = msdsBox("#a40000", "#fdecec", "⚠ DANGEROUS GOODS — " + esc(j.un||"") + " " + esc(j.psn||""), lines);
+      msdsItem = { un:unNo, psn:j.psn || (db ? db.psn : ""),
+        cls:j.cls || (db ? db.cls : ""), sub:j.sub ? "("+j.sub+")" : (db && db.sub ? "("+db.sub+")" : ""),
+        pg:(j.pg||"").toUpperCase(), pi:"", qty:"", auth:"" };
+      const lines = [
+        "<div style='font-size:20px; font-weight:bold; margin:4px 0;'>UN suggestion: <span style='color:#a40000;'>" + esc(unNo||"—") + "</span> — " + esc(j.psn||(db?db.psn:"")) + "</div>",
+        "Class: <b>" + esc(j.cls||(db?db.cls:"—")) + (j.sub?" ("+esc(j.sub)+")":"") + "</b> &nbsp;•&nbsp; Packing Group: <b>" + esc(j.pg||"—") + "</b>" +
+          (j.flashpoint_c !== null && j.flashpoint_c !== undefined ? " &nbsp;•&nbsp; Flash point: <b>" + esc(String(j.flashpoint_c)) + " °C</b>" : ""),
+        "✈ Passenger aircraft (PAX): " + flightBadge(pax) + " &nbsp;&nbsp;&nbsp; 🛩 Cargo aircraft (CAO): " + flightBadge(cao),
+        "Packing Instruction — PAX: <b>" + esc(j.pi_pax || (db&&db.pipax) || "see DGR 4.2") + "</b> | CAO: <b>" + esc(j.pi_cao || (db&&db.picao) || "see DGR 4.2") + "</b> <i>(VERIFY in DGR 4.2)</i>",
+        j.alt ? "💡 <b>Easier option:</b> " + esc(j.alt) : "",
+        "🤖 " + esc(j.reason||""),
+        db && db.note ? "📌 " + esc(db.note) : "",
+        "<i>AI + database reference — final check against the current IATA DGR by certified DG staff before shipping.</i>"
+      ].filter(Boolean);
+      out.innerHTML = msdsBox("#a40000", "#fdecec", "⚠ DANGEROUS GOODS — DGD required", lines);
       document.getElementById("msdsAddBtn").style.display = "inline-block";
     } else if(j.verdict === "NONDG"){
-      out.innerHTML = msdsBox("#1d6b34", "#e7f0e9", "✓ NON-DG (AI assessment)",
-        ["🤖 " + esc(j.reason||""), "<i>Keep the MSDS with the shipment. Verify Section 14 yourself too.</i>"]);
+      out.innerHTML = msdsBox("#1d6b34", "#e7f0e9", "✓ NON-DG — normal cargo",
+        ["✈ Passenger aircraft: <b style='color:#1d6b34;'>✔ OK</b> &nbsp;&nbsp; 🛩 Cargo aircraft: <b style='color:#1d6b34;'>✔ OK</b> (as normal cargo)",
+         (j.flashpoint_c !== null && j.flashpoint_c !== undefined ? "Flash point: <b>" + esc(String(j.flashpoint_c)) + " °C</b>" : ""),
+         "🤖 " + esc(j.reason||""),
+         "No DGD needed. Keep the MSDS with the shipment.",
+         "<i>Verify Section 14 yourself too — final authority is the IATA DGR.</i>"].filter(Boolean));
     } else {
-      out.innerHTML = msdsBox("#b45309", "#fff4e5", "? AI could not determine", ["🤖 " + esc(j.reason||""), "Paste Sections 9 and 14 of the MSDS."]);
+      out.innerHTML = msdsBox("#b45309", "#fff4e5", "? AI could not determine",
+        ["🤖 " + esc(j.reason||""), "Attach the full MSDS PDF, or paste Sections 9 and 14."]);
     }
   }catch(e){ out.innerHTML = msdsBox("#b45309", "#fff4e5", "AI failed — used standard check", [esc(e.message.slice(0,100))]); msdsCheck(); }
 }
