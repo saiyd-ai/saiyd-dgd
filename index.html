@@ -1,0 +1,2405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGDOC — Complete DGD Solution | Powered by sAiyd.ai</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="undb.js"></script>
+<script src="logo.js"></script>
+<style>
+  /* ============ AUTH GATE ============ */
+  #authgate{position:fixed; inset:0; z-index:1000; background:linear-gradient(135deg,#1c1c4e 0%,#2d2d6e 55%,#232360 100%);
+    display:flex; align-items:center; justify-content:center; padding:20px;}
+  .authcard{background:#fff; border-radius:16px; padding:34px 38px; width:100%; max-width:430px;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);}
+  .wordmark{font-family:Arial, sans-serif; font-size:34px; font-weight:bold; letter-spacing:1px; text-align:center;}
+  .wordmark .w1{color:#0d2c54;} .wordmark .w2{color:#c00000;}
+  .authtag{text-align:center; font-size:13px; color:#5b6b7d; margin:6px 0 4px 0;}
+  .authby{text-align:center; font-size:11px; color:#8a97a8; margin-bottom:18px;}
+  .authtabs{display:flex; gap:6px; margin-bottom:16px;}
+  .authtabs button{flex:1; border:0; padding:10px; border-radius:8px; font-weight:bold; font-size:13px;
+    cursor:pointer; background:#eef2f7; color:#0d2c54;}
+  .authtabs button.on{background:#0d2c54; color:#fff;}
+  .authcard label{display:block; font-size:11px; font-weight:bold; color:#44546a; margin:10px 0 4px 0; text-transform:uppercase;}
+  .authcard input{width:100%; padding:11px 12px; border:1px solid #b9c4d4; border-radius:8px; font-size:14px; box-sizing:border-box;}
+  .authbtn{width:100%; margin-top:18px; border:0; border-radius:8px; padding:13px; font-size:15px;
+    font-family:'Poppins',Arial,sans-serif; font-weight:700; cursor:pointer; background:#3ec9a7; color:#12123a;}
+  .authtabs button.on{background:#23235f; color:#fff;}
+  .authmsg{margin-top:12px; font-size:12.5px; text-align:center; min-height:18px;}
+  .authfeat{margin-top:16px; font-size:11px; color:#8a97a8; text-align:center; line-height:1.6;}
+  .userchip{display:flex; align-items:center; gap:10px; background:#16406e; border-radius:20px;
+    padding:5px 14px; font-size:12px; color:#cadcfc;}
+  .userchip b{color:#fff;}
+  .userchip button{border:0; background:#c00000; color:#fff; border-radius:12px; padding:3px 10px;
+    font-size:11px; font-weight:bold; cursor:pointer;}
+  #syncdot{display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;}
+  @media print{ #authgate{display:none !important;} .userchip{display:none !important;} }
+
+  /* ============ DGDOC BRAND (sAiyd.ai design language) ============ */
+  .dgwm{font-family:'Poppins', Arial, sans-serif; font-weight:800; letter-spacing:.5px; line-height:1;}
+  .dgwm .b1{color:#3ec9a7;}                 /* teal  — "dg" */
+  .dgwm .b2{color:#a9a9e8;}                 /* lavender — "doc" (dark bg) */
+  .dgwm.on-light .b2{color:#23235f;}        /* indigo — "doc" (light bg)  */
+  .pwrd{font-family:'Poppins', Arial, sans-serif; font-weight:600; font-size:12px; color:#8f8fc9; letter-spacing:.3px;}
+  .pwrd b{font-weight:700;}
+  .pwrd .s2{color:#3ec9a7;}
+  .pwrd.on-dark .s1{color:#cfcffa;} .pwrd.on-dark{color:#9a9ad8;} .pwrd.on-dark .s3{color:#9a9ad8;}
+  .pwrd.on-light .s1{color:#2b2b6b;} .pwrd.on-light .s3{color:#8f8fc9;}
+</style>
+<style>
+  :root{
+    --navy:#0d2c54; --blue:#1a5fb4; --red:#c00000; --amber:#b45309;
+    --bg:#f2f5f9; --card:#ffffff; --line:#d7dee8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:Arial, Helvetica, sans-serif; background:var(--bg); color:#1c2733; font-size:14px;}
+
+  /* ============ SCREEN APP ============ */
+  .app{max-width:1150px; margin:0 auto; padding:18px;}
+  .topbar{background:var(--navy); color:#fff; border-radius:10px; padding:16px 22px;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
+  .topbar h1{font-size:20px; letter-spacing:.5px;}
+  .topbar .sub{font-size:12px; opacity:.85; margin-top:3px;}
+  .badge{background:#ffb703; color:#1c2733; font-weight:bold; padding:6px 12px; border-radius:20px; font-size:12px;}
+  .warnbar{background:#fff4e5; border:1px solid #f0c884; color:#7a4b00; border-radius:8px;
+    padding:10px 14px; margin:12px 0; font-size:12.5px; line-height:1.45;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:10px; margin:14px 0; overflow:hidden;}
+  .card>h2{background:#eaf0f8; color:var(--navy); font-size:14px; padding:10px 16px;
+    border-bottom:1px solid var(--line); letter-spacing:.4px;}
+  .card .body{padding:14px 16px;}
+  .grid{display:grid; gap:12px;}
+  .g2{grid-template-columns:1fr 1fr;} .g3{grid-template-columns:1fr 1fr 1fr;} .g4{grid-template-columns:1fr 1fr 1fr 1fr;}
+  label{display:block; font-size:11.5px; font-weight:bold; color:#44546a; margin-bottom:4px; text-transform:uppercase; letter-spacing:.3px;}
+  input[type=text], textarea, select{width:100%; padding:8px 10px; border:1px solid #b9c4d4; border-radius:6px;
+    font-family:inherit; font-size:13.5px; background:#fff;}
+  textarea{resize:vertical; min-height:64px;}
+  input:focus, textarea:focus, select:focus{outline:2px solid #9ec2f0; border-color:var(--blue);}
+  .radios{display:flex; gap:16px; align-items:center; padding:6px 0;}
+  .radios label{display:flex; align-items:center; gap:6px; text-transform:none; font-size:13px; margin:0; cursor:pointer;}
+  .btn{border:0; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:bold; cursor:pointer;}
+  .btn-add{background:#e7f0e9; color:#1d6b34; border:1px solid #9dc7aa;}
+  .btn-print{background:var(--red); color:#fff; font-size:15px; padding:12px 26px;}
+  .btn-save{background:var(--blue); color:#fff;}
+  .btn-load{background:#eef2f7; color:var(--navy); border:1px solid #b9c4d4;}
+  .btn-del{background:#fdecec; color:#a40000; border:1px solid #e3a6a6; padding:6px 10px; font-size:12px;}
+  .actions{display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:18px 0;}
+
+  /* line item */
+  .item{border:1px solid var(--line); border-left:5px solid var(--blue); border-radius:8px; padding:12px; margin-bottom:12px; background:#fbfcfe;}
+  .item .ihead{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .item .ihead .t{font-weight:bold; color:var(--navy); font-size:13px;}
+  .unwrap{position:relative;}
+  .sugg{position:absolute; z-index:40; top:100%; left:0; right:0; background:#fff; border:1px solid #b9c4d4;
+    border-radius:0 0 8px 8px; max-height:260px; overflow:auto; box-shadow:0 8px 18px rgba(0,0,0,.15); display:none;}
+  .sugg div{padding:8px 10px; cursor:pointer; font-size:12.5px; border-bottom:1px solid #eef2f7;}
+  .sugg div:hover{background:#eaf0f8;}
+  .sugg b{color:var(--red);}
+  .notehint{font-size:11.5px; color:var(--amber); margin-top:4px; font-weight:bold;}
+
+  .previewwrap{background:#5b6b7d; padding:24px; border-radius:10px;}
+  .previewwrap .plabel{color:#fff; font-size:12px; margin-bottom:10px; letter-spacing:.5px;}
+
+  /* ============ DGD SHEET ============ */
+  .sheet{width:210mm; min-height:285mm; background:#fff; margin:0 auto; position:relative;
+    padding:8mm 12mm; font-family:Arial, Helvetica, sans-serif; color:#000;}
+  .sheet .hatch{position:absolute; top:0; bottom:0; width:6mm;
+    background:repeating-linear-gradient(45deg,#c00000 0 4mm,#ffffff 4mm 8mm);}
+  .sheet .hatch.l{left:0;} .sheet .hatch.r{right:0;}
+  .s-table{width:100%; border-collapse:collapse;}
+  .s-table td, .s-table th{border:1px solid #000; padding:1.4mm 2mm; font-size:9.5pt; vertical-align:top;}
+  .noborder td{border:none;}
+  .s-h{font-size:14pt; font-weight:bold; text-align:left; padding:2mm 0 1mm 0;}
+  .cap{font-size:7pt; font-weight:bold;}
+  .val{font-size:9.5pt; min-height:5mm; white-space:pre-wrap;}
+  .big{min-height:22mm;}
+  .warnbox{border:1.5px solid #000; padding:2mm; font-size:8pt; font-weight:bold;}
+  .strike{text-decoration:line-through; text-decoration-thickness:2px;}
+  .center{text-align:center;}
+  .decl{font-size:8pt; line-height:1.35;}
+  .goods th{background:#fff; font-size:7.5pt; text-align:center; vertical-align:middle;}
+  .goods td{height:9mm;}
+  .sigline{border-bottom:1px solid #000; min-height:8mm;}
+  .toolfoot{font-size:7pt; text-align:center; color:#333; padding-top:2mm;}
+
+  /* ============ SOFTWARE TABS ============ */
+  .nav{display:flex; gap:4px; flex-wrap:wrap; margin:12px 0 0 0;}
+  .nav button{border:0; background:#dde6f2; color:var(--navy); font-weight:bold; font-size:12.5px;
+    padding:10px 14px; border-radius:8px 8px 0 0; cursor:pointer;}
+  .nav button.on{background:var(--navy); color:#fff;}
+  .tab{display:none;}
+  .tab.on{display:block;}
+  table.dtable{width:100%; border-collapse:collapse; font-size:12.5px;}
+  .dtable th{background:var(--navy); color:#fff; padding:7px 9px; text-align:left; font-size:11px;}
+  .dtable td{border-bottom:1px solid var(--line); padding:7px 9px; vertical-align:top;}
+  .dtable tr:hover td{background:#f2f6fb;}
+  .smallbtn{border:0; border-radius:6px; padding:5px 10px; font-size:11.5px; font-weight:bold; cursor:pointer; margin:1px;}
+  .sb-blue{background:#e3ecf7; color:var(--navy);} .sb-red{background:#fdecec; color:#a40000;}
+  .sb-green{background:#e7f0e9; color:#1d6b34;}
+  .spellwarn{display:none; margin-top:5px; font-size:12px; background:#fff4e5; border:1px solid #f0c884;
+    color:#7a4b00; border-radius:6px; padding:6px 9px;}
+  .okmsg{font-size:12px; color:#1d6b34; font-weight:bold;}
+
+  /* checklist */
+  .chk{width:100%; border-collapse:collapse; font-size:12.5px;}
+  .chk td{border:1px solid #999; padding:6px 9px;}
+  .chk .cbox{width:28px; text-align:center; font-size:16px;}
+  .chk .sect{background:var(--navy); color:#fff; font-weight:bold; font-size:11.5px;}
+  .chk .warn{color:#a40000; font-weight:bold;}
+
+  /* IATA 2026 checklist */
+  .ichk{width:100%; border-collapse:collapse; font-size:8.5pt; font-family:Arial; color:#000;}
+  .ichk td{padding:1.5px 4px; vertical-align:top;}
+  .ichk .no{width:26px; text-align:right; white-space:nowrap;}
+  .ichk .bx{width:30px; text-align:center;}
+  .ichk .isec{font-weight:bold; padding-top:5px; font-size:8.5pt;}
+  .ibox{display:inline-block; width:11px; height:11px; border:1.2px solid #000; text-align:center;
+    line-height:11px; font-size:9px; font-weight:bold;}
+  .ihd{border:1px solid #000; padding:3px 6px; font-size:9pt;}
+  .ihd b{font-size:9.5pt;}
+  .ifill{background:#fff9c4; padding:0 6px; font-weight:bold;}
+  .ititle{text-align:center; font-weight:bold;}
+  .pgbrk{page-break-before:always;}
+  @media print{ .ichk{font-size:7.6pt;} .ichk td{padding:1px 3px;} }
+
+  /* stickers */
+  .stickerwrap{display:grid; grid-template-columns:1fr 1fr; gap:6mm;}
+  .sticker{border:2.5px solid #000; width:96mm; min-height:130mm; padding:5mm; background:#fff;
+    font-family:Arial; color:#000; page-break-inside:avoid; position:relative;}
+  .sticker .shead{display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:2mm; margin-bottom:2mm;}
+  .sticker .brand{font-weight:bold; font-size:13pt;}
+  .sticker .cap2{font-size:7.5pt; font-weight:bold; background:#000; color:#fff; display:inline-block; padding:1px 6px; margin:2mm 0 1mm 0;}
+  .sticker .addr{font-size:11pt; line-height:1.4; white-space:pre-wrap; min-height:20mm;}
+  .sticker .toaddr{font-size:13pt; font-weight:bold;}
+  .sticker .rowline{display:flex; justify-content:space-between; border-top:1.5px solid #000; margin-top:2mm; padding-top:1.5mm; font-size:10pt;}
+  .sticker .dgline{border:1.5px solid #c00; color:#c00; font-weight:bold; font-size:9.5pt; padding:1.5mm; margin-top:2mm;}
+  .sticker .pkg{font-size:16pt; font-weight:bold; text-align:center; border:2px solid #000; padding:1mm; margin-top:2mm;}
+
+  /* label advisor */
+  .lblgrid{display:flex; flex-wrap:wrap; gap:14px;}
+  .lblcard{border:1px solid var(--line); border-radius:8px; padding:12px; width:210px; text-align:center; background:#fbfcfe;}
+  .lblcard .nm{font-weight:bold; font-size:12px; margin-top:8px;}
+  .lblcard .why{font-size:11px; color:#555; margin-top:4px;}
+
+  /* alt print zone */
+  #printzone{display:none;}
+
+  /* ============ PRINT ============ */
+  @media print{
+    body{background:#fff;}
+    .app .screenonly{display:none !important;}
+    .previewwrap{background:#fff; padding:0; border-radius:0;}
+    .previewwrap .plabel{display:none;}
+    .app{padding:0; max-width:none;}
+    .sheet{margin:0; width:auto; min-height:auto;}
+    @page{size:A4 portrait; margin:6mm;}
+    body.pm-alt .previewwrap{display:none !important;}
+    body.pm-alt #printzone{display:block;}
+  }
+  @media (max-width:900px){ .g2,.g3,.g4{grid-template-columns:1fr;} .sheet{width:100%; padding:8mm 10mm;} }
+</style>
+</head>
+<body>
+
+<!-- ================= DGDOC AUTH GATE ================= -->
+<div id="authgate">
+  <div class="authcard">
+    <div class="dgwm on-light" style="font-size:44px; text-align:center;"><span class="b1">dg</span><span class="b2">doc</span></div>
+    <div class="authtag" style="font-family:'Poppins',Arial,sans-serif; margin-top:8px;">Complete Dangerous Goods Solution</div>
+    <div style="text-align:center; margin:8px 0 18px 0;">
+      <span class="pwrd on-light" style="font-size:13px;">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b></span>
+    </div>
+    <div class="authtabs">
+      <button id="at_login" class="on" onclick="authTab('login')">LOG IN</button>
+      <button id="at_signup" onclick="authTab('signup')">CREATE ACCOUNT</button>
+    </div>
+    <div id="authlogin">
+      <label>Email</label><input type="email" id="li_email" autocomplete="username">
+      <label>Password</label><input type="password" id="li_pass" autocomplete="current-password">
+      <button class="authbtn" onclick="doLogin()">LOG IN</button>
+    </div>
+    <div id="authsignup" style="display:none;">
+      <label>Full name</label><input type="text" id="su_name">
+      <label>Company</label><input type="text" id="su_company">
+      <label>Email</label><input type="email" id="su_email" autocomplete="username">
+      <label>Password (min 6)</label><input type="password" id="su_pass" autocomplete="new-password">
+      <button class="authbtn" onclick="doSignup()">CREATE ACCOUNT</button>
+    </div>
+    <div class="authmsg" id="authmsg"></div>
+  </div>
+</div>
+
+<div class="app">
+
+  <div class="screenonly">
+    <div class="topbar" style="background:linear-gradient(135deg,#1c1c4e 0%,#2d2d6e 100%);">
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div>
+          <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
+          <div class="sub" style="margin-top:5px;">
+            <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b></span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div class="userchip" id="userchip" style="display:none;">
+          <span id="syncdot" title="Cloud sync"></span>
+          <span><b id="uc_email"></b> &bull; <span id="uc_plan">trial</span></span>
+          <button onclick="doLogout()">Logout</button>
+        </div>
+        <div class="badge">IATA DGR FORMAT</div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <button id="nav-dgd" class="on" onclick="showTab('dgd')">&#128203; DGD PREPARE</button>
+      <button id="nav-checklist" onclick="showTab('checklist')">&#9989; CHECKLIST</button>
+      <button id="nav-stickers" onclick="showTab('stickers')">&#127991; STICKERS</button>
+      <button id="nav-labels" onclick="showTab('labels')">&#9888; DG LABELS</button>
+      <button id="nav-customers" onclick="showTab('customers')">&#128101; CUSTOMERS</button>
+      <button id="nav-items" onclick="showTab('items')">&#128218; ITEM DATABASE</button>
+      <button id="nav-docs" onclick="showTab('docs')">&#128193; DOCUMENTS</button>
+      <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
+    </div>
+
+    <div class="tab on" id="tab-dgd">
+
+    <div class="warnbar">
+      &#9888; <b>IMPORTANT:</b> This tool formats the declaration only. Packing Instruction numbers, quantity limits,
+      State/operator variations and special provisions <b>must be verified in the current edition of the IATA DGR</b>
+      (your purchased e-book) by a trained/certified DG person before signing. Auto-filled data is for convenience and
+      is based on the UN Dangerous Goods List &mdash; always cross-check.
+    </div>
+
+    <!-- PERFUME QUICK GUIDE -->
+    <div class="card" style="border-left:5px solid #7b2d8b;">
+      <h2 style="background:#f5eaf8; color:#7b2d8b; cursor:pointer;" onclick="var b=document.getElementById('pguide'); b.style.display = b.style.display==='none' ? 'block':'none';">
+        &#128142; PERFUME QUICK GUIDE (Europe / USA) &mdash; click to open/close</h2>
+      <div class="body" id="pguide" style="display:none; font-size:13px; line-height:1.55;">
+        <p style="font-size:14px;"><b>A &nbsp;CLASSIFICATION &mdash; which option to use?</b></p>
+        <p style="margin:6px 0 6px 14px;">
+          <b>1. UN1266 PERFUMERY PRODUCTS, Class 3</b> (standard DG shipment, IMP code RFL):<br>
+          &bull; <b>PG II</b> (flash point &lt; 23&deg;C): PAX &mdash; PI <b>353</b>, max <b>5 L</b>/pkg &bull; CAO &mdash; PI <b>364</b>, max 60 L<br>
+          &bull; <b>PG III</b> (flash point 23&ndash;60&deg;C): PAX &mdash; PI <b>355</b>, max <b>60 L</b>/pkg &bull; CAO &mdash; PI <b>366</b>, max 220 L<br>
+          &bull; UN specification packaging + Class 3 label + orientation arrows required.
+          Most perfumes (70-90% ethanol) have FP 12&ndash;23&deg;C &rarr; usually <b>PG II or PG III</b>.<br><br>
+          <b>2. LIMITED QUANTITY (cheaper, no UN spec packaging):</b><br>
+          &bull; PG II: <b>Y341</b> &mdash; max 1 L per inner, 1 L per package &bull; PG III: <b>Y344</b> &mdash; max 10 L per package.<br>
+          &bull; DGD still required. Ltd Qty mark ("Y") on package.<br><br>
+          <b>3. EXCEPTED QUANTITY (samples &mdash; NO DGD needed!):</b><br>
+          &bull; PG II: <b>E2</b> &mdash; max 30 mL per inner, 500 mL per package &bull; PG III: <b>E1</b> &mdash; max 30 mL inner, 1 L per package.<br>
+          &bull; Only the red/white EQ mark on the box; no DGD, no DG fee. Best for samples.<br><br>
+          <b>4. ID8000 CONSUMER COMMODITY, Class 9</b> (retail-packed): PI <b>Y963</b>, max <b>30 kg G</b>/pkg.
+          Easiest for finished retail perfume; very common for USA.
+        </p>
+        <p style="font-size:14px; margin-top:8px;"><b>B &nbsp;DESTINATION RULES (worldwide)</b></p>
+        <p style="margin:6px 0 6px 14px;">
+          &bull; <b>USA:</b> 24-hr emergency phone on DGD <b>mandatory</b> (49 CFR / USG variation). ID8000 widely accepted. DG training certificate required for signatory.<br>
+          &bull; <b>Europe (EU/UK):</b> IATA rules apply for air; road delivery legs follow ADR (Ltd Qty easy). Carrier variations: LH, AF, BA, KL &mdash; check each.<br>
+          &bull; <b>UAE / GCC:</b> GCAA/Emirates SkyCargo (EK) variations &mdash; EK accepts UN1266 PAX &amp; CAO; pre-book DG space.<br>
+          &bull; <b>India:</b> DGCA &mdash; UN1266 accepted; some carriers CAO-only for PG II; MSDS copy usually requested.<br>
+          &bull; <b>China / Japan / Korea:</b> MSDS in English mandatory at acceptance; some airports restrict PG II on PAX.<br>
+          &bull; <b>Australia / NZ:</b> CASA follows IATA; standard.<br>
+          &bull; <b>Courier (DHL/FedEx/UPS/Aramex):</b> each has own DG approval program &mdash; perfume needs DG account/contract; ID8000 &amp; Ltd Qty easiest.
+        </p>
+        <p style="font-size:14px; margin-top:8px;"><b>C &nbsp;DOCUMENTS CHECKLIST (full DG perfume shipment)</b></p>
+        <p style="margin:6px 0 6px 14px;">
+          DGD (2 signed copies) &bull; AWB with "Dangerous Goods as per attached DGD" &bull; MSDS &bull;
+          UN spec packages with Class 3 label, UN1266 mark, orientation arrows &bull; 24-hr emergency number (USA).
+        </p>
+        <p style="margin-top:6px; color:#a40000;"><b>Figures are standard industry references &mdash; always verify PI numbers, limits, State and operator variations in your current IATA DGR e-book before signing.</b></p>
+      </div>
+    </div>
+
+    <!-- MSDS DG CHECKER -->
+    <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128269; MSDS CHECKER &mdash; DG or NON-DG?</h2><div class="body">
+      <label>Open the MSDS/SDS, copy the text (especially Section 9 &amp; Section 14) and paste here</label>
+      <textarea id="f_msds" style="min-height:110px;" placeholder="Paste MSDS text here...&#10;e.g.&#10;Flash point: 14 °C (closed cup)&#10;SECTION 14: Transport information&#10;UN number: 1266&#10;Proper shipping name: PERFUMERY PRODUCTS&#10;Class: 3, Packing group: II"></textarea>
+      <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+        <button class="btn btn-save" style="background:#b45309;" onclick="msdsCheck()">&#128269; CHECK MSDS</button>
+        <button class="btn btn-save" style="background:#7b2d8b;" onclick="aiMsdsCheck()">&#129302; AI CHECK</button>
+        <button class="btn btn-add" id="msdsAddBtn" style="display:none;" onclick="msdsAddItem()">+ Add this item to DGD form</button>
+      </div>
+      <div id="msdsresult" style="margin-top:12px;"></div>
+    </div></div>
+
+    <!-- AUTO FILL -->
+    <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#9889; AUTO FILL &mdash; paste AWB / booking details here</h2><div class="body">
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+        <label style="margin:0;">Attach AWB PDF:</label>
+        <input type="file" id="awbfile" accept=".pdf" style="font-size:12.5px;">
+        <button class="btn btn-load" onclick="readAwbPdf()">&#128206; EXTRACT FROM PDF</button>
+        <span id="awbpdfmsg" style="font-size:12px; color:#7a4b00;"></span>
+      </div>
+      <label>...or paste the Air Waybill copy text, booking e-mail, or shipment details (any format)</label>
+      <textarea id="f_auto" style="min-height:110px;" placeholder="Example:&#10;AWB: 176-12345675&#10;Shipper: ABC Trading LLC, Dubai, UAE, Tel +971...&#10;Consignee: XYZ Ltd, Cochin, India&#10;From: DUBAI (DXB)  To: COCHIN (COK)&#10;UN1263 Paint, PG III, PI 355, 2 fibreboard boxes x 4.5 L, CAO"></textarea>
+      <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+        <button class="btn btn-save" style="background:#1d6b34;" onclick="autoFill()">&#9889; AUTO FILL FORM</button>
+        <button class="btn btn-save" style="background:#7b2d8b;" onclick="aiAutoFill()">&#129302; AI EXTRACT (any format)</button>
+        <span id="autoresult" style="font-size:12.5px; color:#1d6b34; font-weight:bold;"></span>
+      </div>
+    </div></div>
+
+    <!-- PACKING LIST (required) -->
+    <div class="card" style="border-left:5px solid #1a5fb4;"><h2 style="background:#e3ecf7; color:#1a5fb4;">&#128230; PACKING LIST &mdash; required before the DGD can be printed</h2><div class="body">
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+        <label style="margin:0;">Attach Packing List PDF:</label>
+        <input type="file" id="plfile" accept=".pdf" style="font-size:12.5px;">
+        <button class="btn btn-load" onclick="readPlPdf()">&#128206; ATTACH &amp; EXTRACT</button>
+        <span style="font-size:12px; color:#5b6b7d;">or paste the packing list text below:</span>
+      </div>
+      <textarea id="f_pl" style="min-height:70px;" placeholder="Paste packing list text here (items, UN numbers, quantities, boxes)..."></textarea>
+      <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+        <button class="btn btn-save" style="background:#1a5fb4;" onclick="plFromText()">&#128230; ATTACH &amp; EXTRACT FROM TEXT</button>
+        <span id="plstatus" style="font-size:12.5px; font-weight:bold; color:#a40000;">&#10008; No packing list attached &mdash; DGD printing is LOCKED</span>
+      </div>
+    </div></div>
+
+    <!-- SHIPPER / CONSIGNEE -->
+    <div class="card"><h2>1 &nbsp;SHIPPER &amp; CONSIGNEE</h2><div class="body grid g2">
+      <div>
+        <label>Shipper (full name &amp; address)</label>
+        <select id="pick_shipper" style="margin-bottom:6px;" onchange="pickCustomer('shipper')"></select>
+        <textarea id="f_shipper" placeholder="JFS LOGISTICS LLC&#10;Dubai Airport Free Zone&#10;Dubai, UAE&#10;Tel: +971 ..."></textarea>
+        <div class="spellwarn" id="spell_shipper"></div>
+        <button class="smallbtn sb-green" onclick="saveAsCustomer('shipper')">&#128190; Save to customer database</button>
+      </div>
+      <div>
+        <label>Consignee (full name &amp; address)</label>
+        <select id="pick_consignee" style="margin-bottom:6px;" onchange="pickCustomer('consignee')"></select>
+        <textarea id="f_consignee" placeholder="Company name&#10;Address&#10;City, Country&#10;Tel:"></textarea>
+        <div class="spellwarn" id="spell_consignee"></div>
+        <button class="smallbtn sb-green" onclick="saveAsCustomer('consignee')">&#128190; Save to customer database</button>
+      </div>
+    </div></div>
+
+    <!-- TRANSPORT DETAILS -->
+    <div class="card"><h2>2 &nbsp;TRANSPORT DETAILS</h2><div class="body">
+      <div class="grid g4">
+        <div><label>Air Waybill No.</label><input type="text" id="f_awb" placeholder="176-12345675"></div>
+        <div><label>Page / of Pages</label><input type="text" id="f_page" value="1 of 1"></div>
+        <div><label>Shipper's Reference No. (optional)</label><input type="text" id="f_ref"></div>
+        <div><label>Aircraft Limitation</label>
+          <div class="radios">
+            <label><input type="radio" name="f_pax" value="PAX" checked> Passenger &amp; Cargo</label>
+            <label><input type="radio" name="f_pax" value="CAO"> Cargo Aircraft Only</label>
+          </div>
+        </div>
+      </div>
+      <div class="grid g4" style="margin-top:10px;">
+        <div><label>Airport of Departure</label><input type="text" id="f_dep" placeholder="DUBAI (DXB)"></div>
+        <div><label>Airport of Destination</label><input type="text" id="f_dest" placeholder="COCHIN (COK)"></div>
+        <div><label>Shipment Type</label>
+          <div class="radios">
+            <label><input type="radio" name="f_radio" value="NONRADIO" checked> Non-Radioactive</label>
+            <label><input type="radio" name="f_radio" value="RADIO"> Radioactive</label>
+          </div>
+        </div>
+        <div></div>
+      </div>
+      <div class="grid g4" style="margin-top:10px; border-top:1px solid var(--line); padding-top:10px;">
+        <div><label>Overpack used?</label>
+          <div class="radios">
+            <label><input type="radio" name="f_overpack" value="N" checked> No</label>
+            <label><input type="radio" name="f_overpack" value="Y"> Yes</label>
+          </div>
+        </div>
+        <div><label>No. of overpacks</label><input type="text" id="f_opcount" value="1"></div>
+        <div style="grid-column:span 2;"><label>Total quantity in overpack(s) (if more than one)</label>
+          <input type="text" id="f_opqty" placeholder="e.g. Total: 80 L"></div>
+      </div>
+      <div id="airlinepanel" style="margin-top:12px; display:none; background:#eaf0f8; border:1px solid var(--line); border-radius:8px; padding:10px 14px;">
+        <div style="font-weight:bold; color:var(--navy); font-size:13px;" id="airlinename"></div>
+        <div style="font-size:12px; margin-top:4px; line-height:1.5;" id="airlinebuiltins"></div>
+        <div style="margin-top:8px;"><label>Your DGR 2.8 variation notes for this airline (saved per airline)</label>
+          <textarea id="f_airnotes" style="min-height:50px;" placeholder="Copy this airline's variations from your DGR e-book Section 2.8 here — they will show automatically every time this airline is used."></textarea>
+          <button class="smallbtn sb-green" style="margin-top:5px;" onclick="saveAirNotes()">&#128190; Save airline notes</button>
+        </div>
+      </div>
+    </div></div>
+
+    <!-- DANGEROUS GOODS ITEMS -->
+    <div class="card"><h2>3 &nbsp;NATURE AND QUANTITY OF DANGEROUS GOODS</h2><div class="body">
+      <div class="warnbar" style="margin-top:0;">Type the UN number or name &mdash; selecting from the list auto-fills
+        Proper Shipping Name, Class and Packing Group. <b>Take the Packing Inst. number from DGR Section 4.2 (your e-book).</b></div>
+      <div id="items"></div>
+      <button class="btn btn-add" onclick="addItem()">+ Add Item</button>
+    </div></div>
+
+    <!-- HANDLING / SIGNATORY -->
+    <div class="card"><h2>4 &nbsp;HANDLING INFORMATION &amp; SIGNATORY</h2><div class="body">
+      <div class="grid g2">
+        <div><label>Additional Handling Information</label>
+          <textarea id="f_handling" placeholder="e.g. Keep away from heat."></textarea></div>
+        <div><label>24-Hour Emergency Contact (name &amp; phone)</label>
+          <input type="text" id="f_emergency" placeholder="+971 5X XXX XXXX"></div>
+      </div>
+      <div class="grid g3" style="margin-top:10px;">
+        <div><label>Name / Title of Signatory</label><input type="text" id="f_signname" placeholder="Name, Designation"></div>
+        <div><label>Place</label><input type="text" id="f_place" placeholder="Dubai"></div>
+        <div><label>Date</label><input type="text" id="f_date"></div>
+      </div>
+    </div></div>
+
+    <div id="aireviewbox" style="display:none; margin:12px 0; background:#f5eaf8; border:1px solid #c9a0d4; border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.6;"></div>
+
+    <div class="actions">
+      <button class="btn btn-print" onclick="printDGD()">&#128424; PRINT / SAVE AS PDF</button>
+      <button class="btn btn-save" style="background:#7b2d8b;" onclick="aiReview()">&#129302; AI REVIEW DGD</button>
+      <button class="btn btn-save" onclick="saveDraft()">Save Draft</button>
+      <select id="draftsel" style="width:auto; min-width:200px;"></select>
+      <button class="btn btn-load" onclick="loadDraft()">Load</button>
+      <button class="btn btn-del" onclick="deleteDraft()">Delete Draft</button>
+      <button class="btn btn-load" onclick="clearForm()">New / Clear</button>
+    </div>
+    </div><!-- /tab-dgd -->
+
+    <!-- ================= CHECKLIST TAB ================= -->
+    <div class="tab" id="tab-checklist">
+      <div class="card"><h2>IATA 2026 DG CHECKLIST (official format) &mdash; non-radioactive shipment</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">The official IATA 67th Edition acceptance checklist (53 points).
+          AWB, Origin, Destination fill automatically from the DGD; clearly non-applicable rows are pre-ticked <b>N/A</b> &mdash;
+          all other boxes are left blank for the checker to tick by hand. Prints on 2 pages A4.</div>
+        <div class="actions" style="margin:0 0 12px 0;">
+          <button class="btn btn-save" onclick="buildIata()">&#8635; GENERATE IATA CHECKLIST</button>
+          <button class="btn btn-print" onclick="printAlt('iataArea')">&#128424; PRINT IATA CHECKLIST</button>
+        </div>
+        <div id="iataArea" style="background:#fff; border:1px solid var(--line); padding:14px;"></div>
+      </div></div>
+      <div class="card"><h2>JFS QUICK CHECKLIST &mdash; fast internal check from the current DGD</h2><div class="body">
+        <div class="actions" style="margin:0 0 12px 0;">
+          <button class="btn btn-save" onclick="buildChecklist()">&#8635; GENERATE QUICK CHECKLIST</button>
+          <button class="btn btn-print" onclick="printAlt('checklistArea')">&#128424; PRINT QUICK CHECKLIST</button>
+        </div>
+        <div id="checklistArea"></div>
+      </div></div>
+    </div>
+
+    <!-- ================= STICKERS TAB ================= -->
+    <div class="tab" id="tab-stickers">
+      <div class="card"><h2>&#127991; PACKAGE STICKERS &mdash; shipper/consignee address labels</h2><div class="body">
+        <div class="grid g4">
+          <div><label>Total packages</label><input type="text" id="st_count" value="1"></div>
+          <div><label>Include DG info line?</label>
+            <div class="radios">
+              <label><input type="radio" name="st_dg" value="Y" checked> Yes</label>
+              <label><input type="radio" name="st_dg" value="N"> No</label>
+            </div>
+          </div>
+          <div style="grid-column:span 2; align-self:end;">
+            <button class="btn btn-save" onclick="buildStickers()">&#8635; GENERATE STICKERS</button>
+            <button class="btn btn-print" onclick="printAlt('stickerArea')">&#128424; PRINT (2 per A4)</button>
+          </div>
+        </div>
+        <div id="stickerArea" style="margin-top:14px;"></div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">OVERPACK STICKERS &mdash; one full sheet per overpack</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">Shipper/consignee, UN/ID number, Proper Shipping Name, OVERPACK number, total quantity
+          and 24-hr emergency contact &mdash; all pulled from the DGD. Overpack count comes from the DGD tab (Transport Details).</div>
+        <div class="grid g4">
+          <div><label>Overpack ID prefix</label><input type="text" id="op_prefix" value="SC"></div>
+          <div><label>Start number</label><input type="text" id="op_start" value="1"></div>
+          <div><label>Total quantity per overpack (e.g. 295.992 kg G)</label><input type="text" id="op_qty" placeholder="auto from DGD if empty"></div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#b45309;" onclick="buildOpStickers()">&#8635; GENERATE</button>
+            <button class="btn btn-print" onclick="printAlt('opstickerArea')">&#128424; PRINT (1 per A4)</button>
+          </div>
+        </div>
+        <div id="opstickerArea" style="margin-top:14px;"></div>
+      </div></div>
+    </div>
+
+    <!-- ================= DG LABELS TAB ================= -->
+    <div class="tab" id="tab-labels">
+      <div class="card"><h2>&#9888; DG LABEL ADVISOR &mdash; which labels &amp; marks go on the box</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">Advisor reads the items on the DGD tab and lists every label/mark required.
+          Images are <b>samples for reference</b> &mdash; use compliant pre-printed hazard labels (100&times;100 mm) on real packages.</div>
+        <div class="actions" style="margin:0 0 12px 0;">
+          <button class="btn btn-save" onclick="buildLabels()">&#8635; CHECK REQUIRED LABELS</button>
+          <button class="btn btn-print" onclick="printAlt('labelArea')">&#128424; PRINT REFERENCE SHEET</button>
+        </div>
+        <div id="labelArea"></div>
+      </div></div>
+    </div>
+
+    <!-- ================= CUSTOMERS TAB ================= -->
+    <div class="tab" id="tab-customers">
+      <div class="card"><h2>&#128101; CUSTOMER DATABASE &mdash; shipper &amp; consignee master</h2><div class="body">
+        <div class="grid g3">
+          <div><label>Company name (exact spelling!)</label><input type="text" id="cu_name"></div>
+          <div><label>Type</label>
+            <select id="cu_type"><option>SHIPPER</option><option>CONSIGNEE</option><option>BOTH</option></select></div>
+          <div style="align-self:end;"><button class="btn btn-save" onclick="addCustomer()">+ Add / Update</button></div>
+        </div>
+        <div style="margin-top:10px;"><label>Full address (as it must appear on the DGD)</label>
+          <textarea id="cu_addr" placeholder="Company name&#10;Street, City&#10;Country&#10;Tel:"></textarea></div>
+        <div style="margin-top:14px;"><input type="text" id="cu_search" placeholder="Search customers..." oninput="renderCustomers()"></div>
+        <div style="margin-top:8px; overflow:auto;"><table class="dtable" id="cu_table"></table></div>
+      </div></div>
+    </div>
+
+    <!-- ================= ITEM DATABASE TAB ================= -->
+    <div class="tab" id="tab-items">
+      <div class="card"><h2>&#128218; ITEM DATABASE &mdash; built-in + your own items</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">Look up new items in your IATA DGR e-book and add them here &mdash; they will then auto-fill from the DGD tab search. Enter fields exactly as in DGR 4.2.</div>
+        <div class="grid g4">
+          <div><label>UN No. (e.g. UN1234)</label><input type="text" id="it_un"></div>
+          <div style="grid-column:span 2;"><label>Proper Shipping Name</label><input type="text" id="it_psn"></div>
+          <div><label>Class/Div</label><input type="text" id="it_cls"></div>
+        </div>
+        <div class="grid g4" style="margin-top:10px;">
+          <div><label>Sub risk</label><input type="text" id="it_sub"></div>
+          <div><label>Packing Group</label><input type="text" id="it_pg" placeholder="I / II / III / II/III"></div>
+          <div><label>PI PAX (from DGR)</label><input type="text" id="it_pipax"></div>
+          <div><label>PI CAO (from DGR)</label><input type="text" id="it_picao"></div>
+        </div>
+        <div class="grid g2" style="margin-top:10px;">
+          <div><label>Notes / limits (from DGR)</label><input type="text" id="it_note"></div>
+          <div style="align-self:end;"><button class="btn btn-save" onclick="addCustomItem()">+ Add / Update Item</button></div>
+        </div>
+        <div style="margin-top:14px;"><input type="text" id="it_search" placeholder="Search all items (built-in + custom)..." oninput="renderItems()"></div>
+        <div style="margin-top:8px; overflow:auto; max-height:420px;"><table class="dtable" id="it_table"></table></div>
+      </div></div>
+    </div>
+
+    <!-- ================= DOCUMENTS TAB ================= -->
+    <div class="tab" id="tab-docs">
+      <div class="card"><h2>&#128193; SAVED DOCUMENTS &mdash; every printed DGD is stored here</h2><div class="body">
+        <div class="actions" style="margin:0 0 12px 0;">
+          <button class="btn btn-save" onclick="saveDocument(true)">&#128190; SAVE CURRENT DGD NOW</button>
+          <input type="text" id="doc_search" placeholder="Search by AWB / shipper / consignee..." style="width:280px;" oninput="renderDocs()">
+        </div>
+        <div style="overflow:auto;"><table class="dtable" id="doc_table"></table></div>
+      </div></div>
+    </div>
+
+    <!-- ================= SETTINGS TAB ================= -->
+    <div class="tab" id="tab-settings">
+      <div class="card"><h2>&#9881; BACKUP &mdash; export / import all data</h2><div class="body">
+        <p style="font-size:13px; margin-bottom:10px;">Customers, custom items, saved documents, drafts and defaults are all stored in this browser. Take a regular backup and keep it safe:</p>
+        <div class="actions" style="margin:0;">
+          <button class="btn btn-save" onclick="exportAll()">&#11015; EXPORT BACKUP (JSON file)</button>
+          <input type="file" id="importfile" accept=".json" style="font-size:12.5px;">
+          <button class="btn btn-load" onclick="importAll()">&#11014; IMPORT BACKUP</button>
+        </div>
+      </div></div>
+      <div class="card" style="border-left:5px solid #7b2d8b;"><h2 style="background:#f5eaf8; color:#7b2d8b;">&#129302; AI &mdash; CLAUDE API (optional, for maximum accuracy)</h2><div class="body">
+        <p style="font-size:13px; line-height:1.55;">
+          With an API key, the EXTRACT buttons (AWB, Packing List, MSDS) use Claude AI &mdash; any document format is understood,
+          and an <b>AI REVIEW</b> button checks the whole DGD for mistakes. Cost is tiny (~AED 0.01&ndash;0.05 per document).<br>
+          Setup: <b>console.anthropic.com</b> &rarr; sign up &rarr; add credit &rarr; API Keys &rarr; Create Key &rarr; paste below.</p>
+        <div class="grid g3" style="margin-top:10px;">
+          <div style="grid-column:span 2;"><label>Anthropic API key</label>
+            <input type="text" id="ai_key" placeholder="sk-ant-..." autocomplete="off"></div>
+          <div><label>Model</label>
+            <select id="ai_model">
+              <option value="claude-haiku-4-5-20251001">Haiku (fast &amp; cheapest)</option>
+              <option value="claude-sonnet-5">Sonnet (most accurate)</option>
+            </select></div>
+        </div>
+        <div class="actions" style="margin:10px 0 0 0;">
+          <button class="btn btn-save" style="background:#7b2d8b;" onclick="aiSave()">&#128190; SAVE</button>
+          <button class="btn btn-load" onclick="aiTest()">&#9889; TEST CONNECTION</button>
+          <span id="ai_status" style="font-size:12.5px; font-weight:bold; color:#7a4b00;"></span>
+        </div>
+        <p style="font-size:11px; color:#777; margin-top:8px;">The key is stored only in this browser (not included in backup exports). AI output is a draft &mdash; always verify against the IATA DGR.</p>
+      </div></div>
+      <div class="card" style="border-left:5px solid #3ec9a7;"><h2 style="background:#e6f7f2; color:#1c7a63;">&#9729; DGDOC CLOUD &mdash; automatic sync <span style="font-weight:normal; font-size:11px;">(Powered by sAiyd.ai)</span></h2><div class="body">
+        <p style="font-size:13px; line-height:1.55;">
+          Your customers, items, documents, drafts and airline notes are <b>synced automatically</b> to your
+          DGDOC account every time you save. Log in on any computer and your data follows you.</p>
+        <div class="actions" style="margin:10px 0 0 0;">
+          <button class="btn btn-save" onclick="cloudPushAll(true)">&#11014; SYNC NOW (push all)</button>
+          <button class="btn btn-load" onclick="cloudPullAll(true)">&#11015; RELOAD FROM CLOUD</button>
+          <span id="cloud_status" style="font-size:12.5px; font-weight:bold; color:#1d6b34;"></span>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ================= DGD SHEET (preview + print) ================= -->
+  <div class="previewwrap">
+    <div class="plabel">LIVE PREVIEW &mdash; this is exactly what prints (A4)</div>
+    <div class="sheet" id="sheet">
+      <div class="hatch l"></div><div class="hatch r"></div>
+
+      <div class="s-h">SHIPPER'S DECLARATION FOR DANGEROUS GOODS</div>
+
+      <table class="s-table">
+        <tr>
+          <td style="width:55%;" rowspan="2">
+            <div class="cap">Shipper</div>
+            <div class="val big" id="p_shipper"></div>
+          </td>
+          <td>
+            <div class="cap">Air Waybill No.</div><div class="val" id="p_awb"></div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <div class="cap">Page <span id="p_page"></span> Pages</div>
+            <div class="cap" style="margin-top:2mm;">Shipper's Reference Number <span style="font-weight:normal;">(optional)</span></div>
+            <div class="val" id="p_ref"></div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <div class="cap">Consignee</div>
+            <div class="val big" id="p_consignee"></div>
+          </td>
+          <td class="center" style="vertical-align:middle;">
+            <div style="font-size:8pt; font-weight:bold;">Two completed and signed copies of this<br>Declaration must be handed to the operator.</div>
+          </td>
+        </tr>
+      </table>
+
+      <table class="s-table" style="margin-top:1.5mm;">
+        <tr>
+          <td style="width:55%;">
+            <div class="cap">TRANSPORT DETAILS</div>
+            <div style="font-size:8pt; margin-top:1mm;">This shipment is within the<br>limitations prescribed for:<br><span style="font-size:7pt;">(delete non-applicable)</span></div>
+            <table class="s-table" style="margin-top:1mm;"><tr>
+              <td class="center" style="width:50%;"><span id="p_paxbox" class="cap">PASSENGER<br>AND CARGO<br>AIRCRAFT</span></td>
+              <td class="center"><span id="p_caobox" class="cap">CARGO<br>AIRCRAFT<br>ONLY</span></td>
+            </tr></table>
+          </td>
+          <td>
+            <div class="cap">Airport of Departure</div><div class="val" id="p_dep"></div>
+            <div class="cap" style="margin-top:2mm;">Airport of Destination</div><div class="val" id="p_dest"></div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <div class="cap">Shipment type: <span style="font-weight:normal; font-size:7pt;">(delete non-applicable)</span></div>
+            <div style="font-size:10pt; font-weight:bold; margin-top:1mm;">
+              <span id="p_nonradio">NON-RADIOACTIVE</span> &nbsp;/&nbsp; <span id="p_radio">RADIOACTIVE</span>
+            </div>
+          </td>
+          <td class="warnbox" style="vertical-align:middle;">
+            WARNING<br>
+            <span style="font-weight:normal;">Failure to comply in all respects with the applicable
+            Dangerous Goods Regulations may be in breach of the applicable law, subject to legal penalties.</span>
+          </td>
+        </tr>
+      </table>
+
+      <div class="cap" style="margin-top:2mm; font-size:8pt;">NATURE AND QUANTITY OF DANGEROUS GOODS</div>
+      <table class="s-table goods" style="margin-top:1mm;">
+        <tr>
+          <th style="width:12%;">UN or<br>ID No.</th>
+          <th style="width:34%;">Proper Shipping Name</th>
+          <th style="width:10%;">Class or Division<br>(Subsidiary Hazard)</th>
+          <th style="width:8%;">Packing<br>Group</th>
+          <th style="width:20%;">Quantity and<br>type of packing</th>
+          <th style="width:8%;">Packing<br>Inst.</th>
+          <th style="width:8%;">Authorization</th>
+        </tr>
+        <tbody id="p_goods"></tbody>
+      </table>
+
+      <table class="s-table" style="margin-top:1.5mm;">
+        <tr><td>
+          <div class="cap">Additional Handling Information</div>
+          <div class="val" id="p_handling" style="min-height:10mm; font-weight:bold;"></div>
+        </td></tr>
+        <tr>
+          <td>
+            <table class="s-table noborder" style="border:none;"><tr>
+              <td style="width:60%; border:none; padding-left:0;">
+                <div class="decl">I hereby declare that the contents of this consignment are fully and
+                accurately described above by the proper shipping name, and are classified, packaged,
+                marked and labelled/placarded, and are in all respects in proper condition for transport
+                according to applicable international and national governmental regulations.
+                <b>I declare that all of the applicable air transport requirements have been met.</b></div>
+              </td>
+              <td style="border:none;">
+                <div class="cap">Name/Title of Signatory</div><div class="val" id="p_signname"></div>
+                <div class="cap" style="margin-top:1.5mm;">Place and Date</div><div class="val" id="p_placedate"></div>
+                <div class="cap" style="margin-top:1.5mm;">Signature</div>
+                <div class="sigline"></div>
+                <div style="font-size:6.5pt;">(see warning above)</div>
+              </td>
+            </tr></table>
+          </td>
+        </tr>
+      </table>
+      <div class="toolfoot">Prepared with DGDOC (Powered by sAiyd.ai) &mdash; verify against current IATA DGR before signing</div>
+    </div>
+  </div>
+
+  <div id="printzone"></div>
+</div>
+
+<script>
+const BASE_UNDB = window.SAIYD_UNDB || [];
+function store(k){ try{ return JSON.parse(localStorage.getItem(k)||"[]"); }catch(e){ return []; } }
+function setStore(k,v){ localStorage.setItem(k, JSON.stringify(v)); if(typeof cloudPushDebounced === "function") cloudPushDebounced(k); }
+let UNDB = [];
+function rebuildUNDB(){ UNDB = BASE_UNDB.concat(store("jfs_custom_items")); }
+rebuildUNDB();
+
+let itemCount = 0;
+
+function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function addItem(data){
+  itemCount++;
+  const id = "it" + Date.now() + "_" + itemCount;
+  const div = document.createElement("div");
+  div.className = "item"; div.id = id;
+  div.innerHTML = `
+    <div class="ihead"><span class="t">ITEM</span>
+      <span style="display:flex; gap:12px; align-items:center;">
+        <label style="font-size:11.5px; font-weight:bold; color:#b45309; display:flex; gap:5px; align-items:center; text-transform:none; margin:0; cursor:pointer;">
+          <input type="checkbox" class="i_op" onchange="opItemChanged()"> In OVERPACK</label>
+        <button class="btn btn-del" onclick="removeItem('${id}')">Remove</button>
+      </span></div>
+    <div class="grid g3">
+      <div class="unwrap">
+        <label>UN No. / Search name</label>
+        <input type="text" class="i_un" placeholder="Type UN number or name..." autocomplete="off">
+        <div class="sugg"></div>
+        <div class="notehint"></div>
+      </div>
+      <div style="grid-column:span 2;"><label>Proper Shipping Name (+ technical name if required)</label>
+        <input type="text" class="i_psn"></div>
+    </div>
+    <div class="grid g4" style="margin-top:10px;">
+      <div><label>Class / Division</label><input type="text" class="i_cls"></div>
+      <div><label>Subsidiary Hazard</label><input type="text" class="i_sub"></div>
+      <div><label>Packing Group</label>
+        <select class="i_pg"><option value=""></option><option>I</option><option>II</option><option>III</option></select></div>
+      <div><label>Packing Inst. (from DGR 4.2)</label><input type="text" class="i_pi" placeholder="e.g. 353"></div>
+    </div>
+    <div class="grid g2" style="margin-top:10px;">
+      <div><label>Quantity and type of packing</label>
+        <input type="text" class="i_qty" placeholder="e.g. 1 Fibreboard box x 4.5 L"></div>
+      <div><label>Authorization (if any)</label><input type="text" class="i_auth" placeholder="e.g. Ltd Qty / Special Provision"></div>
+    </div>`;
+  document.getElementById("items").appendChild(div);
+
+  const unInput = div.querySelector(".i_un");
+  const sugg = div.querySelector(".sugg");
+  unInput.addEventListener("input", () => {
+    const q = unInput.value.trim().toLowerCase();
+    if(q.length < 2){ sugg.style.display="none"; return; }
+    const hits = UNDB.filter(r => r.un.toLowerCase().includes(q) || r.psn.toLowerCase().includes(q)).slice(0,12);
+    if(!hits.length){ sugg.style.display="none"; return; }
+    sugg.innerHTML = hits.map((r,i) =>
+      `<div data-un="${esc(r.un)}" data-i="${UNDB.indexOf(r)}"><b>${esc(r.un)}</b> — ${esc(r.psn)} <span style="color:#666;">(Class ${esc(r.cls)}${r.pg ? ", PG "+esc(r.pg):""})</span></div>`).join("");
+    sugg.style.display = "block";
+    sugg.querySelectorAll("div").forEach(d => d.onclick = () => {
+      const r = UNDB[+d.dataset.i];
+      unInput.value = r.un;
+      div.querySelector(".i_psn").value = r.psn;
+      div.querySelector(".i_cls").value = r.cls;
+      div.querySelector(".i_sub").value = r.sub ? "(" + r.sub + ")" : "";
+      const pgSel = div.querySelector(".i_pg");
+      pgSel.value = (r.pg && !r.pg.includes("/")) ? r.pg : "";
+      const hint = div.querySelector(".notehint");
+      let msgs = [];
+      if(r.pg && r.pg.includes("/")) msgs.push("PG options: " + r.pg + " — select correct one.");
+      if(r.note) msgs.push(r.note);
+      if(r.pipax || r.picao) msgs.push("Typical PI — PAX: " + (r.pipax||"—") + " | CAO: " + (r.picao||"—") + " (VERIFY in DGR 4.2)");
+      hint.textContent = msgs.join("  |  ");
+      // prefill PI if unambiguous for the selected aircraft type
+      const pax = rv("f_pax");
+      const piRef = (pax === "CAO") ? r.picao : r.pipax;
+      if(piRef && /^\d{3}[A-Za-z]?$/.test(piRef) && !div.querySelector(".i_pi").value){
+        div.querySelector(".i_pi").value = piRef;
+      }
+      if(piRef === "FORBIDDEN"){
+        msgs.push(pax === "CAO" ? "FORBIDDEN on cargo aircraft!" : "FORBIDDEN on passenger aircraft — switch to CAO?");
+        hint.textContent = msgs.join("  |  ");
+      }
+      sugg.style.display = "none";
+      suggestHandling();
+      refresh();
+    });
+  });
+  unInput.addEventListener("blur", () => setTimeout(()=> sugg.style.display="none", 250));
+  div.querySelectorAll("input,select").forEach(el => el.addEventListener("input", refresh));
+
+  if(data){
+    div.querySelector(".i_un").value = data.un||"";
+    div.querySelector(".i_psn").value = data.psn||"";
+    div.querySelector(".i_cls").value = data.cls||"";
+    div.querySelector(".i_sub").value = data.sub||"";
+    div.querySelector(".i_pg").value = data.pg||"";
+    div.querySelector(".i_pi").value = data.pi||"";
+    div.querySelector(".i_qty").value = data.qty||"";
+    div.querySelector(".i_auth").value = data.auth||"";
+    div.querySelector(".i_op").checked = !!data.op;
+  }
+  refresh();
+}
+
+function removeItem(id){ document.getElementById(id).remove(); refresh(); }
+
+function opItemChanged(){
+  // ticking any per-item overpack switches the shipment to "Overpack used: Yes"
+  if([...document.querySelectorAll(".i_op")].some(c => c.checked))
+    document.querySelector('input[name=f_overpack][value=Y]').checked = true;
+  refresh();
+}
+function overpackActive(s){ return s.overpack === "Y" || (s.items||[]).some(r => r.op); }
+
+function getItems(){
+  return [...document.querySelectorAll(".item")].map(d => ({
+    un:d.querySelector(".i_un").value, psn:d.querySelector(".i_psn").value,
+    cls:d.querySelector(".i_cls").value, sub:d.querySelector(".i_sub").value,
+    pg:d.querySelector(".i_pg").value, pi:d.querySelector(".i_pi").value,
+    qty:d.querySelector(".i_qty").value, auth:d.querySelector(".i_auth").value,
+    op:d.querySelector(".i_op").checked
+  }));
+}
+
+function v(id){ return document.getElementById(id).value; }
+function rv(name){ const el = document.querySelector(`input[name=${name}]:checked`); return el ? el.value : ""; }
+
+function refresh(){
+  document.getElementById("p_shipper").textContent = v("f_shipper");
+  document.getElementById("p_consignee").textContent = v("f_consignee");
+  document.getElementById("p_awb").textContent = v("f_awb");
+  document.getElementById("p_page").textContent = v("f_page") ? v("f_page").replace(/of/i,"of") : "1 of 1";
+  document.getElementById("p_ref").textContent = v("f_ref");
+  document.getElementById("p_dep").textContent = v("f_dep");
+  document.getElementById("p_dest").textContent = v("f_dest");
+  // handling info + emergency phone printed together inside the box (always visible)
+  const handTxt = v("f_handling");
+  const emgTxt = v("f_emergency");
+  document.getElementById("p_handling").textContent =
+    handTxt + (emgTxt ? (handTxt ? "\n" : "") + "24 HRS EMERGENCY CONTACT NO: " + emgTxt : "");
+  document.getElementById("p_signname").textContent = v("f_signname");
+  document.getElementById("p_placedate").textContent = [v("f_place"), v("f_date")].filter(Boolean).join(", ");
+
+  const pax = rv("f_pax");
+  document.getElementById("p_paxbox").className = "cap" + (pax==="CAO" ? " strike":"");
+  document.getElementById("p_caobox").className = "cap" + (pax==="PAX" ? " strike":"");
+  const rad = rv("f_radio");
+  document.getElementById("p_nonradio").className = (rad==="RADIO") ? "strike":"";
+  document.getElementById("p_radio").className = (rad==="NONRADIO") ? "strike":"";
+
+  const rows = getItems();
+  const body = document.getElementById("p_goods");
+  const min = 4;
+  const n = parseInt(v("f_opcount")) || 1;
+  const oq = v("f_opqty");
+  const opRowHtml = `<tr><td></td><td colspan="3"><b>OVERPACK USED${n > 1 ? " x " + n : ""}</b></td>
+      <td>${n > 1 && oq ? esc(oq) : ""}</td><td></td><td></td></tr>`;
+  let html = "", used = 0, anyOp = false;
+  rows.forEach((r, idx) => {
+    html += `<tr>
+    <td>${esc(r.un)}</td><td>${esc(r.psn)}</td>
+    <td class="center">${esc(r.cls)}${r.sub ? " " + esc(r.sub):""}</td>
+    <td class="center">${esc(r.pg)}</td><td>${esc(r.qty)}</td>
+    <td class="center">${esc(r.pi)}</td><td class="center">${esc(r.auth)}</td></tr>`;
+    used++;
+    if(r.op){
+      anyOp = true;
+      const nextInSameOp = rows[idx+1] && rows[idx+1].op;   // group consecutive overpack items
+      if(!nextInSameOp){ html += opRowHtml; used++; }
+    }
+  });
+  if(!anyOp && rv("f_overpack") === "Y"){ html += opRowHtml; used++; }
+  for(let i=used; i<min; i++) html += `<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+  body.innerHTML = html;
+  if(typeof updateAirline === "function") updateAirline();
+}
+
+/* ---------- drafts (localStorage) ---------- */
+function snapshot(){
+  return { shipper:v("f_shipper"), consignee:v("f_consignee"), awb:v("f_awb"), page:v("f_page"),
+    ref:v("f_ref"), dep:v("f_dep"), dest:v("f_dest"), pax:rv("f_pax"), radio:rv("f_radio"),
+    handling:v("f_handling"), emergency:v("f_emergency"), signname:v("f_signname"),
+    place:v("f_place"), date:v("f_date"), items:getItems(),
+    overpack:rv("f_overpack"), opcount:v("f_opcount"), opqty:v("f_opqty"), pl:PL };
+}
+function applySnapshot(s){
+  document.getElementById("f_shipper").value = s.shipper||"";
+  document.getElementById("f_consignee").value = s.consignee||"";
+  document.getElementById("f_awb").value = s.awb||"";
+  document.getElementById("f_page").value = s.page||"1 of 1";
+  document.getElementById("f_ref").value = s.ref||"";
+  document.getElementById("f_dep").value = s.dep||"";
+  document.getElementById("f_dest").value = s.dest||"";
+  document.querySelector(`input[name=f_pax][value=${s.pax||"PAX"}]`).checked = true;
+  document.querySelector(`input[name=f_radio][value=${s.radio||"NONRADIO"}]`).checked = true;
+  document.getElementById("f_handling").value = s.handling||"";
+  document.getElementById("f_emergency").value = s.emergency||"";
+  document.getElementById("f_signname").value = s.signname||"";
+  document.getElementById("f_place").value = s.place||"";
+  document.getElementById("f_date").value = s.date||"";
+  document.querySelector(`input[name=f_overpack][value=${s.overpack||"N"}]`).checked = true;
+  document.getElementById("f_opcount").value = s.opcount||"1";
+  document.getElementById("f_opqty").value = s.opqty||"";
+  if(s.pl && s.pl.name){ PL = s.pl;
+    const el = document.getElementById("plstatus");
+    el.innerHTML = "&#10004; Packing list attached: <u>" + esc(PL.name) + "</u> (" + esc(PL.when||"") + ") — DGD printing unlocked";
+    el.style.color = "#1d6b34";
+  } else plClear();
+  document.getElementById("items").innerHTML = "";
+  (s.items && s.items.length ? s.items : [null]).forEach(it => addItem(it));
+  refresh();
+}
+function draftsAll(){ try{ return JSON.parse(localStorage.getItem("jfs_dgd_drafts")||"{}"); }catch(e){ return {}; } }
+function refreshDraftList(){
+  const sel = document.getElementById("draftsel"); const all = draftsAll();
+  sel.innerHTML = Object.keys(all).length ? Object.keys(all).map(k=>`<option>${esc(k)}</option>`).join("") : "<option value=''>— no saved drafts —</option>";
+}
+function saveDraft(){
+  const name = prompt("Draft name (e.g. AWB or customer):", v("f_awb") || "Draft " + new Date().toLocaleDateString());
+  if(!name) return;
+  const all = draftsAll(); all[name] = snapshot();
+  localStorage.setItem("jfs_dgd_drafts", JSON.stringify(all));
+  if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_dgd_drafts");
+  refreshDraftList(); document.getElementById("draftsel").value = name;
+  alert("Saved: " + name);
+}
+function loadDraft(){
+  const name = document.getElementById("draftsel").value; const all = draftsAll();
+  if(name && all[name]) applySnapshot(all[name]);
+}
+function deleteDraft(){
+  const name = document.getElementById("draftsel").value; if(!name) return;
+  if(!confirm("Delete draft '" + name + "'?")) return;
+  const all = draftsAll(); delete all[name];
+  localStorage.setItem("jfs_dgd_drafts", JSON.stringify(all));
+  if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_dgd_drafts"); refreshDraftList();
+}
+function clearForm(){
+  if(!confirm("Clear the whole form?")) return;
+  applySnapshot({items:[null]});
+}
+
+/* ---------- handling info auto-suggest ---------- */
+const HANDLING_MAP = [
+ [/^1\./,  "Handle with care — explosives. Keep away from heat and sources of ignition."],
+ [/^2\.1/, "Flammable gas — keep away from heat, sparks and open flame."],
+ [/^2\.2/, "Compressed gas — handle with care, keep valve protection in place."],
+ [/^2\.3/, "Toxic gas — handle with extreme care."],
+ [/^3/,    "Keep away from heat, sparks and open flame."],
+ [/^4\./,  "Flammable solid — keep dry and away from ignition sources."],
+ [/^5\./,  "Oxidizer — keep away from combustible materials."],
+ [/^6\.1/, "Toxic — do not load with foodstuffs."],
+ [/^6\.2/, "Infectious substance — handle per IATA PI. Notify consignee on arrival."],
+ [/^8/,    "Corrosive — keep upright. Handle with care."],
+ [/^9/,    "Handle with care."]
+];
+function suggestHandling(){
+  const box = document.getElementById("f_handling");
+  if(box.value.trim()) return;               // never overwrite user's own text
+  const classes = getItems().map(r => (r.cls||"").trim()).filter(Boolean);
+  const psns = getItems().map(r => (r.psn||"").toLowerCase()).join(" ");
+  const msgs = new Set();
+  classes.forEach(c => { for(const [re, t] of HANDLING_MAP){ if(re.test(c)){ msgs.add(t); break; } } });
+  if(/lithium/.test(psns)) msgs.add("Lithium batteries — do not load or transport package if damaged.");
+  if(/dry ice|carbon dioxide, solid/.test(psns)) msgs.add("Dry ice — ventilate. Do not stow in unventilated areas.");
+  if(rv("f_pax") === "CAO") msgs.add("CARGO AIRCRAFT ONLY.");
+  if(msgs.size){ box.value = [...msgs].join(" "); refresh(); }
+}
+
+/* ---------- remember defaults (shipper / signatory / place / emergency) ---------- */
+const DEF_FIELDS = ["f_shipper","f_signname","f_place","f_emergency"];
+function saveDefaults(){
+  const d = {}; DEF_FIELDS.forEach(id => d[id] = document.getElementById(id).value);
+  localStorage.setItem("jfs_dgd_defaults", JSON.stringify(d));
+  if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_dgd_defaults");
+}
+function loadDefaults(){
+  try{
+    const d = JSON.parse(localStorage.getItem("jfs_dgd_defaults")||"{}");
+    DEF_FIELDS.forEach(id => { const el = document.getElementById(id); if(!el.value && d[id]) el.value = d[id]; });
+  }catch(e){}
+}
+
+/* ---------- MSDS DG checker ---------- */
+let msdsItem = null;
+function msdsBox(color, bg, title, lines){
+  return `<div style="border:1px solid ${color}; background:${bg}; border-radius:8px; padding:12px 14px;">
+    <div style="font-weight:bold; font-size:15px; color:${color}; margin-bottom:6px;">${title}</div>
+    <div style="font-size:12.5px; line-height:1.6;">${lines.join("<br>")}</div></div>`;
+}
+function msdsCheck(){
+  const raw = document.getElementById("f_msds").value;
+  const out = document.getElementById("msdsresult");
+  const addBtn = document.getElementById("msdsAddBtn");
+  msdsItem = null; addBtn.style.display = "none";
+  if(!raw.trim()){ alert("Paste the MSDS text first."); return; }
+  const t = raw.replace(/ /g," ");
+  const facts = [];
+
+  // 1) explicit "not regulated"
+  const notReg = /not\s+(classified\s+as\s+|considered\s+|a\s+)?dangerous\s+goods|not\s+regulated|non-?hazardous\s+for\s+transport|not\s+subject\s+to\s+(the\s+)?(IATA|ICAO|ADR|IMDG|transport)|not\s+dangerous\s+(goods\s+)?(for|in)\s+transport/i.test(t);
+
+  // 2) UN number (from section 14 context preferred)
+  let un = null;
+  const unM = t.match(/\bUN[\s\-–.:]*(?:number|no\.?|#)?[\s:.\-–]*(\d{4})\b/i);
+  if(unM && unM[1] !== "0000") un = "UN" + unM[1];
+  const id8000 = /\bID\s?8000\b/i.test(t);
+
+  // 3) flash point (convert F->C)
+  let fp = null;
+  const fpM = t.match(/flash\s*point[^0-9\-+]*([-+]?\d+(?:[.,]\d+)?)\s*(?:°|deg)?\s*([CF])\b/i);
+  if(fpM){
+    fp = parseFloat(fpM[1].replace(",","."));
+    if(fpM[2].toUpperCase() === "F") fp = (fp - 32) * 5/9;
+    facts.push("Flash point: <b>" + fp.toFixed(1) + " °C</b>" + (fpM[2].toUpperCase()==="F" ? " (converted from °F)" : ""));
+  }
+
+  // 4) class / PG / PSN mentions
+  const clsM = t.match(/(?:transport\s+)?hazard\s+class(?:\(es\))?[\s:]*([1-9](?:\.\d)?)/i) || t.match(/\bclass[\s:]*([1-9](?:\.\d)?)\b/i);
+  const pgM = t.match(/packing\s+group[\s:]*\b(III|II|I)\b/i);
+  const psnM = t.match(/proper\s+shipping\s+name[\s:]*([^\n\r]+)/i);
+  if(psnM) facts.push("Proper Shipping Name: <b>" + esc(psnM[1].trim()) + "</b>");
+  if(clsM) facts.push("Hazard class: <b>" + clsM[1] + "</b>");
+  if(pgM) facts.push("Packing group: <b>" + pgM[1].toUpperCase() + "</b>");
+  const alcM = t.match(/(ethanol|ethyl\s+alcohol|alcohol)[^%\n]{0,60}?(\d{1,3})\s*%/i);
+  if(alcM) facts.push("Alcohol content: <b>" + alcM[2] + "%</b>");
+
+  // ---- verdict ----
+  if(un || id8000){
+    const unNo = id8000 && !un ? "ID8000" : un;
+    const db = UNDB.find(r => r.un === unNo);
+    let pg = pgM ? pgM[1].toUpperCase() : (fp !== null ? (fp < 23 ? "II" : (fp <= 60 ? "III" : "")) : "");
+    msdsItem = {
+      un: unNo, psn: db ? db.psn : (psnM ? psnM[1].trim() : ""),
+      cls: db ? db.cls : (clsM ? clsM[1] : ""),
+      sub: db && db.sub ? "("+db.sub+")" : "", pg: pg, pi: "", qty: "", auth: ""
+    };
+    const lines = ["MSDS Section 14 shows <b>" + unNo + "</b>" + (db ? " — " + esc(db.psn) : ""), ...facts];
+    if(db && (db.pipax || db.picao)) lines.push("Typical PI — PAX: <b>" + (db.pipax||"—") + "</b> | CAO: <b>" + (db.picao||"—") + "</b> (VERIFY in DGR 4.2)");
+    if(db && db.note) lines.push(esc(db.note));
+    lines.push("<i>Verify classification against the current IATA DGR before shipping.</i>");
+    out.innerHTML = msdsBox("#a40000", "#fdecec", "⚠ DANGEROUS GOODS — DGD required", lines);
+    addBtn.style.display = "inline-block";
+    return;
+  }
+  if(notReg && (fp === null || fp > 60)){
+    out.innerHTML = msdsBox("#1d6b34", "#e7f0e9", "✓ NON-DG (per this MSDS)",
+      ["The MSDS states the product is <b>not regulated / not dangerous goods</b> for transport.", ...facts,
+       "No DGD needed. Keep the MSDS with the shipment.",
+       "<i>Note: if it is an alcohol-based perfume, confirm the flash point in Section 9 — FP ≤ 60 °C would make it Class 3 regardless of wording.</i>"]);
+    return;
+  }
+  if(fp !== null && fp <= 60){
+    const pg = fp < 23 ? "II" : "III";
+    msdsItem = { un:"UN1266", psn:"Perfumery products with flammable solvents", cls:"3", sub:"", pg:pg, pi:"", qty:"", auth:"" };
+    out.innerHTML = msdsBox("#a40000", "#fdecec", "⚠ LIKELY DANGEROUS GOODS — Class 3 flammable liquid",
+      ["Flash point <b>" + fp.toFixed(1) + " °C ≤ 60 °C</b> → Class 3, Packing Group <b>" + pg + "</b>.",
+       "For perfume this is usually <b>UN1266 Perfumery products</b> (retail-packed alternative: ID8000).", ...facts,
+       "<i>Confirm in MSDS Section 14 / IATA DGR before shipping.</i>"]);
+    addBtn.style.display = "inline-block";
+    return;
+  }
+  if(notReg || (fp !== null && fp > 60)){
+    out.innerHTML = msdsBox("#1d6b34", "#e7f0e9", "✓ PROBABLY NON-DG",
+      [...facts, "Flash point above 60 °C and no UN number found — not a Class 3 flammable liquid.",
+       "Check the MSDS also for other hazards (corrosive, toxic, aerosol, env. hazard).",
+       "<i>Final confirmation: MSDS Section 14 + IATA DGR.</i>"]);
+    return;
+  }
+  out.innerHTML = msdsBox("#b45309", "#fff4e5", "? CANNOT DETERMINE",
+    ["Could not find a UN number, flash point, or 'not regulated' statement in the pasted text.",
+     "Paste <b>Section 9 (flash point)</b> and <b>Section 14 (transport information)</b> of the MSDS.",
+     "Or ask DGDOC support for help."]);
+}
+function msdsAddItem(){
+  if(!msdsItem) return;
+  addItem(msdsItem);
+  const itemsEls = document.querySelectorAll(".item");
+  const lastEl = itemsEls[itemsEls.length-1];
+  const db = UNDB.find(r => r.un === msdsItem.un);
+  if(db){
+    let msgs = [];
+    if(db.note) msgs.push(db.note);
+    if(db.pipax || db.picao) msgs.push("Typical PI — PAX: " + (db.pipax||"—") + " | CAO: " + (db.picao||"—") + " (VERIFY in DGR 4.2)");
+    lastEl.querySelector(".notehint").textContent = msgs.join("  |  ");
+    const pax = rv("f_pax");
+    const piRef = (pax === "CAO") ? db.picao : db.pipax;
+    if(piRef && /^[Y0-9]\d{2,3}[A-Za-z]?$/.test(piRef)) lastEl.querySelector(".i_pi").value = piRef;
+  }
+  suggestHandling();
+  refresh();
+  if(lastEl.scrollIntoView) lastEl.scrollIntoView({behavior:"smooth", block:"center"});
+}
+
+/* ---------- AUTO FILL engine ---------- */
+const LABELS = {
+  shipper:   /^(shipper|shpr|sender|exporter|from company)\b/i,
+  consignee: /^(consignee|cnee|receiver|importer|to company|deliver to)\b/i,
+  awb:       /^(awb|air ?waybill|mawb|hawb)\b/i,
+  dep:       /^(airport of departure|departure|origin|from|pol|dep)\b/i,
+  dest:      /^(airport of destination|destination|to|pod|dest)\b/i,
+  handling:  /^(handling|additional handling|remarks|notes)\b/i,
+  emergency: /^(emergency|24.?h)/i,
+  sign:      /^(signatory|signed by|prepared by|name of signatory)\b/i
+};
+const KNOWN_LABEL = new RegExp(Object.values(LABELS).map(r=>r.source).join("|"), "i");
+
+function autoFill(){
+  const raw = document.getElementById("f_auto").value;
+  if(!raw.trim()){ alert("Paste the AWB / shipment details first."); return; }
+  const found = [];
+  const lines = raw.split(/\r?\n/).map(l=>l.trim());
+
+  // helper: value after label (same line after :, or following lines until blank/next label)
+  function grab(key, multiline){
+    for(let i=0;i<lines.length;i++){
+      if(LABELS[key].test(lines[i])){
+        let same = lines[i].replace(LABELS[key],"").replace(/^[\s:.\-–=]+/,"").trim();
+        if(!multiline) {
+          if(same) return same;
+          return (lines[i+1] && !KNOWN_LABEL.test(lines[i+1])) ? lines[i+1] : "";
+        }
+        let parts = same ? [same] : [];
+        for(let j=i+1;j<lines.length;j++){
+          if(!lines[j] || KNOWN_LABEL.test(lines[j])) break;
+          parts.push(lines[j]);
+          if(parts.length>=4) break;
+        }
+        return parts.join("\n");
+      }
+    }
+    return "";
+  }
+
+  const shipper = grab("shipper", true);
+  if(shipper){ document.getElementById("f_shipper").value = shipper; found.push("Shipper"); }
+  const consignee = grab("consignee", true);
+  if(consignee){ document.getElementById("f_consignee").value = consignee; found.push("Consignee"); }
+
+  // AWB: labeled, else pattern 3digits-8digits anywhere
+  let awb = grab("awb");
+  let m = (awb||"").match(/(\d{3})[- ]?(\d{8})/) || raw.match(/\b(\d{3})[- ](\d{8})\b/);
+  if(m){ document.getElementById("f_awb").value = m[1]+"-"+m[2]; found.push("AWB"); }
+
+  const dep = grab("dep"); if(dep){ document.getElementById("f_dep").value = dep.toUpperCase(); found.push("Departure"); }
+  const dest = grab("dest"); if(dest){ document.getElementById("f_dest").value = dest.toUpperCase(); found.push("Destination"); }
+  const hand = grab("handling", true); if(hand){ document.getElementById("f_handling").value = hand; found.push("Handling info"); }
+  const emg = grab("emergency");
+  if(emg){ document.getElementById("f_emergency").value = emg; found.push("Emergency contact"); }
+  else { const ph = raw.match(/(\+?\d[\d\s\-()]{8,16}\d)/); if(ph && /emergency/i.test(raw)) { document.getElementById("f_emergency").value = ph[1].trim(); found.push("Emergency contact"); } }
+  const sg = grab("sign"); if(sg){ document.getElementById("f_signname").value = sg; found.push("Signatory"); }
+
+  // CAO / PAX
+  if(/\bCAO\b|CARGO AIRCRAFT ONLY/i.test(raw)){
+    document.querySelector('input[name=f_pax][value=CAO]').checked = true; found.push("CAO");
+  }
+  if(/RADIOACTIVE/i.test(raw) && !/NON[- ]?RADIOACTIVE/i.test(raw)){
+    document.querySelector('input[name=f_radio][value=RADIO]').checked = true; found.push("Radioactive");
+  }
+
+  // Items: every UN number found (+ ID8000 consumer commodity)
+  const unMatches = [...raw.matchAll(/\bUN[\s.\-:]{0,3}(\d{4})\b/gi)];
+  if(/\bID[\s.\-:]{0,3}8000\b/i.test(raw)) unMatches.push({1:"ID8000_SPECIAL"});
+  if(unMatches.length){
+    document.getElementById("items").innerHTML = "";
+    const seen = new Set();
+    unMatches.forEach(mm => {
+      const un = mm[1] === "ID8000_SPECIAL" ? "ID8000" : "UN" + mm[1];
+      if(seen.has(un)) return; seen.add(un);
+      // context = rest of the line where this UN appears
+      const linePat = mm[1] === "ID8000_SPECIAL" ? "ID[\\s.\\-:]{0,3}8000" : "UN[\\s.\\-:]{0,3}" + mm[1];
+      const lre = new RegExp(linePat, "i");
+      const matchLines = lines.filter(l => lre.test(l));           // ALL pallet lines with this UN
+      const line = matchLines[0] || "";
+      const db = UNDB.find(r => r.un === un);
+      const pg = (line.match(/\bPG\s*(III|II|I)\b/i)||[])[1] || "";
+      const pi = (line.match(/\bPI\s*(\d{3}[A-Za-z]?)\b/i)||[])[1] || "";
+      const qtys = matchLines.map(l =>
+        (l.match(/(\d+(?:[.,]\d+)?\s*(x\s*)?[\w ]*?(box(es)?|drum(s)?|jerrican(s)?|cylinder(s)?|package(s)?|pkg(s)?|carton(s)?|case(s)?|pallet(s)?)[^,;]*)/i)||[])[1]
+      ).filter(Boolean);
+      const qty = [...new Set(qtys)].join("; ");                    // same UN, many pallets → one line, merged qty
+      addItem({
+        un: un,
+        psn: db ? db.psn : "",
+        cls: db ? db.cls : ((line.match(/class\s*([0-9.]+)/i)||[])[1] || ""),
+        sub: db && db.sub ? "("+db.sub+")" : "",
+        pg: pg ? pg.toUpperCase() : (db && db.pg && !db.pg.includes("/") ? db.pg : ""),
+        pi: pi, qty: qty.trim(), auth: ""
+      });
+      const itemsEls = document.querySelectorAll(".item");
+      const lastEl = itemsEls[itemsEls.length-1];
+      if(db){
+        let msgs = [];
+        if(db.note) msgs.push(db.note);
+        if(db.pipax || db.picao) msgs.push("Typical PI — PAX: " + (db.pipax||"—") + " | CAO: " + (db.picao||"—") + " (VERIFY in DGR 4.2)");
+        lastEl.querySelector(".notehint").textContent = msgs.join("  |  ");
+        if(!pi){
+          const pax = rv("f_pax");
+          const piRef = (pax === "CAO") ? db.picao : db.pipax;
+          if(piRef && /^\d{3}[A-Za-z]?$/.test(piRef)) lastEl.querySelector(".i_pi").value = piRef;
+        }
+      }
+    });
+    found.push(seen.size + " DG item(s)");
+  }
+
+  suggestHandling();
+  refresh();
+  document.getElementById("autoresult").textContent = found.length
+    ? "✓ Auto-filled: " + found.join(", ") + " — please check every field before printing."
+    : "Nothing recognized — check the text format or fill manually.";
+}
+
+/* ================================================================
+   SOFTWARE FEATURES
+   ================================================================ */
+
+/* ---------- tabs ---------- */
+function showTab(name){
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("on"));
+  document.querySelectorAll(".nav button").forEach(b => b.classList.remove("on"));
+  document.getElementById("tab-"+name).classList.add("on");
+  document.getElementById("nav-"+name).classList.add("on");
+  document.querySelector(".previewwrap").style.display = (name === "dgd") ? "" : "none";
+  if(name === "customers") renderCustomers();
+  if(name === "items") renderItems();
+  if(name === "docs") renderDocs();
+  if(name === "checklist"){ buildIata(); buildChecklist(); }
+  if(name === "labels") buildLabels();
+  if(name === "stickers"){ buildStickers(); buildOpStickers(); }
+}
+
+/* ---------- alt print (checklist / stickers / labels) ---------- */
+function printAlt(srcId){
+  const src = document.getElementById(srcId);
+  if(!src || !src.innerHTML.trim()){ alert("Generate first."); return; }
+  document.getElementById("printzone").innerHTML = src.innerHTML;
+  document.body.classList.add("pm-alt");
+  window.print();
+}
+window.addEventListener("afterprint", () => {
+  document.body.classList.remove("pm-alt");
+  document.getElementById("printzone").innerHTML = "";
+});
+function printDGD(){
+  if(!PL.name){
+    alert("PACKING LIST REQUIRED!\n\nAttach the packing list (PDF or text) in the blue PACKING LIST section before printing the DGD.");
+    const plEl = document.getElementById("plfile"); if(plEl.scrollIntoView) plEl.scrollIntoView({behavior:"smooth", block:"center"});
+    return;
+  }
+  saveDocument(false); window.print();
+}
+
+/* ---------- Claude AI integration ---------- */
+function aiKey(){ return localStorage.getItem("jfs_ai_key") || ""; }
+function aiModel(){ return localStorage.getItem("jfs_ai_model") || "claude-haiku-4-5-20251001"; }
+function aiSave(){
+  const k = document.getElementById("ai_key").value.trim();
+  localStorage.setItem("jfs_ai_key", k);
+  localStorage.setItem("jfs_ai_model", document.getElementById("ai_model").value);
+  document.getElementById("ai_status").textContent = k ? "Saved — click TEST CONNECTION." : "Key removed — AI off.";
+}
+async function aiCall(system, userText, maxTokens){
+  const key = aiKey();
+  if(!key) throw new Error("NO_KEY");
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      model: aiModel(), max_tokens: maxTokens || 2000,
+      system: system,
+      messages: [{role: "user", content: userText}]
+    })
+  });
+  if(!resp.ok){
+    const err = await resp.text();
+    throw new Error("API " + resp.status + ": " + err.slice(0, 200));
+  }
+  const data = await resp.json();
+  return data.content.map(c => c.text || "").join("");
+}
+function aiJson(text){
+  const m = text.match(/\{[\s\S]*\}/);
+  if(!m) throw new Error("AI returned no JSON");
+  return JSON.parse(m[0]);
+}
+async function aiTest(){
+  const st = document.getElementById("ai_status");
+  aiSave();
+  st.textContent = "Testing..."; st.style.color = "#7a4b00";
+  try{
+    const r = await aiCall("Reply with exactly: OK", "ping", 10);
+    st.textContent = r.includes("OK") ? "✓ Connected — AI is ON for all extract buttons" : "Connected (reply: " + r.slice(0,30) + ")";
+    st.style.color = "#1d6b34";
+  }catch(e){
+    st.textContent = "Failed: " + (e.message === "NO_KEY" ? "no key entered" : e.message);
+    st.style.color = "#a40000";
+  }
+}
+const AI_EXTRACT_SYSTEM = `You are a dangerous-goods documentation assistant for JFS Logistics (air freight).
+Extract shipment data from the user's document (AWB, booking, packing list or e-mail).
+Respond with ONLY a JSON object, no markdown, using exactly these keys (empty string if not found):
+{"awb":"xxx-xxxxxxxx","shipper":"multi-line name+address+tel","consignee":"multi-line name+address+tel",
+"dep":"AIRPORT (CODE)","dest":"AIRPORT (CODE)","cao":true/false,"radioactive":true/false,
+"emergency":"24h phone","handling":"handling notes",
+"items":[{"un":"UN1266 or ID8000","psn":"proper shipping name","cls":"class e.g. 3","sub":"subsidiary risk or empty",
+"pg":"I/II/III or empty","pi":"packing instruction number if stated","qty":"e.g. 4 fibreboard boxes x 20 L","auth":""}]}
+Rules: only include items that are dangerous goods with a UN/ID number stated or clearly identifiable.
+If the same UN/ID number appears on multiple pallets or packages, output it ONCE and combine all pallet quantities in "qty" separated by "; ".
+Never invent UN numbers, PI numbers or quantities that are not supported by the document.`;
+async function aiExtractShipment(text, label){
+  const raw = await aiCall(AI_EXTRACT_SYSTEM, "Document (" + label + "):\n\n" + text.slice(0, 12000), 2500);
+  const j = aiJson(raw);
+  // apply
+  if(j.shipper) document.getElementById("f_shipper").value = j.shipper;
+  if(j.consignee) document.getElementById("f_consignee").value = j.consignee;
+  if(j.awb) document.getElementById("f_awb").value = j.awb;
+  if(j.dep) document.getElementById("f_dep").value = j.dep.toUpperCase();
+  if(j.dest) document.getElementById("f_dest").value = j.dest.toUpperCase();
+  if(j.emergency) document.getElementById("f_emergency").value = j.emergency;
+  if(j.handling && !v("f_handling")) document.getElementById("f_handling").value = j.handling;
+  if(j.cao === true) document.querySelector('input[name=f_pax][value=CAO]').checked = true;
+  if(j.radioactive === true) document.querySelector('input[name=f_radio][value=RADIO]').checked = true;
+  if(Array.isArray(j.items) && j.items.length){
+    document.getElementById("items").innerHTML = "";
+    j.items.forEach(it => {
+      const un = (it.un||"").toUpperCase().replace(/\s/g,"");
+      const db = UNDB.find(r => r.un === un);
+      addItem({
+        un: un, psn: it.psn || (db ? db.psn : ""),
+        cls: it.cls || (db ? db.cls : ""),
+        sub: it.sub ? "(" + it.sub.replace(/[()]/g,"") + ")" : (db && db.sub ? "(" + db.sub + ")" : ""),
+        pg: (it.pg||"").toUpperCase(), pi: it.pi || "", qty: it.qty || "", auth: it.auth || ""
+      });
+      if(db){
+        const els = document.querySelectorAll(".item");
+        const lastEl = els[els.length-1];
+        let msgs = [];
+        if(db.note) msgs.push(db.note);
+        if(db.pipax || db.picao) msgs.push("Typical PI — PAX: " + (db.pipax||"—") + " | CAO: " + (db.picao||"—") + " (VERIFY in DGR 4.2)");
+        lastEl.querySelector(".notehint").textContent = msgs.join("  |  ");
+      }
+    });
+  }
+  suggestHandling(); refresh();
+  return j;
+}
+async function aiAutoFill(){
+  const raw = document.getElementById("f_auto").value;
+  if(!raw.trim()){ alert("Paste the AWB/booking text first (or attach the PDF)."); return; }
+  if(!aiKey()){ alert("No API key — add it in SETTINGS → AI (CLAUDE API). Using standard extraction instead."); autoFill(); return; }
+  const el = document.getElementById("autoresult");
+  el.textContent = "🤖 AI extracting...";
+  try{
+    const j = await aiExtractShipment(raw, "AWB / booking details");
+    el.textContent = "🤖 AI extracted: " + [j.awb && "AWB", j.shipper && "Shipper", j.consignee && "Consignee",
+      j.dep && "Route", (j.items||[]).length + " item(s)"].filter(Boolean).join(", ") + " — please check every field.";
+  }catch(e){
+    el.textContent = "AI failed (" + e.message.slice(0,80) + ") — used standard extraction instead.";
+    autoFill();
+  }
+}
+async function aiReview(){
+  const box = document.getElementById("aireviewbox");
+  if(!aiKey()){ alert("No API key — add it in SETTINGS → AI (CLAUDE API)."); return; }
+  const s = snapshot();
+  box.style.display = "block";
+  box.innerHTML = "🤖 AI reviewing the DGD...";
+  const sys = `You are an IATA DGR documentation checker. Review this Shipper's Declaration data for errors and omissions:
+wrong class/PSN/PG combinations, missing technical names for n.o.s. entries, PAX/CAO conflicts (e.g. UN3480/UN3090 on PAX),
+missing packing instruction, quantity format problems, missing emergency phone (mandatory for USA), missing signatory,
+overpack wording, and anything an airline acceptance check would reject.
+Respond with ONLY JSON: {"ok":true/false,"issues":[{"level":"ERROR|WARNING","text":"..."}]}. Max 10 issues, be specific and short.
+End every review knowing the final authority is the current IATA DGR; do not invent limits you are not sure of.`;
+  try{
+    const raw = await aiCall(sys, JSON.stringify(s), 1500);
+    const j = aiJson(raw);
+    if(j.ok && (!j.issues || !j.issues.length)){
+      box.innerHTML = "<b style='color:#1d6b34;'>🤖 AI REVIEW: ✓ No issues found.</b> <span style='font-size:11px;'>Still verify PI & limits in the DGR before signing.</span>";
+    } else {
+      box.innerHTML = "<b style='color:#a40000;'>🤖 AI REVIEW — " + (j.issues||[]).length + " issue(s):</b><br>" +
+        (j.issues||[]).map(i => "<span style='font-weight:bold; color:" + (i.level === "ERROR" ? "#a40000" : "#b45309") + ";'>" +
+          esc(i.level) + ":</span> " + esc(i.text)).join("<br>") +
+        "<br><span style='font-size:11px; color:#555;'>AI review is advisory — final check against the IATA DGR by certified staff.</span>";
+    }
+  }catch(e){ box.innerHTML = "AI review failed: " + esc(e.message.slice(0,120)); }
+}
+async function aiMsdsCheck(){
+  const raw = document.getElementById("f_msds").value;
+  if(!raw.trim()){ alert("Paste the MSDS text first."); return; }
+  if(!aiKey()){ alert("No API key — add it in SETTINGS → AI (CLAUDE API). Using standard check instead."); msdsCheck(); return; }
+  const out = document.getElementById("msdsresult");
+  out.innerHTML = "🤖 AI analysing MSDS...";
+  const sys = `You are a dangerous-goods classifier for air transport (IATA DGR). Analyse the MSDS/SDS text.
+Respond ONLY JSON: {"verdict":"DG|NONDG|UNKNOWN","un":"UNxxxx or ID8000 or empty","psn":"","cls":"","sub":"","pg":"",
+"flashpoint_c":number or null,"reason":"one or two sentences"}.
+Use Section 14 if present; else classify from properties (flash point <=60C => Class 3). Never invent a UN number not supported by the data.`;
+  try{
+    const j = aiJson(await aiCall(sys, raw.slice(0, 10000), 800));
+    if(j.verdict === "DG"){
+      const db = UNDB.find(r => r.un === (j.un||"").toUpperCase().replace(/\s/g,""));
+      msdsItem = { un:(j.un||"").toUpperCase().replace(/\s/g,""), psn:j.psn || (db ? db.psn : ""),
+        cls:j.cls || (db ? db.cls : ""), sub:j.sub ? "("+j.sub+")" : "", pg:(j.pg||"").toUpperCase(), pi:"", qty:"", auth:"" };
+      const lines = ["🤖 " + esc(j.reason||"")];
+      if(db && (db.pipax || db.picao)) lines.push("Typical PI — PAX: <b>" + (db.pipax||"—") + "</b> | CAO: <b>" + (db.picao||"—") + "</b> (VERIFY in DGR 4.2)");
+      lines.push("<i>Verify against the current IATA DGR before shipping.</i>");
+      out.innerHTML = msdsBox("#a40000", "#fdecec", "⚠ DANGEROUS GOODS — " + esc(j.un||"") + " " + esc(j.psn||""), lines);
+      document.getElementById("msdsAddBtn").style.display = "inline-block";
+    } else if(j.verdict === "NONDG"){
+      out.innerHTML = msdsBox("#1d6b34", "#e7f0e9", "✓ NON-DG (AI assessment)",
+        ["🤖 " + esc(j.reason||""), "<i>Keep the MSDS with the shipment. Verify Section 14 yourself too.</i>"]);
+    } else {
+      out.innerHTML = msdsBox("#b45309", "#fff4e5", "? AI could not determine", ["🤖 " + esc(j.reason||""), "Paste Sections 9 and 14 of the MSDS."]);
+    }
+  }catch(e){ out.innerHTML = msdsBox("#b45309", "#fff4e5", "AI failed — used standard check", [esc(e.message.slice(0,100))]); msdsCheck(); }
+}
+
+/* ---------- packing list gate ---------- */
+let PL = {name:"", when:""};
+function plSet(name){
+  PL = {name, when: new Date().toLocaleString("en-GB")};
+  const el = document.getElementById("plstatus");
+  el.innerHTML = "&#10004; Packing list attached: <u>" + esc(name) + "</u> (" + PL.when + ") — DGD printing unlocked";
+  el.style.color = "#1d6b34";
+}
+function plClear(){
+  PL = {name:"", when:""};
+  const el = document.getElementById("plstatus");
+  el.innerHTML = "&#10008; No packing list attached — DGD printing is LOCKED";
+  el.style.color = "#a40000";
+}
+function plUNs(text){
+  const s = new Set();
+  [...text.matchAll(/\bUN[\s.\-:]{0,3}(\d{4})\b/gi)].forEach(m => s.add("UN" + m[1]));
+  if(/\bID[\s.\-:]{0,3}8000\b/i.test(text)) s.add("ID8000");
+  return [...s];
+}
+function plCrossCheck(text){
+  // 1. AWB mismatch
+  const m = text.match(/\b(\d{3})[- ](\d{8})\b/);
+  const formAwb = v("f_awb").replace(/\D/g, "");
+  if(m && formAwb.length >= 11 && (m[1] + m[2]) !== formAwb){
+    if(!confirm("⚠ WRONG PACKING LIST?\n\nAWB in the packing list: " + m[1] + "-" + m[2] +
+      "\nAWB on this DGD: " + v("f_awb") + "\n\nThey do NOT match. Attach anyway?")) return false;
+  }
+  // 2. UN numbers mismatch
+  const pls = plUNs(text);
+  const formUNs = getItems().map(r => (r.un||"").toUpperCase().replace(/\s/g,"")).filter(Boolean);
+  if(formUNs.length && pls.length && !pls.some(u => formUNs.includes(u))){
+    if(!confirm("⚠ WRONG PACKING LIST?\n\nUN numbers in the packing list: " + pls.join(", ") +
+      "\nUN numbers on this DGD: " + formUNs.join(", ") +
+      "\n\nThey do NOT match. Attach anyway?")) return false;
+  }
+  // 3. no UN numbers at all
+  if(!pls.length){
+    if(!confirm("⚠ No UN/ID numbers were found in this packing list.\n\nIs this the correct packing list for a DG shipment? Attach anyway?")) return false;
+  }
+  // 4. consignee name mismatch (first line of consignee box)
+  const cn = (v("f_consignee").split("\n")[0]||"").trim();
+  if(cn.length > 5 && text.length > 40){
+    const firstWord = cn.split(/\s+/)[0];
+    if(firstWord.length > 3 && !new RegExp(firstWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(text)){
+      if(!confirm("⚠ CHECK: consignee \"" + cn + "\" was not found in the packing list text.\n\nCorrect packing list? Attach anyway?")) return false;
+    }
+  }
+  return true;
+}
+/* PL extraction touches ITEMS ONLY — never AWB, shipper, consignee, route */
+function mergeItem(it){
+  const un = (it.un||"").toUpperCase().replace(/\s/g,"");
+  if(!un) return;
+  const els = [...document.querySelectorAll(".item")];
+  const existing = els.find(d => d.querySelector(".i_un").value.toUpperCase().replace(/\s/g,"") === un);
+  if(existing){
+    const q = existing.querySelector(".i_qty");
+    if(it.qty && !q.value) q.value = it.qty;
+    else if(it.qty && q.value && !q.value.includes(it.qty)) q.value += "; " + it.qty;   // same UN, extra pallet → merge
+    return;
+  }
+  // remove a single empty starter row
+  if(els.length === 1 && !els[0].querySelector(".i_un").value) els[0].remove();
+  const db = UNDB.find(r => r.un === un);
+  addItem({
+    un, psn: it.psn || (db ? db.psn : ""), cls: it.cls || (db ? db.cls : ""),
+    sub: it.sub || (db && db.sub ? "(" + db.sub + ")" : ""),
+    pg: (it.pg||"").toUpperCase() || (db && db.pg && !db.pg.includes("/") ? db.pg : ""),
+    pi: it.pi || "", qty: it.qty || "", auth: it.auth || ""
+  });
+  if(db){
+    const items = document.querySelectorAll(".item");
+    const lastEl = items[items.length-1];
+    let msgs = [];
+    if(db.note) msgs.push(db.note);
+    if(db.pipax || db.picao) msgs.push("Typical PI — PAX: " + (db.pipax||"—") + " | CAO: " + (db.picao||"—") + " (VERIFY in DGR 4.2)");
+    lastEl.querySelector(".notehint").textContent = msgs.join("  |  ");
+  }
+}
+function extractItemsOnly(text){
+  const lines = text.split(/\r?\n/).map(l => l.trim());
+  const uns = plUNs(text);
+  uns.forEach(un => {
+    const pat = un === "ID8000" ? "ID[\\s.\\-:]{0,3}8000" : "UN[\\s.\\-:]{0,3}" + un.slice(2);
+    const re = new RegExp(pat, "i");
+    const matchLines = lines.filter(l => re.test(l));
+    // combine quantities from every pallet line with the same UN
+    const qtys = matchLines.map(l =>
+      (l.match(/(\d+(?:[.,]\d+)?\s*(x\s*)?[\w ]*?(box(es)?|drum(s)?|jerrican(s)?|cylinder(s)?|package(s)?|pkg(s)?|carton(s)?|case(s)?|pallet(s)?|kg\s*G?|L)\b[^,;]*)/i)||[])[1]
+    ).filter(Boolean);
+    const line = matchLines[0] || "";
+    mergeItem({
+      un,
+      pg: (line.match(/\bPG\s*(III|II|I)\b/i)||[])[1] || "",
+      pi: (line.match(/\bPI\s*(\d{3}[A-Za-z]?)\b/i)||[])[1] || "",
+      qty: [...new Set(qtys)].join("; ")
+    });
+  });
+  suggestHandling(); refresh();
+  return uns.length;
+}
+async function aiExtractItemsOnly(text){
+  const sys = `You are a dangerous-goods assistant. From the packing list, extract ONLY the dangerous goods items.
+Respond ONLY JSON: {"items":[{"un":"UN1266 or ID8000","psn":"","cls":"","sub":"","pg":"","pi":"","qty":"e.g. 4 fibreboard boxes x 20 L"}]}.
+If the same UN/ID number appears on multiple pallets or packages, output it ONCE and combine all pallet quantities in "qty" separated by "; ".
+Never invent UN numbers. Do not extract shipper, consignee or AWB.`;
+  const j = aiJson(await aiCall(sys, text.slice(0, 12000), 1500));
+  const seen = new Set();
+  (j.items||[]).forEach(it => {
+    const un = (it.un||"").toUpperCase().replace(/\s/g,"");
+    if(!un || seen.has(un)) return; seen.add(un);
+    mergeItem(it);
+  });
+  suggestHandling(); refresh();
+  return seen.size;
+}
+function plExtractItems(text){
+  if(aiKey()){
+    aiExtractItemsOnly(text)
+      .then(n => alert("🤖 AI extracted " + n + " DG item(s) from the packing list (items only — AWB/addresses untouched). Check every field."))
+      .catch(() => extractItemsOnly(text));
+    return;
+  }
+  extractItemsOnly(text);
+}
+function plFromText(){
+  const t = document.getElementById("f_pl").value;
+  if(!t.trim()){ alert("Paste the packing list text first."); return; }
+  if(!plCrossCheck(t)){ plClear(); alert("Packing list NOT attached — please attach the correct one."); return; }
+  plSet("Pasted packing list");
+  if(plUNs(t).length) plExtractItems(t);
+  refresh();
+}
+async function readPlPdf(){
+  const f = document.getElementById("plfile").files[0];
+  if(!f){ alert("Choose the packing list PDF first."); return; }
+  try{
+    await loadPdfjs();
+    const buf = await f.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({data: buf}).promise;
+    let text = "";
+    for(let p = 1; p <= Math.min(pdf.numPages, 5); p++){
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      let lastY = null, line = [];
+      const lines = [];
+      tc.items.forEach(it => {
+        const y = Math.round(it.transform[5]);
+        if(lastY !== null && Math.abs(y - lastY) > 4){ lines.push(line.join(" ")); line = []; }
+        line.push(it.str); lastY = y;
+      });
+      lines.push(line.join(" "));
+      text += lines.join("\n") + "\n";
+    }
+    if(text.trim().length < 30){
+      if(!confirm("⚠ This PDF has no readable text (scanned image) — the contents cannot be verified or extracted.\n\nAttach anyway?")) return;
+      plSet(f.name); refresh(); return;
+    }
+    if(!plCrossCheck(text)){ alert("Packing list NOT attached — please attach the correct one."); return; }
+    plSet(f.name);
+    document.getElementById("f_pl").value = text;
+    if(plUNs(text).length) plExtractItems(text);
+    refresh();
+  }catch(e){ alert("PDF read failed (" + e.message + "). Paste the text instead."); }
+}
+
+/* ---------- airline auto-detect (AWB prefix) ---------- */
+const AIRLINE_DB = {
+ "176": ["EK", "EMIRATES / Emirates SkyCargo", "DG pre-booking required in Dubai. UN3480/UN3090: Section IA/IB only; UN3480 at max 30% SoC. Class 1: generally only 1.4S accepted."],
+ "157": ["QR", "QATAR AIRWAYS CARGO", "DG pre-alert/booking required. Check QR variations for Class 1 and infectious substances."],
+ "607": ["EY", "ETIHAD CARGO", "DG booking confirmation required. Check EY variations for lithium batteries."],
+ "020": ["LH", "LUFTHANSA CARGO", "Check LH variations; e-DGD accepted at many stations."],
+ "125": ["BA", "BRITISH AIRWAYS / IAG CARGO", "Check BA variations; some UK stations restrict certain classes."],
+ "057": ["AF", "AIR FRANCE CARGO", "Check AF variations."],
+ "074": ["KL", "KLM CARGO", "Check KL variations."],
+ "235": ["TK", "TURKISH CARGO", "Check TK variations."],
+ "618": ["SQ", "SINGAPORE AIRLINES CARGO", "Strict DG acceptance checks at SIN. Check SQ variations."],
+ "160": ["CX", "CATHAY CARGO", "Check CX variations; HKG has additional lithium restrictions."],
+ "098": ["AI", "AIR INDIA CARGO", "Check AI variations; MSDS copy usually requested in India."],
+ "406": ["5X", "UPS AIRLINES", "DG contract/agreement required with UPS. ID8000 accepted per US rules."],
+ "023": ["FX", "FEDEX EXPRESS", "FedEx DG agreement required. Follows 49 CFR + IATA; ID8000 common."],
+ "205": ["Aramex", "ARAMEX (co-load)", "DG via approved co-load agreements only — confirm with Aramex DG desk."],
+ "580": ["RU", "ABC AIR / ATRAN", "Check operator variations."],
+ "988": ["QY", "DHL AVIATION / EAT", "DHL DG approval required; check DHL operator variations."]
+};
+let currentPrefix = "";
+function updateAirline(){
+  const awb = v("f_awb").replace(/\D/g, "");
+  const prefix = awb.slice(0, 3);
+  const panel = document.getElementById("airlinepanel");
+  if(prefix.length < 3){ panel.style.display = "none"; currentPrefix = ""; return; }
+  const rec = AIRLINE_DB[prefix];
+  const userNotes = JSON.parse(localStorage.getItem("jfs_airline_notes") || "{}");
+  panel.style.display = "block";
+  if(prefix !== currentPrefix){
+    currentPrefix = prefix;
+    document.getElementById("f_airnotes").value = userNotes[prefix] || "";
+  }
+  document.getElementById("airlinename").innerHTML = rec
+    ? "&#9992; AWB " + prefix + " = <b>" + esc(rec[1]) + " (" + esc(rec[0]) + ")</b>"
+    : "&#9992; AWB prefix " + prefix + " — airline not in the built-in list. Add your notes below.";
+  document.getElementById("airlinebuiltins").innerHTML = (rec
+    ? "<b>Common DG notes:</b> " + esc(rec[2]) + "<br>" : "")
+    + "<span style='color:#a40000; font-weight:bold;'>Always verify this operator's variations in DGR Section 2.8 before shipping.</span>";
+}
+function saveAirNotes(){
+  if(!currentPrefix){ alert("Enter the AWB number first."); return; }
+  const notes = JSON.parse(localStorage.getItem("jfs_airline_notes") || "{}");
+  notes[currentPrefix] = document.getElementById("f_airnotes").value;
+  localStorage.setItem("jfs_airline_notes", JSON.stringify(notes));
+  if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_airline_notes");
+  alert("Notes saved for AWB prefix " + currentPrefix + " — they will appear automatically for every " + currentPrefix + " shipment.");
+}
+
+/* ---------- AWB PDF extraction (pdf.js) ---------- */
+let pdfjsReady = null;
+function loadPdfjs(){
+  if(pdfjsReady) return pdfjsReady;
+  pdfjsReady = new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      res();
+    };
+    s.onerror = () => rej(new Error("no internet"));
+    document.head.appendChild(s);
+  });
+  return pdfjsReady;
+}
+async function readAwbPdf(){
+  const f = document.getElementById("awbfile").files[0];
+  const msg = document.getElementById("awbpdfmsg");
+  if(!f){ alert("Choose the AWB PDF file first."); return; }
+  msg.textContent = "Reading PDF...";
+  try{
+    await loadPdfjs();
+    const buf = await f.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({data: buf}).promise;
+    let text = "";
+    for(let p = 1; p <= Math.min(pdf.numPages, 5); p++){
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      let lastY = null, line = [];
+      const lines = [];
+      tc.items.forEach(it => {
+        const y = Math.round(it.transform[5]);
+        if(lastY !== null && Math.abs(y - lastY) > 4){ lines.push(line.join(" ")); line = []; }
+        line.push(it.str); lastY = y;
+      });
+      lines.push(line.join(" "));
+      text += lines.join("\n") + "\n";
+    }
+    if(text.trim().length < 30){
+      msg.textContent = "No text found in the PDF (it is a scanned image) — paste the text manually instead.";
+      return;
+    }
+    document.getElementById("f_auto").value = text;
+    msg.textContent = "Text extracted — running auto fill...";
+    autoFill();
+    msg.textContent = "Done — fields filled from PDF. Check every field!";
+  }catch(e){
+    msg.textContent = "PDF read failed (" + e.message + "). Try copy-pasting the text instead.";
+  }
+}
+
+/* ---------- customers ---------- */
+function customers(){ return store("jfs_customers"); }
+function addCustomer(){
+  const name = document.getElementById("cu_name").value.trim();
+  const addr = document.getElementById("cu_addr").value.trim();
+  const type = document.getElementById("cu_type").value;
+  if(!name || !addr){ alert("Name and address are required."); return; }
+  const list = customers();
+  const i = list.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
+  if(i >= 0) list[i] = {name, addr, type}; else list.push({name, addr, type});
+  setStore("jfs_customers", list);
+  document.getElementById("cu_name").value = ""; document.getElementById("cu_addr").value = "";
+  renderCustomers(); fillPickers();
+}
+function delCustomer(i){
+  const list = customers();
+  if(!confirm("Delete '" + list[i].name + "'?")) return;
+  list.splice(i,1); setStore("jfs_customers", list); renderCustomers(); fillPickers();
+}
+function editCustomer(i){
+  const c = customers()[i];
+  document.getElementById("cu_name").value = c.name;
+  document.getElementById("cu_addr").value = c.addr;
+  document.getElementById("cu_type").value = c.type;
+}
+function renderCustomers(){
+  const q = (document.getElementById("cu_search").value||"").toLowerCase();
+  const list = customers();
+  let h = "<tr><th>NAME</th><th>ADDRESS</th><th>TYPE</th><th></th></tr>";
+  list.forEach((c,i) => {
+    if(q && !(c.name+" "+c.addr).toLowerCase().includes(q)) return;
+    h += `<tr><td><b>${esc(c.name)}</b></td><td style="white-space:pre-wrap;">${esc(c.addr)}</td><td>${esc(c.type)}</td>
+      <td><button class="smallbtn sb-blue" onclick="editCustomer(${i})">Edit</button>
+      <button class="smallbtn sb-red" onclick="delCustomer(${i})">Del</button></td></tr>`;
+  });
+  document.getElementById("cu_table").innerHTML = h;
+}
+function fillPickers(){
+  const list = customers();
+  ["shipper","consignee"].forEach(role => {
+    const sel = document.getElementById("pick_" + role);
+    const want = role === "shipper" ? ["SHIPPER","BOTH"] : ["CONSIGNEE","BOTH"];
+    sel.innerHTML = `<option value="">— pick saved ${role} —</option>` +
+      list.map((c,i) => want.includes(c.type) ? `<option value="${i}">${esc(c.name)}</option>` : "").join("");
+  });
+}
+function pickCustomer(role){
+  const sel = document.getElementById("pick_" + role);
+  if(sel.value === "") return;
+  const c = customers()[+sel.value];
+  document.getElementById("f_" + role).value = c.addr;
+  document.getElementById("spell_" + role).style.display = "none";
+  refresh();
+}
+function saveAsCustomer(role){
+  const addr = document.getElementById("f_" + role).value.trim();
+  if(!addr){ alert("Fill the " + role + " box first."); return; }
+  const name = addr.split("\n")[0].trim();
+  const list = customers();
+  const type = role === "shipper" ? "SHIPPER" : "CONSIGNEE";
+  const i = list.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
+  if(i >= 0){ list[i].addr = addr; } else list.push({name, addr, type});
+  setStore("jfs_customers", list);
+  fillPickers(); alert("Saved: " + name);
+}
+
+/* ---------- spelling mistake detection ---------- */
+function lev(a, b){
+  a = a.toLowerCase(); b = b.toLowerCase();
+  const m = a.length, n = b.length;
+  if(!m || !n) return Math.max(m, n);
+  let prev = Array.from({length: n+1}, (_, j) => j);
+  for(let i = 1; i <= m; i++){
+    const cur = [i];
+    for(let j = 1; j <= n; j++)
+      cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+function spellCheck(role){
+  const box = document.getElementById("f_" + role);
+  const warn = document.getElementById("spell_" + role);
+  const first = (box.value.split("\n")[0]||"").trim();
+  warn.style.display = "none";
+  if(first.length < 4) return;
+  let best = null, bestD = 99;
+  customers().forEach(c => {
+    const d = lev(first, c.name);
+    if(d < bestD){ bestD = d; best = c; }
+  });
+  if(best && bestD > 0 && bestD <= 3){
+    warn.innerHTML = `&#9888; <b>Spelling check:</b> "${esc(first)}" &mdash; saved customer is
+      "<b>${esc(best.name)}</b>". Possible spelling mistake?
+      <button class="smallbtn sb-green" onclick="useCustomerName('${role}', ${customers().indexOf(best)})">Use saved version</button>`;
+    warn.style.display = "block";
+  }
+}
+function useCustomerName(role, i){
+  document.getElementById("f_" + role).value = customers()[i].addr;
+  document.getElementById("spell_" + role).style.display = "none";
+  refresh();
+}
+
+/* ---------- custom items ---------- */
+function addCustomItem(){
+  const un = document.getElementById("it_un").value.trim().toUpperCase().replace(/\s/g,"");
+  const psn = document.getElementById("it_psn").value.trim();
+  if(!/^(UN|ID)\d{4}$/.test(un)){ alert("UN number format: UN1234"); return; }
+  if(!psn){ alert("Proper Shipping Name is required."); return; }
+  const item = {
+    un, psn,
+    cls: document.getElementById("it_cls").value.trim(),
+    sub: document.getElementById("it_sub").value.trim(),
+    pg: document.getElementById("it_pg").value.trim().toUpperCase(),
+    labels: "", note: document.getElementById("it_note").value.trim() + " [ADDED BY USER - from DGR]",
+    pipax: document.getElementById("it_pipax").value.trim(),
+    picao: document.getElementById("it_picao").value.trim()
+  };
+  const list = store("jfs_custom_items");
+  const i = list.findIndex(r => r.un === un && r.psn.toLowerCase() === psn.toLowerCase());
+  if(i >= 0) list[i] = item; else list.push(item);
+  setStore("jfs_custom_items", list);
+  rebuildUNDB(); renderItems();
+  ["it_un","it_psn","it_cls","it_sub","it_pg","it_pipax","it_picao","it_note"].forEach(id => document.getElementById(id).value = "");
+  alert("Item saved: " + un + " — it is now searchable on the DGD tab.");
+}
+function delCustomItem(un, psn){
+  const list = store("jfs_custom_items");
+  const i = list.findIndex(r => r.un === un && r.psn === psn);
+  if(i < 0) return;
+  if(!confirm("Delete " + un + "?")) return;
+  list.splice(i,1); setStore("jfs_custom_items", list); rebuildUNDB(); renderItems();
+}
+function renderItems(){
+  const q = (document.getElementById("it_search").value||"").toLowerCase();
+  const custom = store("jfs_custom_items");
+  let h = "<tr><th>UN</th><th>PROPER SHIPPING NAME</th><th>CLASS</th><th>PG</th><th>PI PAX</th><th>PI CAO</th><th>SOURCE</th><th></th></tr>";
+  UNDB.forEach(r => {
+    if(q && !(r.un+" "+r.psn).toLowerCase().includes(q)) return;
+    const isCustom = custom.some(c => c.un === r.un && c.psn === r.psn);
+    h += `<tr><td><b>${esc(r.un)}</b></td><td>${esc(r.psn)}</td><td>${esc(r.cls)}${r.sub?" ("+esc(r.sub)+")":""}</td>
+      <td>${esc(r.pg||"")}</td><td>${esc(r.pipax||"")}</td><td>${esc(r.picao||"")}</td>
+      <td>${isCustom ? "<b style='color:#1d6b34;'>MY ITEM</b>" : "built-in"}</td>
+      <td>${isCustom ? `<button class="smallbtn sb-red" onclick="delCustomItem('${esc(r.un)}',\`${esc(r.psn)}\`)">Del</button>` : ""}</td></tr>`;
+  });
+  document.getElementById("it_table").innerHTML = h;
+}
+
+/* ---------- documents ---------- */
+function saveDocument(tellUser){
+  const s = snapshot();
+  if(!s.awb && !s.consignee){ if(tellUser) alert("Form is empty."); return; }
+  const list = store("jfs_documents");
+  const id = (s.awb || "NOAWB") + "|" + new Date().toISOString();
+  list.unshift({ id, when: new Date().toLocaleString("en-GB"), awb: s.awb,
+    shipper: (s.shipper||"").split("\n")[0], consignee: (s.consignee||"").split("\n")[0], snap: s });
+  if(list.length > 300) list.pop();
+  setStore("jfs_documents", list);
+  if(tellUser){ alert("Document saved."); renderDocs(); }
+}
+function renderDocs(){
+  const q = (document.getElementById("doc_search").value||"").toLowerCase();
+  const list = store("jfs_documents");
+  let h = "<tr><th>DATE</th><th>AWB</th><th>SHIPPER</th><th>CONSIGNEE</th><th></th></tr>";
+  list.forEach((d,i) => {
+    if(q && !(d.awb+" "+d.shipper+" "+d.consignee).toLowerCase().includes(q)) return;
+    h += `<tr><td>${esc(d.when)}</td><td><b>${esc(d.awb||"—")}</b></td><td>${esc(d.shipper||"")}</td><td>${esc(d.consignee||"")}</td>
+      <td><button class="smallbtn sb-green" onclick="loadDoc(${i})">Open</button>
+      <button class="smallbtn sb-red" onclick="delDoc(${i})">Del</button></td></tr>`;
+  });
+  document.getElementById("doc_table").innerHTML = h;
+}
+function loadDoc(i){ applySnapshot(store("jfs_documents")[i].snap); showTab("dgd"); }
+function delDoc(i){
+  const list = store("jfs_documents");
+  if(!confirm("Delete this document?")) return;
+  list.splice(i,1); setStore("jfs_documents", list); renderDocs();
+}
+
+/* ---------- checklist ---------- */
+function chkRow(ok, text, warn){
+  return `<tr><td class="cbox">${ok===true?"&#9745;":(ok===false?"&#9744;":"&#9744;")}</td>
+    <td>${text}${warn?` <span class="warn">&larr; ${warn}</span>`:""}</td></tr>`;
+}
+function buildChecklist(){
+  const s = snapshot();
+  const items = s.items.filter(r => r.un);
+  const pax = s.pax === "CAO";
+  const usa = /USA|UNITED STATES|U\.S\.|NEW YORK|JFK|LAX|ORD|MIA|CHICAGO|ATLANTA/i.test(s.dest + " " + (s.consignee||""));
+  let h = `<table class="chk">
+    <tr><td colspan="2" style="border:2px solid #000;"><b style="font-size:14px;">DGDOC — DANGEROUS GOODS CHECKLIST</b> <span style="font-size:10px;">(Powered by sAiyd.ai)</span><br>
+      <span style="font-size:11px;">AWB: <b>${esc(s.awb||"______________")}</b> &nbsp; ${esc(s.dep||"")} &rarr; ${esc(s.dest||"")} &nbsp; ${pax?"CARGO AIRCRAFT ONLY":"PASSENGER & CARGO"} &nbsp; Date: ${esc(s.date||"")}</span></td></tr>
+    <tr><td class="sect" colspan="2">1. DOCUMENTATION</td></tr>`;
+  h += chkRow(!!s.shipper, "Shipper full name & address on DGD", !s.shipper && "missing");
+  h += chkRow(!!s.consignee, "Consignee full name & address on DGD", !s.consignee && "missing");
+  h += chkRow(!!s.awb, "AWB number on DGD matches Air Waybill", !s.awb && "missing");
+  h += chkRow(null, "AWB shows: 'Dangerous Goods as per attached Shipper's Declaration' + No. of pages");
+  h += chkRow(null, "TWO signed copies of DGD for the operator");
+  h += chkRow(!!s.signname, "Name/Title of signatory + signature + place & date", !s.signname && "missing");
+  h += chkRow(!!s.emergency, "24-hr emergency phone number" + (usa ? " (MANDATORY - USA)" : ""), !s.emergency && (usa ? "REQUIRED for USA!" : "recommended"));
+  h += chkRow(null, "MSDS copy attached (required by many carriers/destinations)");
+  h += chkRow(!!(s.pl && s.pl.name), "Packing list attached" + (s.pl && s.pl.name ? ": " + esc(s.pl.name) : ""), !(s.pl && s.pl.name) && "REQUIRED — printing locked");
+  h += `<tr><td class="sect" colspan="2">2. DECLARATION ENTRIES (per item)</td></tr>`;
+  if(!items.length) h += chkRow(false, "No DG items entered!", "add items on DGD tab");
+  items.forEach(r => {
+    h += chkRow(!!(r.un && r.psn && r.cls), `<b>${esc(r.un)}</b> ${esc(r.psn)} — Class ${esc(r.cls)}${r.pg?", PG "+esc(r.pg):""}`);
+    h += chkRow(!!r.pi, `&nbsp;&nbsp;PI <b>${esc(r.pi||"?")}</b> verified in current DGR 4.2 (PAX/CAO correct, quantity within limit)`, !r.pi && "PI missing");
+    h += chkRow(!!r.qty, `&nbsp;&nbsp;Quantity & type of packing stated: ${esc(r.qty||"?")}`, !r.qty && "missing");
+    if(/n\.o\.s|N\.O\.S/.test(r.psn)) h += chkRow(null, "&nbsp;&nbsp;Technical name in brackets after PSN (n.o.s. entry)");
+  });
+  h += `<tr><td class="sect" colspan="2">3. PACKAGE</td></tr>`;
+  h += chkRow(null, "UN specification packaging used & spec marks visible (not required for Ltd Qty / EQ / ID8000)");
+  h += chkRow(null, "Proper Shipping Name + UN number marked on package");
+  h += chkRow(null, "Shipper & consignee address on package");
+  h += chkRow(null, "All required hazard labels affixed (see DG LABELS tab)");
+  h += chkRow(null, "Orientation arrows on 2 opposite sides (liquids)");
+  if(pax) h += chkRow(null, "CARGO AIRCRAFT ONLY label affixed");
+  h += chkRow(null, "Package in good condition — no leaks/damage");
+  if(overpackActive(s)){
+    h += chkRow(null, "OVERPACK: 'Overpack Used' wording on DGD (auto-added) — verify");
+    h += chkRow(null, "OVERPACK: marks & labels visible through overpack, or reproduced outside + 'Overpack' word marked");
+    if((parseInt(s.opcount)||1) > 1) h += chkRow(!!s.opqty, "OVERPACK: identification marks + total quantity shown (multiple overpacks)", !s.opqty && "total qty missing");
+  }
+  h += `<tr><td class="sect" colspan="2">4. FINAL</td></tr>`;
+  h += chkRow(null, "State & operator variations checked in DGR Section 2.8");
+  h += chkRow(null, "DG shipment pre-booked / accepted by airline");
+  h += chkRow(null, "Checked by (name & sign): ________________________  Date: ____________");
+  h += `</table>
+  <p style="font-size:10px; color:#555; margin-top:6px;">Internal checklist — does not replace the operator's IATA acceptance checklist. Verify all against current IATA DGR.</p>`;
+  document.getElementById("checklistArea").innerHTML = h;
+}
+
+/* ---------- IATA 2026 official checklist ---------- */
+const IATA_ITEMS = [
+ {hd:"SHIPPER'S DECLARATION FOR DANGEROUS GOODS (DGD)"},
+ {n:"1.", t:"Two copies in English and in the IATA format including the air certification statement. “N/A” only when the Shipper's Declaration data is submitted electronically [8.0.2.1, 8.1.1, 8.1.2, 8.1.6.12]"},
+ {n:"2.", t:"Full name and address of Shipper and Consignee [8.1.6.1, 8.1.6.2]", na:false},
+ {n:"3.", t:"If the Air Waybill number is not shown, enter it. [8.1.6.3]"},
+ {n:"4.", t:"The number of pages shown. “N/A” only when the Shipper's Declaration data is submitted electronically [8.1.6.4]"},
+ {n:"5.", t:"The non-applicable Aircraft Type deleted or not shown [8.1.2.5.2, 8.1.6.5]", na:false},
+ {n:"6.", t:"If full name of Airport or City of Departure or Destination is not shown, enter it. [8.1.6.6 and 8.1.6.7]", na:false},
+ {n:"7.", t:"The word “Radioactive” deleted or not shown [8.1.2.5.2, 8.1.6.8]", na:false},
+ {hd:"Identification"},
+ {n:"8.", t:"UN or ID number(s), preceded by prefix [8.1.6.9.1, Step 1]", na:false},
+ {n:"9.", t:"Proper Shipping Name and the technical name in brackets for entries with ★ [8.1.6.9.1, Step 2]", na:false},
+ {n:"10.", t:"Class or Division and for Class 1, the Compatibility Group [8.1.6.9.1, Step 3]", na:false},
+ {n:"11.", t:"Subsidiary hazard, in brackets, immediately following Class or Division [8.1.6.9.1, Step 4]", k:"subrisk"},
+ {n:"12.", t:"Packing Group [8.1.6.9.1, Step 5]", k:"pg"},
+ {hd:"Quantity and Type of Packing"},
+ {n:"13.", t:"Number and Type of Packages [8.1.6.9.2, Step 6]", na:false},
+ {n:"14.", t:"Quantity and unit of measure (net, or gross followed by “G”, as applicable) within per package limit [8.1.6.9.2, Step 6]", na:false},
+ {n:"15.", t:"For Class 1 (Explosives), the net quantity supplemented with the net explosive mass followed by unit of measurement [8.1.6.9.2, Step 6]", k:"class1"},
+ {n:"16.", t:"When different dangerous goods are packed in one outer packaging, the following rules are complied with:", noboxes:true},
+ {n:"16.1", t:"– Compatible according to Table 9.3.A."},
+ {n:"16.2", t:"– Conditions met for UN packages containing Division 6.2 [5.0.2.11(c)]"},
+ {n:"16.3", t:"– Wording “All packed in one (type of packaging)” [8.1.6.9.2, Step 6(f)]"},
+ {n:"16.4", t:"– Calculation of “Q” value which must not exceed 1 [5.0.2.11 (g) & (h); 2.7.5.6; 8.1.6.9.2, Step 6(g)]"},
+ {n:"17.", t:"Overpack", noboxes:true},
+ {n:"17.1", t:"– Compatible according to Table 9.3.A", k:"overpack"},
+ {n:"17.2", t:"– Wording “Overpack Used” [8.1.6.9.2, Step 7]", k:"overpack"},
+ {n:"17.3", t:"– If more than one overpack is used, identification marks shown and total quantity of dangerous goods [8.1.6.9.2, Step 7]", k:"overpack"},
+ {hd:"Packing Instructions"},
+ {n:"18.", t:"Packing Instruction Number [8.1.6.9.3, Step 8]", na:false},
+ {n:"19.", t:"For lithium batteries in compliance with Section IB, “IB” follows the packing instruction [8.1.6.9.3, Step 8]", k:"lithium"},
+ {hd:"Authorizations"},
+ {n:"20.", t:"Check all verifiable special provisions. The Special Provision Number A1, A2, A4, A5, A51, A81, A88, A99, A130, A176, A190, A191, A201, A202, A211, A212, A224, A225, A331, A334 if used [8.1.6.9.4, Step 9]"},
+ {n:"21.", t:"Indication that governmental authorization is attached, including a copy in English and additional approvals for other items under [8.1.6.9.4, Step 9]"},
+ {hd:"Additional Handling Information"},
+ {n:"22.", t:"Additional handling information shown for self-reactive and related substances of Division 4.1 and organic peroxides of Division 5.2, or samples thereof, PBE, infectious and controlled substances, fireworks (UN0336 & UN0337) and viscous flammable liquids [8.1.6.11]"},
+ {n:"23.", t:"<b>Name of Signatory and Date</b> indicated and <b>Signature</b> of Shipper [8.1.6.13, 8.1.6.14 and 8.1.6.15]", na:false},
+ {brk:true},
+ {n:"24.", t:"<b>Amendment</b> or alteration signed by Shipper [8.1.2.6]"},
+ {hd:"AIR WAYBILL–HANDLING INFORMATION"},
+ {n:"25.", t:"The statement: “Dangerous goods as per associated Shipper's Declaration” or “Dangerous Goods as per associated DGD” [8.2.1(a)]", na:false},
+ {n:"26.", t:"“Cargo Aircraft Only” or “CAO”, if applicable [8.2.1(b)]", k:"cao"},
+ {n:"27.", t:"Where non-dangerous goods are included, the number of pieces of dangerous goods shown [8.2.2]"},
+ {hd:"PACKAGE(S) AND OVERPACKS"},
+ {n:"28.", t:"Packaging free from damage and leakage [9.1.3 (i)]", na:false},
+ {n:"29.", t:"Packaging conforms with packing instruction"},
+ {n:"30.", t:"Same number and type of packagings and overpacks delivered as shown on DGD [9.1.3]", na:false},
+ {hd:"Marks"},
+ {n:"31.", t:"UN Specification Packaging, marked according to 6.0.4 and 6.0.5:", noboxes:true},
+ {n:"31.1", t:"– Symbol and Specification Code [6.0.4.2.1 (a), (b)]"},
+ {n:"31.2", t:"– X, Y or Z meets or exceeds Packing Group/Packing Instruction requirements [6.0.4.2.1 (c)]"},
+ {n:"31.3", t:"– Gross Weight within limits (Solids, Inner Packagings or IBCs) [SP A179, 6.0.4.2.1 (d)]"},
+ {n:"31.4", t:"– Plastic drums, jerricans and IBCs within permitted period of use [5.0.2.15]"},
+ {n:"31.5", t:"– Infectious substance package mark [6.5.3.1]", k:"infectious"},
+ {n:"32.", t:"UN or ID number(s), preceded by prefix [7.1.4.1(a)]", na:false},
+ {n:"33.", t:"The Proper Shipping Name(s) including technical name where required [7.1.4.1(a)]", na:false},
+ {n:"34.", t:"The full name and address of Shipper and Consignee [7.1.4.1(b)]", na:false},
+ {n:"35.", t:"For consignments of more than one package of all classes (except ID 8000 and Class 7) the net quantity, or gross weight followed by “G”, as applicable, unless contents are identical, marked on the packages [7.1.4.1(c)]"},
+ {n:"36.", t:"Carbon Dioxide, Solid (Dry Ice), the net weight marked on the packages [7.1.4.1(d)]", k:"dryice"},
+ {n:"37.", t:"The Name and Telephone Number of a responsible person for Division 6.2 Infectious Substances shipment [7.1.4.1(e)]", k:"infectious"},
+ {n:"38.", t:"The Special Marking requirements shown for Packing Instruction 202 [7.1.4.1(f)]", k:"pi202"},
+ {n:"39.", t:"Limited Quantities mark [7.1.4.2]", k:"lq"},
+ {n:"40.", t:"Environmentally Hazardous Substance mark [7.1.5.3]", k:"env"},
+ {n:"41.", t:"Battery mark for Section IB [7.1.5.5]", k:"lithium"},
+ {hd:"Labelling"},
+ {n:"42.", t:"The label(s) identifying the Primary hazard as per 4.2, Column D properly affixed [7.2.3.1; 7.2.6]", na:false},
+ {n:"43.", t:"The label(s) identifying the Subsidiary hazard, as per 4.2, Column D properly affixed [7.2.3.1; 7.2.6.2.3]", k:"subrisk"},
+ {n:"44.", t:"“Cargo Aircraft Only” label [7.2.4.2; 7.2.6.3]", k:"cao"},
+ {n:"45.", t:"“Orientation” labels on two opposite sides, if applicable [7.2.4.4]"},
+ {n:"46.", t:"“Cryogenic Liquid” label, if applicable as per 4.2, Column D [7.2.4.3]", k:"cryo"},
+ {n:"47.", t:"“Keep Away From Heat” label, if applicable as per 4.2, Column D [7.2.4.5]"},
+ {n:"48.", t:"Any irrelevant marks and labels removed or obliterated [7.1.1; 7.2.1]"},
+ {hd:"For Overpacks"},
+ {n:"49.", t:"Packaging use marks and hazard and handling labels, as required must be clearly visible or reproduced on the outside of the overpack [7.1.7.1, 7.1.7.2, 7.2.7]", k:"overpack"},
+ {n:"50.", t:"The word “Overpack” marked if marks and labels are not visible on packages within the overpack [7.1.7.1]", k:"overpack"},
+ {n:"51.", t:"If more than one overpack is used, identification marks shown and total quantity of dangerous goods [7.1.7.3]", k:"overpack"},
+ {hd:"GENERAL"},
+ {n:"52.", t:"State and Operator variations complied with [2.8]"},
+ {n:"53.", t:"Cargo Aircraft Only shipments, a cargo aircraft operates on all sectors", k:"cao"}
+];
+function buildIata(){
+  const s = snapshot();
+  const items = s.items.filter(r => r.un);
+  const classes = items.map(r => (r.cls||"").trim());
+  const psns = items.map(r => (r.psn||"").toLowerCase()).join(" ");
+  const flags = {
+    class1: classes.some(c => c.startsWith("1")),
+    subrisk: items.some(r => (r.sub||"").trim() !== ""),
+    pg: items.some(r => (r.pg||"").trim() !== ""),
+    lithium: /lithium/.test(psns),
+    cao: s.pax === "CAO",
+    dryice: /dry ice|carbon dioxide, solid/.test(psns) || items.some(r => r.un === "UN1845"),
+    infectious: classes.some(c => c === "6.2"),
+    pi202: items.some(r => (r.pi||"").trim() === "202"),
+    lq: items.some(r => (r.pi||"").toUpperCase().startsWith("Y") && r.un !== "ID8000"),
+    env: items.some(r => ["UN3077","UN3082"].includes(r.un)) || /environmentally hazardous/.test(psns),
+    cryo: /refrigerated liquid|cryogenic/.test(psns),
+    overpack: overpackActive(s)
+  };
+  const B = '<span class="ibox">&nbsp;</span>';
+  const NA = '<span class="ibox">&#10004;</span>';
+  let rows = "";
+  IATA_ITEMS.forEach(it => {
+    if(it.brk){ rows += `</table><div class="pgbrk"></div><table class="ichk">
+      <tr><td></td><td></td><td class="bx"><b>YES</b></td><td class="bx"><b>NO*</b></td><td class="bx"><b>N/A</b></td></tr>`; return; }
+    if(it.hd){ rows += `<tr><td colspan="5" class="isec">${it.hd}</td></tr>`; return; }
+    if(it.noboxes){ rows += `<tr><td class="no">${it.n}</td><td>${it.t}</td><td class="bx"></td><td class="bx"></td><td class="bx"></td></tr>`; return; }
+    const autoNA = it.k !== undefined && !flags[it.k];
+    const hasNA = it.na !== false;
+    rows += `<tr><td class="no">${it.n}</td><td>${it.t}</td>
+      <td class="bx">${autoNA ? "" : B}</td><td class="bx">${autoNA ? "" : B}</td>
+      <td class="bx">${hasNA ? (autoNA ? NA : B) : ""}</td></tr>`;
+  });
+  document.getElementById("iataArea").innerHTML = `
+  <div class="ititle" style="font-size:13pt;">2026</div>
+  <div class="ititle" style="font-size:12pt;">DANGEROUS GOODS CHECKLIST FOR A NON-RADIOACTIVE SHIPMENT</div>
+  <div style="font-size:8pt; margin:4px 0; color:#000;">The recommended checklist appearing below is intended to verify shipments at origin.
+   Copies of the checklist can be obtained from: https://www.iata.org/dgr-updates<br>
+   <b>Never accept or refuse a shipment before all items have been checked.</b> Is the following information correct for each entry?</div>
+  <div style="font-weight:bold; font-size:9pt; margin:3px 0; color:#000;">SHIPPER'S DECLARATION FOR DANGEROUS GOODS (DGD)</div>
+  <table style="width:100%; border-collapse:collapse; margin-bottom:4px;"><tr>
+    <td class="ihd">Air Waybill No.: <span class="ifill">${esc(s.awb||"")}</span></td>
+    <td class="ihd">Origin: <span class="ifill">${esc(s.dep||"")}</span></td>
+    <td class="ihd">Destination: <span class="ifill">${esc(s.dest||"")}</span></td>
+  </tr></table>
+  <table class="ichk">
+    <tr><td></td><td></td><td class="bx"><b>YES</b></td><td class="bx"><b>NO*</b></td><td class="bx"><b>N/A</b></td></tr>
+    ${rows}
+  </table>
+  <div style="font-size:8.5pt; margin-top:6px; color:#000;">Comments: ______________________________________________________________________________________________</div>
+  <table style="width:100%; font-size:8.5pt; margin-top:8px; color:#000;"><tr>
+    <td>Checked by: ________________________</td><td>Signature: ________________________</td></tr>
+    <tr><td>Place: <b>${esc(s.place||"")}</b> &nbsp; Date: <b>${esc(s.date||"")}</b></td><td>Time: ____________</td>
+  </tr></table>
+  <div style="font-size:8.5pt; font-weight:bold; margin-top:6px; color:#000;">* IF ANY BOX IS CHECKED “NO”, DO NOT ACCEPT THE SHIPMENT AND GIVE A DUPLICATE COPY OF THIS COMPLETED FORM TO THE SHIPPER.</div>
+  <div style="font-size:7.5pt; margin-top:4px; color:#333;">67th EDITION, 1 JANUARY 2026 &mdash; printed via DGDOC (Powered by sAiyd.ai). Pre-ticked N/A = not applicable per DGD data; verify before signing.</div>`;
+}
+
+/* ---------- stickers ---------- */
+function buildStickers(){
+  const s = snapshot();
+  const n = Math.max(1, Math.min(50, parseInt(document.getElementById("st_count").value)||1));
+  const withDg = (document.querySelector("input[name=st_dg]:checked")||{}).value !== "N";
+  const items = s.items.filter(r => r.un);
+  const dgLine = items.map(r => `${r.un} ${r.psn}${r.cls ? " — Class " + r.cls : ""}${r.pg ? ", PG " + r.pg : ""}`).join(" • ");
+  let h = `<div class="stickerwrap">`;
+  for(let i = 1; i <= n; i++){
+    h += `<div class="sticker">
+      <div class="shead"><img src="${window.JFS_LOGO||""}" alt="JFS LOGISTICS" style="height:10mm;"><span style="font-size:9pt;">AWB: <b>${esc(s.awb||"")}</b></span></div>
+      <div class="cap2">FROM / SHIPPER</div>
+      <div class="addr">${esc(s.shipper||"")}</div>
+      <div class="cap2">TO / CONSIGNEE</div>
+      <div class="addr toaddr">${esc(s.consignee||"")}</div>
+      <div class="rowline"><span>ORIGIN: <b>${esc(s.dep||"")}</b></span><span>DEST: <b>${esc(s.dest||"")}</b></span></div>
+      ${withDg && dgLine ? `<div class="dgline">&#9888; DANGEROUS GOODS: ${esc(dgLine)}${s.pax==="CAO" ? " — CARGO AIRCRAFT ONLY" : ""}</div>` : ""}
+      ${withDg && s.emergency ? `<div style="font-size:9pt; margin-top:1.5mm;">24-hr Emergency: <b>${esc(s.emergency)}</b></div>` : ""}
+      <div class="pkg">PACKAGE &nbsp;${i} &nbsp;of&nbsp; ${n}</div>
+    </div>`;
+  }
+  h += `</div>`;
+  document.getElementById("stickerArea").innerHTML = h;
+}
+
+/* ---------- overpack stickers (format: big UN/ID + PSN + OVERPACK# + total qty) ---------- */
+function buildOpStickers(){
+  const s = snapshot();
+  const items = s.items.filter(r => r.un);
+  const out = document.getElementById("opstickerArea");
+  if(!items.length){ out.innerHTML = "<p>No DG items on the DGD tab yet — add items first.</p>"; return; }
+  const n = Math.max(1, Math.min(20, parseInt(v("f_opcount")) || 1));
+  const prefix = (document.getElementById("op_prefix").value || "SC").toUpperCase();
+  const start = parseInt(document.getElementById("op_start").value) || 1;
+  const qty = document.getElementById("op_qty").value.trim() || s.opqty || "";
+  let h = "";
+  for(let i = 0; i < n; i++){
+    const opno = prefix + String(start + i).padStart(2, "0");
+    h += `<div style="page-break-after:always; font-family:Arial; color:#000; background:#fff;
+        border:1px solid #ccc; padding:10mm 8mm; margin-bottom:14px; max-width:190mm;">
+      <div style="font-size:11pt; font-weight:bold;">SHIPPER :</div>
+      <div style="font-size:11.5pt; font-weight:bold; white-space:pre-wrap; line-height:1.35;">${esc(s.shipper||"")}</div>
+      <div style="font-size:11pt; font-weight:bold; margin-top:5mm;">CONSIGNEE :</div>
+      <div style="font-size:11.5pt; font-weight:bold; white-space:pre-wrap; line-height:1.35;">${esc(s.consignee||"")}</div>
+      ${items.map(r => `
+        <div style="font-size:44pt; font-weight:bold; margin-top:6mm; letter-spacing:1px;">${esc(r.un.replace(/^(UN|ID)/, "$1 "))}</div>
+        <div style="font-size:15pt; font-weight:bold; text-transform:uppercase;">${esc(r.psn)}${r.cls ? " — CLASS " + esc(r.cls) : ""}${r.pg ? ", PG " + esc(r.pg) : ""}</div>`).join("")}
+      <div style="font-size:22pt; font-weight:bold; margin-top:8mm;">OVERPACK#${esc(opno)}</div>
+      <div style="font-size:14pt; font-weight:bold; margin-top:5mm;">TOTAL QUANTITY : ${esc(qty || "____________")}</div>
+      <div style="font-size:11.5pt; font-weight:bold; margin-top:6mm;">24 HOURS EMERGENCY<br>CONTACT NO: ${esc(s.emergency||"____________")}</div>
+      ${s.pax === "CAO" ? `<div style="font-size:14pt; font-weight:bold; margin-top:5mm; border:3px solid #000; display:inline-block; padding:2mm 6mm;">CARGO AIRCRAFT ONLY</div>` : ""}
+    </div>`;
+  }
+  out.innerHTML = h;
+}
+
+/* ---------- DG label advisor ---------- */
+function diamond(bg, fg, top, big, bottom){
+  return `<svg width="120" height="120" viewBox="0 0 120 120">
+    <rect x="18" y="18" width="84" height="84" transform="rotate(45 60 60)" fill="${bg}" stroke="#000" stroke-width="2"/>
+    <text x="60" y="45" text-anchor="middle" font-size="10" font-weight="bold" fill="${fg}">${top}</text>
+    <text x="60" y="72" text-anchor="middle" font-size="26" font-weight="bold" fill="${fg}">${big}</text>
+    <text x="60" y="92" text-anchor="middle" font-size="11" font-weight="bold" fill="${fg}">${bottom}</text></svg>`;
+}
+const LABEL_DEFS = {
+  "3":   {svg: diamond("#e03a3a","#fff","FLAMMABLE","&#128293;","3"), nm:"Class 3 — Flammable Liquid label"},
+  "2.1": {svg: diamond("#e03a3a","#fff","FLAM. GAS","&#128293;","2"), nm:"Division 2.1 — Flammable Gas label"},
+  "2.2": {svg: diamond("#2e8b57","#fff","GAS","&#9646;","2"), nm:"Division 2.2 — Non-flammable Gas label"},
+  "2.3": {svg: diamond("#fff","#000","TOXIC GAS","&#9760;","2"), nm:"Division 2.3 — Toxic Gas label"},
+  "4":   {svg: diamond("#e03a3a","#fff","FLAM. SOLID","&#128293;","4"), nm:"Class 4 — Flammable Solid label"},
+  "5":   {svg: diamond("#f2c500","#000","OXIDIZER","&#11054;","5.1"), nm:"Class 5.1 — Oxidizer label"},
+  "6.1": {svg: diamond("#fff","#000","TOXIC","&#9760;","6"), nm:"Class 6.1 — Toxic label"},
+  "6.2": {svg: diamond("#fff","#000","INFECTIOUS","&#9763;","6"), nm:"Class 6.2 — Infectious label"},
+  "8":   {svg: diamond("#fff","#000","CORROSIVE","&#9879;","8"), nm:"Class 8 — Corrosive label"},
+  "9":   {svg: diamond("#fff","#000","MISC.","&#9646;&#9646;","9"), nm:"Class 9 — Miscellaneous label"},
+  "1":   {svg: diamond("#f28c28","#000","EXPLOSIVE","&#128165;","1.4"), nm:"Division 1.4 — Explosive label"},
+  "CAO": {svg:`<svg width="140" height="100"><rect x="2" y="2" width="136" height="96" fill="#f28c28" stroke="#000" stroke-width="2"/>
+     <text x="70" y="40" text-anchor="middle" font-size="13" font-weight="bold">CARGO</text>
+     <text x="70" y="58" text-anchor="middle" font-size="13" font-weight="bold">AIRCRAFT ONLY</text>
+     <text x="70" y="80" text-anchor="middle" font-size="9">FORBIDDEN IN PASSENGER AIRCRAFT</text></svg>`, nm:"Cargo Aircraft Only label"},
+  "ARROWS": {svg:`<svg width="100" height="110"><rect x="2" y="2" width="96" height="106" fill="#fff" stroke="#000" stroke-width="2"/>
+     <path d="M30 90 L30 40 L18 55 M30 40 L42 55" stroke="#000" stroke-width="6" fill="none"/>
+     <path d="M70 90 L70 40 L58 55 M70 40 L82 55" stroke="#000" stroke-width="6" fill="none"/>
+     <line x1="10" y1="95" x2="90" y2="95" stroke="#000" stroke-width="4"/></svg>`, nm:"Orientation arrows (2 opposite sides)"},
+  "LQ": {svg:`<svg width="110" height="110"><rect x="20" y="20" width="70" height="70" transform="rotate(45 55 55)" fill="#fff" stroke="#000" stroke-width="3"/>
+     <path d="M55 8 L102 55 L55 102 L8 55 Z" fill="none"/>
+     <path d="M55 10 L100 55 L55 100 L10 55 Z" fill="none" stroke="#000" stroke-width="0"/>
+     <path d="M55 8 L78 31 L32 31 Z" fill="#000"/><path d="M55 102 L78 79 L32 79 Z" fill="#000"/>
+     <text x="55" y="62" text-anchor="middle" font-size="26" font-weight="bold">Y</text></svg>`, nm:"Limited Quantity mark (Y)"},
+  "EQ": {svg:`<svg width="110" height="110"><rect x="4" y="4" width="102" height="102" fill="#fff" stroke="#c00" stroke-width="3"/>
+     <circle cx="55" cy="45" r="26" fill="none" stroke="#c00" stroke-width="4"/>
+     <text x="55" y="55" text-anchor="middle" font-size="28" font-weight="bold" fill="#c00">E</text>
+     <text x="55" y="95" text-anchor="middle" font-size="8" fill="#c00">EXCEPTED QUANTITY</text></svg>`, nm:"Excepted Quantity mark"},
+  "LITH": {svg:`<svg width="140" height="100"><rect x="2" y="2" width="136" height="96" fill="#fff" stroke="#000" stroke-width="2"/>
+     <path d="M2 2 h136 v14 h-136 z M2 84 h136 v14 h-136 z" fill="#c00"/>
+     <text x="70" y="45" text-anchor="middle" font-size="26">&#128267;&#128293;</text>
+     <text x="70" y="72" text-anchor="middle" font-size="9" font-weight="bold">UN____  TEL: ____________</text></svg>`, nm:"Lithium Battery mark"},
+  "OP": {svg:`<svg width="140" height="100"><rect x="2" y="2" width="136" height="96" fill="#fff" stroke="#000" stroke-width="2.5"/>
+     <text x="70" y="55" text-anchor="middle" font-size="17" font-weight="bold" letter-spacing="2">OVERPACK</text>
+     <text x="70" y="80" text-anchor="middle" font-size="7.5">min. 12 mm lettering [7.1.7.1]</text></svg>`,
+     nm:"'OVERPACK' mark"}
+};
+function buildLabels(){
+  const s = snapshot();
+  const items = s.items.filter(r => r.un);
+  const out = document.getElementById("labelArea");
+  if(!items.length){ out.innerHTML = "<p>No DG items on the DGD tab yet — add items first.</p>"; return; }
+  const need = [];  // [key, why]
+  const add = (k, why) => { if(!need.some(n => n[0] === k)) need.push([k, why]); };
+  let anyLiquid = false;
+  items.forEach(r => {
+    const c = (r.cls||"").trim();
+    const psn = (r.psn||"").toLowerCase();
+    const pi = (r.pi||"").toUpperCase();
+    const isLQ = pi.startsWith("Y") && r.un !== "ID8000";
+    const cKey = c.startsWith("1") ? "1" : (["2.1","2.2","2.3"].includes(c) ? c : (c.startsWith("4") ? "4" : (c.startsWith("5") ? "5" : (["6.1","6.2"].includes(c) ? c : c))));
+    if(/lithium/.test(psn)){
+      if(["965","968"].some(x => pi.includes(x)) || /IA|IB/i.test(r.auth||"")){ add("9", r.un + " (Section IA/IB)"); }
+      add("LITH", r.un + " — write UN number + phone on the mark");
+    } else if(r.un === "ID8000"){
+      add("9", "ID8000 Consumer commodity");
+    } else if(LABEL_DEFS[cKey]){
+      add(cKey, r.un + " " + r.psn);
+    }
+    if((r.sub||"").includes("8")) add("8", r.un + " subsidiary hazard");
+    if((r.sub||"").includes("6.1")) add("6.1", r.un + " subsidiary hazard");
+    if((r.sub||"").includes("5.1")) add("5", r.un + " subsidiary hazard");
+    if(c === "3" || c === "8" || /liquid|perfume|paint|solution/.test(psn)) anyLiquid = true;
+    if(isLQ) add("LQ", r.un + " — Ltd Qty packing instruction " + pi);
+    if(/^E[0-5]$/.test(r.auth||"")) add("EQ", r.un + " — excepted quantity");
+  });
+  if(anyLiquid) add("ARROWS", "liquid contents — both opposite sides");
+  if(s.pax === "CAO") add("CAO", "shipment declared Cargo Aircraft Only");
+  if(overpackActive(s)) add("OP", "overpack used — mark 'OVERPACK' if inner marks/labels not visible; otherwise reproduce all marks & labels outside");
+  let h = `<div style="font-weight:bold; margin-bottom:10px;">Required on every package (${items.map(r=>r.un).join(", ")}):</div><div class="lblgrid">`;
+  need.forEach(([k, why]) => {
+    h += `<div class="lblcard">${LABEL_DEFS[k].svg}<div class="nm">${LABEL_DEFS[k].nm}</div><div class="why">${esc(why)}</div></div>`;
+  });
+  h += `</div>
+  <div class="warnbar" style="margin-top:14px;">Plus text marks: <b>Proper Shipping Name + UN number</b>, shipper &amp; consignee address,
+  and net quantity where required. Hazard label images above are simplified samples — use compliant printed labels (100&times;100 mm) on real packages.</div>`;
+  out.innerHTML = h;
+}
+
+/* ---------- export / import ---------- */
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes"];
+function exportAll(){
+  const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
+  const blob = new Blob([JSON.stringify({when: new Date().toISOString(), data}, null, 1)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "DGDOC_BACKUP_" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+}
+function importAll(){
+  const f = document.getElementById("importfile").files[0];
+  if(!f){ alert("Choose the backup JSON file first."); return; }
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{
+      const obj = JSON.parse(rd.result);
+      ALL_KEYS.forEach(k => { if(obj.data[k]) localStorage.setItem(k, obj.data[k]); });
+      rebuildUNDB(); fillPickers(); loadDefaults(); refreshDraftList();
+      cloudPushAll(false);
+      alert("Backup imported.");
+    }catch(e){ alert("Invalid backup file."); }
+  };
+  rd.readAsText(f);
+}
+
+/* ================================================================
+   SAIYD.AI — AUTH + CLOUD SYNC (Supabase)
+   ================================================================ */
+const SB_URL = "https://jojtqlfhmkvdegqbwvtj.supabase.co";
+const SB_KEY = "sb_publishable_RUGh1s5HM7CrT9XDoafmoA_hEa1tBen";
+let sb = null, sbUser = null, syncTimers = {};
+try{ sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY) : null; }catch(e){ sb = null; }
+
+function authMsg(t, ok){ const el = document.getElementById("authmsg"); el.textContent = t; el.style.color = ok ? "#1d6b34" : "#c00000"; }
+function authTab(which){
+  document.getElementById("at_login").classList.toggle("on", which === "login");
+  document.getElementById("at_signup").classList.toggle("on", which === "signup");
+  document.getElementById("authlogin").style.display = which === "login" ? "" : "none";
+  document.getElementById("authsignup").style.display = which === "signup" ? "" : "none";
+  authMsg("", true);
+}
+async function doLogin(){
+  if(!sb){ authMsg("No internet / cloud unreachable — try again.", false); return; }
+  authMsg("Logging in...", true);
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: document.getElementById("li_email").value.trim(),
+    password: document.getElementById("li_pass").value
+  });
+  if(error){ authMsg(error.message, false); return; }
+  await enterApp(data.user);
+}
+async function doSignup(){
+  if(!sb){ authMsg("No internet / cloud unreachable — try again.", false); return; }
+  const email = document.getElementById("su_email").value.trim();
+  const pass = document.getElementById("su_pass").value;
+  if(!email || pass.length < 6){ authMsg("Enter a valid email and a password of at least 6 characters.", false); return; }
+  authMsg("Creating account...", true);
+  const { data, error } = await sb.auth.signUp({
+    email, password: pass,
+    options: { data: { full_name: document.getElementById("su_name").value.trim(),
+                       company: document.getElementById("su_company").value.trim() } }
+  });
+  if(error){ authMsg(error.message, false); return; }
+  if(data.session){ await enterApp(data.user); }
+  else authMsg("Account created! Check your email to confirm, then log in.", true);
+}
+async function doLogout(){
+  if(sb) await sb.auth.signOut();
+  sbUser = null;
+  document.getElementById("userchip").style.display = "none";
+  document.getElementById("authgate").style.display = "flex";
+}
+async function enterApp(user){
+  sbUser = user;
+  document.getElementById("authgate").style.display = "none";
+  document.getElementById("userchip").style.display = "flex";
+  document.getElementById("uc_email").textContent = user.email;
+  try{
+    const { data: prof } = await sb.from("profiles").select("plan,active").eq("user_id", user.id).single();
+    if(prof){
+      document.getElementById("uc_plan").textContent = prof.plan || "trial";
+      if(prof.active === false){
+        alert("Your DGDOC account is suspended. Contact support.");
+        await doLogout(); return;
+      }
+    }
+  }catch(e){}
+  await cloudPullAll(false);
+}
+function setSync(state){ // green ok, orange syncing, red error
+  const dot = document.getElementById("syncdot");
+  dot.style.background = state === "ok" ? "#22c55e" : (state === "busy" ? "#f59e0b" : "#ef4444");
+}
+async function cloudPush(key){
+  if(!sb || !sbUser) return;
+  setSync("busy");
+  try{
+    let val = null;
+    try{ val = JSON.parse(localStorage.getItem(key)); }catch(e){ val = localStorage.getItem(key); }
+    await sb.from("saiyad_data").upsert({ user_id: sbUser.id, key, value: val, updated_at: new Date().toISOString() });
+    setSync("ok");
+  }catch(e){ setSync("err"); }
+}
+function cloudPushDebounced(key){
+  if(!sb || !sbUser) return;
+  clearTimeout(syncTimers[key]);
+  syncTimers[key] = setTimeout(() => cloudPush(key), 800);
+}
+async function cloudPushAll(tell){
+  if(!sb || !sbUser){ if(tell) alert("Not logged in."); return; }
+  for(const k of ALL_KEYS) await cloudPush(k);
+  const st = document.getElementById("cloud_status");
+  if(st) st.textContent = "✓ Synced " + new Date().toLocaleTimeString();
+  if(tell) alert("All data pushed to DGDOC cloud.");
+}
+async function cloudPullAll(tell){
+  if(!sb || !sbUser){ if(tell) alert("Not logged in."); return; }
+  setSync("busy");
+  try{
+    const { data, error } = await sb.from("saiyad_data").select("key,value").eq("user_id", sbUser.id);
+    if(error) throw error;
+    (data||[]).forEach(row => {
+      if(ALL_KEYS.includes(row.key) && row.value !== null)
+        localStorage.setItem(row.key, JSON.stringify(row.value));
+    });
+    rebuildUNDB(); fillPickers(); loadDefaults(); refreshDraftList();
+    if(typeof renderCustomers === "function" && document.getElementById("cu_table")) renderCustomers();
+    refresh();
+    setSync("ok");
+    const st = document.getElementById("cloud_status");
+    if(st) st.textContent = "✓ Loaded from cloud " + new Date().toLocaleTimeString();
+    if(tell) alert("Data reloaded from DGDOC cloud.");
+  }catch(e){ setSync("err"); if(tell) alert("Cloud pull failed: " + e.message); }
+}
+async function authInit(){
+  if(!sb){ document.getElementById("authmsg").textContent = "Cloud unreachable — check internet and reload."; return; }
+  const { data } = await sb.auth.getSession();
+  if(data && data.session) await enterApp(data.session.user);
+}
+
+/* init */
+document.getElementById("f_date").value = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+document.querySelectorAll("input,textarea,select").forEach(el => el.addEventListener("input", refresh));
+document.querySelectorAll("input[type=radio]").forEach(el => el.addEventListener("change", () => { refresh(); }));
+DEF_FIELDS_INIT: {
+  loadDefaults();
+  DEF_FIELDS.forEach(id => document.getElementById(id).addEventListener("input", saveDefaults));
+}
+["shipper","consignee"].forEach(role =>
+  document.getElementById("f_" + role).addEventListener("blur", () => spellCheck(role)));
+fillPickers();
+document.getElementById("ai_key").value = aiKey();
+document.getElementById("ai_model").value = aiModel();
+if(aiKey()) document.getElementById("ai_status").textContent = "Key saved — AI is ON.";
+document.querySelectorAll("img.jfslogo").forEach(i => { i.src = window.JFS_LOGO || ""; });
+addItem();
+refreshDraftList();
+refresh();
+authInit();
+</script>
+</body>
+</html>
