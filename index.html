@@ -1180,9 +1180,9 @@ function autoFill(){
   }
 
   const shipper = grab("shipper", true);
-  if(shipper){ document.getElementById("f_shipper").value = shipper; found.push("Shipper"); }
+  if(shipper){ document.getElementById("f_shipper").value = shipper; found.push("Shipper"); custAfterFill("shipper"); }
   const consignee = grab("consignee", true);
-  if(consignee){ document.getElementById("f_consignee").value = consignee; found.push("Consignee"); }
+  if(consignee){ document.getElementById("f_consignee").value = consignee; found.push("Consignee"); custAfterFill("consignee"); }
 
   // AWB: labeled, else pattern 3digits-8digits anywhere
   let awb = grab("awb");
@@ -1351,28 +1351,51 @@ async function aiTest(){
 }
 const AI_EXTRACT_SYSTEM = `You are a dangerous-goods documentation assistant for JFS Logistics (air freight).
 Extract shipment data from the user's document (AWB, booking, packing list or e-mail).
+The document may be a SCANNED IMAGE — read it carefully, including highlighted/marked areas and stamps.
 Respond with ONLY a JSON object, no markdown, using exactly these keys (empty string if not found):
 {"awb":"xxx-xxxxxxxx","shipper":"multi-line name+address+tel","consignee":"multi-line name+address+tel",
-"dep":"AIRPORT (CODE)","dest":"AIRPORT (CODE)","cao":true/false,"radioactive":true/false,
+"pages":"e.g. 1 of 1","ref":"shipper's reference number or empty",
+"dep":"AIRPORT NAME (CODE)","dest":"AIRPORT NAME (CODE)","cao":true/false,"radioactive":true/false,
+"overpack":true/false,"opcount":number of overpacks or 0,"opqty":"total quantity in overpacks or empty",
 "emergency":"24h phone","handling":"handling notes",
 "items":[{"un":"UN1266 or ID8000","psn":"proper shipping name","cls":"class e.g. 3","sub":"subsidiary risk or empty",
 "pg":"I/II/III or empty","pi":"packing instruction number if stated","qty":"e.g. 4 fibreboard boxes x 20 L","auth":""}]}
 Rules: only include items that are dangerous goods with a UN/ID number stated or clearly identifiable.
 If the same UN/ID number appears on multiple pallets or packages, output it ONCE and combine all pallet quantities in "qty" separated by "; ".
+Put shipper and consignee EXACTLY as printed: company name on the first line, then address lines, then TEL on the last line.
+For dep/dest use the airport name in CAPITALS with the IATA code in brackets when known, e.g. "DUBAI WORLD CENTRAL (DWC)".
 Never invent UN numbers, PI numbers or quantities that are not supported by the document.`;
-async function aiExtractShipment(text, label){
-  const raw = await aiCall(AI_EXTRACT_SYSTEM, "Document (" + label + "):\n\n" + text.slice(0, 12000), 2500);
+async function aiExtractShipment(text, label, imgs){
+  let content;
+  if(imgs && imgs.length){
+    content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
+    content.push({type:"text", text: "Document (" + label + ")" +
+      (text && text.trim().length > 30
+        ? " — extracted text below as an extra hint, but trust the page image(s) first:\n\n" + text.slice(0, 8000)
+        : " — scanned page image(s) above. Read them carefully.")});
+  } else {
+    content = "Document (" + label + "):\n\n" + text.slice(0, 12000);
+  }
+  const raw = await aiCall(AI_EXTRACT_SYSTEM, content, 2500);
   const j = aiJson(raw);
-  // apply
-  if(j.shipper) document.getElementById("f_shipper").value = j.shipper;
-  if(j.consignee) document.getElementById("f_consignee").value = j.consignee;
+  // apply — every value goes to its exact field
+  if(j.shipper){ document.getElementById("f_shipper").value = j.shipper; custAfterFill("shipper"); }
+  if(j.consignee){ document.getElementById("f_consignee").value = j.consignee; custAfterFill("consignee"); }
   if(j.awb) document.getElementById("f_awb").value = j.awb;
+  if(j.pages) document.getElementById("f_page").value = j.pages;
+  if(j.ref) document.getElementById("f_ref").value = j.ref;
   if(j.dep) document.getElementById("f_dep").value = j.dep.toUpperCase();
   if(j.dest) document.getElementById("f_dest").value = j.dest.toUpperCase();
   if(j.emergency) document.getElementById("f_emergency").value = j.emergency;
   if(j.handling && !v("f_handling")) document.getElementById("f_handling").value = j.handling;
   if(j.cao === true) document.querySelector('input[name=f_pax][value=CAO]').checked = true;
+  else if(j.cao === false) document.querySelector('input[name=f_pax][value=PAX]').checked = true;
   if(j.radioactive === true) document.querySelector('input[name=f_radio][value=RADIO]').checked = true;
+  if(j.overpack === true){
+    document.querySelector('input[name=f_overpack][value=Y]').checked = true;
+    if(j.opcount) document.getElementById("f_opcount").value = String(j.opcount);
+    if(j.opqty) document.getElementById("f_opqty").value = j.opqty;
+  }
   if(Array.isArray(j.items) && j.items.length){
     document.getElementById("items").innerHTML = "";
     j.items.forEach(it => {
@@ -1793,16 +1816,33 @@ async function readAwbPdf(){
       lines.push(line.join(" "));
       text += lines.join("\n") + "\n";
     }
-    if(text.trim().length < 30){
-      msg.textContent = "No text found in the PDF (it is a scanned image) — paste the text manually instead.";
-      return;
-    }
-    document.getElementById("f_auto").value = text;
+    const scanned = text.trim().length < 200;
     if(aiKey()){
-      msg.textContent = "🤖 AI extracting from PDF...";
-      await aiAutoFill();
-      msg.textContent = "Done — 🤖 AI filled the form from the PDF. Check every field!";
+      msg.textContent = scanned ? "🤖 Scanned PDF — AI is reading the page image(s)..." : "🤖 AI extracting from PDF...";
+      const imgs = await pdfPageImages(pdf, 2);
+      document.getElementById("f_auto").value = scanned ? "[Scanned PDF attached: " + f.name + " — AI vision reads the pages directly]" : text;
+      const el = document.getElementById("autoresult");
+      el.textContent = "🤖 AI extracting...";
+      try{
+        const j = await aiExtractShipment(text, "Air Waybill PDF" + (scanned ? " (scanned image)" : ""), imgs);
+        el.textContent = "🤖 AI extracted: " + [j.awb && "AWB", j.shipper && "Shipper", j.consignee && "Consignee",
+          (j.dep || j.dest) && "Route", (j.items||[]).length + " item(s)"].filter(Boolean).join(", ") + " — please check every field.";
+        msg.textContent = "Done — 🤖 AI filled the form from the PDF. Check every field!";
+      }catch(e2){
+        if(!scanned && text.trim().length >= 30){
+          el.textContent = "AI failed (" + e2.message.slice(0,80) + ") — used standard extraction instead.";
+          autoFill(); msg.textContent = "Done (standard extraction).";
+        } else {
+          el.textContent = "";
+          msg.textContent = "AI could not read the scan (" + e2.message.slice(0,80) + "). Try again or paste the text.";
+        }
+      }
     } else {
+      if(scanned){
+        msg.textContent = "This PDF is a scanned image (no text). Add your Claude API key in SETTINGS → AI (CLAUDE API) and the AI will read scans automatically.";
+        return;
+      }
+      document.getElementById("f_auto").value = text;
       msg.textContent = "Text extracted — running auto fill...";
       autoFill();
       msg.textContent = "Done — fields filled from PDF. Check every field! (Add an AI key in Settings for smarter extraction)";
@@ -1810,6 +1850,18 @@ async function readAwbPdf(){
   }catch(e){
     msg.textContent = "PDF read failed (" + e.message + "). Try copy-pasting the text instead.";
   }
+}
+async function pdfPageImages(pdf, maxPages){
+  const imgs = [];
+  for(let p = 1; p <= Math.min(pdf.numPages, maxPages); p++){
+    const page = await pdf.getPage(p);
+    const vp = page.getViewport({scale: 2.0});
+    const canvas = document.createElement("canvas");
+    canvas.width = vp.width; canvas.height = vp.height;
+    await page.render({canvasContext: canvas.getContext("2d"), viewport: vp}).promise;
+    imgs.push(canvas.toDataURL("image/jpeg", 0.85).split(",")[1]);
+  }
+  return imgs;
 }
 
 /* ---------- customers ---------- */
@@ -1914,6 +1966,39 @@ function useCustomerName(role, i){
   document.getElementById("f_" + role).value = customers()[i].addr;
   document.getElementById("spell_" + role).style.display = "none";
   refresh();
+}
+/* after auto/AI fill: match against customer DB, warn on spelling difference, auto-save new customers */
+function custAfterFill(role){
+  const box = document.getElementById("f_" + role);
+  const warn = document.getElementById("spell_" + role);
+  if(!box || !warn) return;
+  const addr = box.value.trim();
+  warn.style.display = "none";
+  if(!addr) return;
+  const first = (addr.split("\n")[0] || "").trim();
+  if(first.length < 3) return;
+  const list = customers();
+  const type = role === "shipper" ? "SHIPPER" : "CONSIGNEE";
+  let best = null, bestD = 99, bestI = -1;
+  list.forEach((c, i) => { const d = lev(first, c.name); if(d < bestD){ bestD = d; best = c; bestI = i; } });
+  if(best && bestD === 0){
+    const sameAddr = best.addr.replace(/\s+/g," ").trim().toLowerCase() === addr.replace(/\s+/g," ").trim().toLowerCase();
+    warn.innerHTML = `<span style="color:#1d6b34; font-weight:bold;">&#10004; KNOWN CUSTOMER &mdash; matched saved ${type.toLowerCase()}: ${esc(best.name)}</span>` +
+      (sameAddr ? "" : ` <span style="color:#b45309;">&mdash; but the address is different from the saved one. Check spelling!</span>
+       <button class="smallbtn sb-green" onclick="useCustomerName('${role}', ${bestI})">Use saved version</button>`);
+    warn.style.display = "block";
+  } else if(best && bestD <= 3){
+    warn.innerHTML = `&#9888; <b>SPELLING CHECK:</b> extracted "<b>${esc(first)}</b>" but saved customer is
+      "<b>${esc(best.name)}</b>" &mdash; possible spelling mistake!
+      <button class="smallbtn sb-green" onclick="useCustomerName('${role}', ${bestI})">Use saved version</button>`;
+    warn.style.display = "block";
+  } else {
+    list.push({name: first, addr: addr, type});
+    setStore("jfs_customers", list);
+    fillPickers();
+    warn.innerHTML = `<span style="color:#0f4f8c; font-weight:bold;">&#128190; NEW ${type} &mdash; auto-saved to customer database: ${esc(first)}</span>`;
+    warn.style.display = "block";
+  }
 }
 
 /* ---------- custom items ---------- */
