@@ -325,6 +325,8 @@
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
           <button class="btn btn-save" style="background:#1a5fb4;" onclick="plvPrint()">&#128424; PRINT PACKING LIST</button>
           <button class="btn btn-save" style="background:#1d6b34;" onclick="xlDownload()">&#11015; DOWNLOAD EXCEL (editable)</button>
+          <button class="btn btn-save" style="background:#0f2b4c;" onclick="ptAverage()">&#9878; AVERAGE SAME-QTY (&le;50 kg)</button>
+          <button class="smallbtn sb-blue" onclick="ptAvgReset()">&#8634; Actual</button>
           <button class="smallbtn sb-green" onclick="plvAddRow()">+ Add pallet</button>
           <span style="font-size:12px; color:#5b6b7d;">Edit anything &mdash; DGD &amp; SC weights recalculate automatically and stay linked to the DGD form.</span>
         </div>
@@ -548,6 +550,8 @@
       <div style="overflow-x:auto;"><table id="pt_table" style="border-collapse:collapse; width:100%;"></table></div>
       <div style="display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap;">
         <button class="smallbtn sb-green" onclick="ptAddRow()">+ Add pallet</button>
+        <button class="btn btn-save" style="background:#1a5fb4;" onclick="ptAverage()">&#9878; AVERAGE SAME-QTY (&le;50 kg)</button>
+        <button class="smallbtn sb-blue" onclick="ptAvgReset()">&#8634; Actual</button>
         <button class="btn btn-save" style="background:#7a4b00;" onclick="ptFillDgd()">&#10145; FILL DGD FROM PALLETS (official format)</button>
         <button class="btn btn-save" style="background:#1d6b34;" onclick="xlDownload()">&#11015; DOWNLOAD EXCEL (packing list + labels)</button>
         <button class="smallbtn sb-red" onclick="ptClearAll()">Clear</button>
@@ -2253,24 +2257,50 @@ function fmtDot(x){ const s = String(x); return s.includes(".") ? s.replace(".",
 function ptCompute(){
   const tare = parseFloat(v("pt_tare")) || 0;
   PT.forEach((r, i) => {
-    r.dgd = (r.w > tare && r.q > 0) ? ptTrunc3((r.w - tare) / r.q) : 0;
+    const gw = (r.aw != null && r.aw > 0) ? r.aw : r.w;   // averaged weight when set, else actual (actual stays as record)
+    r.dgd = (gw > tare && r.q > 0) ? ptTrunc3((gw - tare) / r.q) : 0;
     r.sc = ptR3(r.dgd * r.q);
     r.label = "OVERPACK#SC" + String(i + 1).padStart(2, "0");
   });
 }
+/* average the gross weight of pallets with the SAME carton QTY → one uniform weight per group
+   (fewer DGD lines). Total adjustment allowed: max 50 kg. Actual weights are kept as the record. */
+function ptAverage(){
+  if(!PT.length){ alert("No pallets yet."); return; }
+  const groups = {};
+  PT.forEach(r => { (groups[r.q] = groups[r.q] || []).push(r); });
+  let adj = 0;
+  Object.values(groups).forEach(g => {
+    if(g.length < 2){ g.forEach(r => r._avgTmp = null); return; }
+    const avg = Math.round(g.reduce((a, r) => a + (r.w || 0), 0) / g.length * 100) / 100;
+    g.forEach(r => { adj += Math.abs((r.w || 0) - avg); r._avgTmp = avg; });
+  });
+  adj = Math.round(adj * 100) / 100;
+  if(adj > 50){
+    PT.forEach(r => delete r._avgTmp);
+    alert("CANNOT AVERAGE — total adjustment needed is " + adj + " kg, above the 50 kg limit.\n\nWeights differ too much. Keep actual weights, or split the shipment.");
+    return;
+  }
+  PT.forEach(r => { r.aw = (r._avgTmp != null) ? r._avgTmp : null; delete r._avgTmp; });
+  ptRender(); plvRender();
+  const m = document.getElementById("pt_summary");
+  if(m) m.textContent = "⚖ AVERAGED same-QTY pallets — adjustment used " + adj + " kg (limit 50 kg). Actual weights kept as record. Now FILL DGD → few lines only.";
+}
+function ptAvgReset(){ PT.forEach(r => r.aw = null); ptRender(); plvRender(); }
 function ptRender(){
   ptCompute();
   const tb = document.getElementById("pt_table");
   if(!tb) return;
   const TH = "padding:5px 8px; font-size:11.5px; background:#efe6d6; border:1px solid #d8cdb8; color:#5b4a1e;";
   const TD = "padding:3px 6px; border:1px solid #e2dccd; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">PLT</th><th style="${TH}">GROSS WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QTY (CTNS)</th><th style="${TH}">DGD WT (kg G)</th><th style="${TH}">SC WT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>`;
+  let h = `<tr><th style="${TH}">PLT</th><th style="${TH}">GROSS WT (KGS)</th><th style="${TH}">AVG WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QTY (CTNS)</th><th style="${TH}">DGD WT (kg G)</th><th style="${TH}">SC WT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>`;
   PT.forEach((r, i) => {
     h += `<tr>
       <td style="${TD} text-align:center;">${i + 1}</td>
-      <td style="${TD}"><input type="text" value="${r.w || ""}" style="width:90px;" oninput="PT[${i}].w=parseFloat(this.value)||0; ptRecalc();"></td>
+      <td style="${TD}"><input type="text" value="${r.w || ""}" style="width:90px;" oninput="PT[${i}].w=parseFloat(this.value)||0; PT[${i}].aw=null; ptRecalc();"></td>
+      <td style="${TD} text-align:center; font-weight:bold; color:#1a5fb4;" id="pt_aw_${i}"></td>
       <td style="${TD}"><input type="text" value="${esc(r.d || "")}" style="width:120px;" oninput="PT[${i}].d=this.value;"></td>
-      <td style="${TD}"><input type="text" value="${r.q || ""}" style="width:70px;" oninput="PT[${i}].q=parseInt(this.value)||0; ptRecalc();"></td>
+      <td style="${TD}"><input type="text" value="${r.q || ""}" style="width:70px;" oninput="PT[${i}].q=parseInt(this.value)||0; PT[${i}].aw=null; ptRecalc();"></td>
       <td style="${TD} text-align:center; font-weight:bold;" id="pt_dgd_${i}"></td>
       <td style="${TD} text-align:center; font-weight:bold;" id="pt_sc_${i}"></td>
       <td style="${TD} text-align:center;" id="pt_lb_${i}"></td>
@@ -2284,10 +2314,11 @@ function ptRecalc(){
   const warn = document.getElementById("pt_warn");
   let maxD = 0;
   PT.forEach((r, i) => {
-    const d = document.getElementById("pt_dgd_" + i), s = document.getElementById("pt_sc_" + i), l = document.getElementById("pt_lb_" + i);
+    const d = document.getElementById("pt_dgd_" + i), s = document.getElementById("pt_sc_" + i), l = document.getElementById("pt_lb_" + i), a = document.getElementById("pt_aw_" + i);
     if(d){ d.textContent = r.dgd || ""; d.style.color = r.dgd > 30 ? "#a40000" : "#1d6b34"; }
     if(s) s.textContent = r.sc || "";
     if(l) l.textContent = r.label;
+    if(a) a.textContent = (r.aw != null && r.aw > 0) ? r.aw : "";
     if(r.dgd > maxD) maxD = r.dgd;
   });
   const tw = ptR3(PT.reduce((a, r) => a + (r.w || 0), 0));
@@ -2864,8 +2895,8 @@ function renderInbox(){
   const tb = document.getElementById("inbox_table"); if(!tb) return;
   const TH = "padding:5px 8px; font-size:11.5px; background:#b45309; color:#fff; border:1px solid #b45309; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #f0e6d8; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">RECEIVED</th><th style="${TH}">JOB</th><th style="${TH}">CUSTOMER</th><th style="${TH}">FROM</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">GROSS</th><th style="${TH}">NOTES</th><th style="${TH}">STATUS</th></tr>`;
-  if(!INBOX.length) h += `<tr><td colspan="10" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
+  let h = `<tr><th style="${TH}">RECEIVED</th><th style="${TH}">JOB</th><th style="${TH}">AWB</th><th style="${TH}">CUSTOMER</th><th style="${TH}">FROM</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">GROSS</th><th style="${TH}">NOTES</th><th style="${TH}">STATUS</th></tr>`;
+  if(!INBOX.length) h += `<tr><td colspan="11" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
   INBOX.forEach(r => {
     const p = r.payload || {};
     const st = r.status === "NEW"
@@ -2876,6 +2907,7 @@ function renderInbox(){
     h += `<tr${r.status === "NEW" ? ' style="background:#fffaf0;"' : ""}>
       <td style="${TD}">${new Date(r.created_at).toLocaleString("en-GB")}</td>
       <td style="${TD} font-weight:bold;">${esc(p.job || r.job_no || "")}</td>
+      <td style="${TD}">${esc(p.awb || "")}</td>
       <td style="${TD}">${esc(p.customer || "")}</td>
       <td style="${TD}">${esc(r.sender_email||"")}</td>
       <td style="${TD} font-weight:bold;">${esc((p.shipper||"").split("\n")[0])}</td>
@@ -2934,9 +2966,10 @@ function plvRender(){
   PT.forEach((r, i) => {
     rows += `<tr>
       <td style="${TD}">${i+1}</td>
-      <td style="${TD}"><input style="${IN} width:82px; text-align:center;" value="${r.w || ""}" oninput="PT[${i}].w=parseFloat(this.value)||0; plvCalc();"></td>
+      <td style="${TD}"><input style="${IN} width:82px; text-align:center;" value="${r.w || ""}" oninput="PT[${i}].w=parseFloat(this.value)||0; PT[${i}].aw=null; plvCalc();"></td>
+      <td style="${TD} font-weight:bold; color:#1a5fb4;" id="plv_aw_${i}"></td>
       <td style="${TD}"><input style="${IN} width:112px; text-align:center;" value="${esc(r.d || "")}" oninput="PT[${i}].d=this.value;"></td>
-      <td style="${TD}"><input style="${IN} width:64px; text-align:center;" value="${r.q || ""}" oninput="PT[${i}].q=parseInt(this.value)||0; plvCalc();"></td>
+      <td style="${TD}"><input style="${IN} width:64px; text-align:center;" value="${r.q || ""}" oninput="PT[${i}].q=parseInt(this.value)||0; PT[${i}].aw=null; plvCalc();"></td>
       <td style="${TD} font-weight:bold;" id="plv_sc_${i}"></td>
       <td style="${TD}" id="plv_q2_${i}"></td>
       <td style="${TD} font-weight:bold;" id="plv_dgd_${i}"></td>
@@ -2975,9 +3008,9 @@ function plvRender(){
     </div>
     <div style="font-size:10.5px; color:#5b6b7d; margin:8px 0 4px;">DGD WEIGHT = (PLT WEIGHT &minus; pallet tare) &divide; QTY, 3 decimals <b>cut</b> &nbsp;&bull;&nbsp; SC WEIGHT = DGD WEIGHT &times; QTY = exact declared quantity on the label.</div>
     <table style="border-collapse:collapse; width:100%;">
-      <tr><th style="${TH}">PLT</th><th style="${TH}">WEIGHT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QNTY (CTNS)</th><th style="${TH}">SC WEIGHT (KGS)</th><th style="${TH}">QTY</th><th style="${TH}">DGD WEIGHT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>
+      <tr><th style="${TH}">PLT</th><th style="${TH}">WEIGHT (KGS)</th><th style="${TH}">AVG WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QNTY (CTNS)</th><th style="${TH}">SC WEIGHT (KGS)</th><th style="${TH}">QTY</th><th style="${TH}">DGD WEIGHT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>
       ${rows}
-      <tr><td style="${TD} font-weight:bold;">TOTAL</td><td style="${TD} font-weight:bold;" id="plv_tw"></td><td style="${TD}"></td>
+      <tr><td style="${TD} font-weight:bold;">TOTAL</td><td style="${TD} font-weight:bold;" id="plv_tw"></td><td style="${TD}"></td><td style="${TD}"></td>
           <td style="${TD} font-weight:bold;" id="plv_tq"></td><td style="${TD} font-weight:bold;" id="plv_ts"></td>
           <td style="${TD} font-weight:bold;" id="plv_tq2"></td><td style="${TD} font-weight:bold;" id="plv_ts2"></td>
           <td style="${TD} font-weight:bold;">${PT.length} LABELS</td><td style="${TD}"></td></tr>
@@ -2991,11 +3024,13 @@ function plvCalc(){
   let tw = 0, tq = 0, ts = 0, maxD = 0;
   PT.forEach((r, i) => {
     const sc = document.getElementById("plv_sc_" + i), q2 = document.getElementById("plv_q2_" + i),
-          dg = document.getElementById("plv_dgd_" + i), lb = document.getElementById("plv_lb_" + i);
+          dg = document.getElementById("plv_dgd_" + i), lb = document.getElementById("plv_lb_" + i),
+          aw = document.getElementById("plv_aw_" + i);
     if(sc) sc.textContent = r.sc || "";
     if(q2) q2.textContent = r.q || "";
     if(dg){ dg.textContent = r.dgd || ""; dg.style.color = r.dgd > 30 ? "#a40000" : "#1d6b34"; }
     if(lb) lb.textContent = r.label || "";
+    if(aw) aw.textContent = (r.aw != null && r.aw > 0) ? r.aw : "";
     tw += r.w || 0; tq += r.q || 0; ts += r.sc || 0; if(r.dgd > maxD) maxD = r.dgd;
   });
   const set = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
@@ -3013,7 +3048,7 @@ function plvPrint(){
   const TH = `padding:4px 6px; font-size:9.5pt; background:#efe6d6; border:1px solid #888; text-align:center; ${PC}`;
   const TD = "padding:3px 5px; border:1px solid #888; font-size:9.5pt; text-align:center;";
   let rows = "";
-  PT.forEach((r, i) => rows += `<tr><td style="${TD}">${i+1}</td><td style="${TD}">${r.w||""}</td><td style="${TD}">${esc(r.d||"")}</td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.sc||""}</b></td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.dgd||""}</b></td><td style="${TD}">${esc(r.label||"")}</td></tr>`);
+  PT.forEach((r, i) => rows += `<tr><td style="${TD}">${i+1}</td><td style="${TD}">${r.w||""}</td><td style="${TD}"><b>${(r.aw != null && r.aw > 0) ? r.aw : ""}</b></td><td style="${TD}">${esc(r.d||"")}</td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.sc||""}</b></td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.dgd||""}</b></td><td style="${TD}">${esc(r.label||"")}</td></tr>`);
   const tw = ptR3(PT.reduce((a,r) => a+(r.w||0), 0)), tq = PT.reduce((a,r) => a+(r.q||0), 0),
         ts = ptR3(PT.reduce((a,r) => a+(r.sc||0), 0)), maxD = Math.max(0, ...PT.map(r => r.dgd||0));
   document.getElementById("plvprint").innerHTML = `
@@ -3028,9 +3063,9 @@ function plvPrint(){
       <td style="${TD} text-align:left; width:50%; vertical-align:top;"><b>SHIPPER:</b><br><span style="white-space:pre-wrap; font-weight:bold;">${esc(s.shipper||"")}</span></td>
       <td style="${TD} text-align:left; vertical-align:top;"><b>CONSIGNEE:</b><br><span style="white-space:pre-wrap; font-weight:bold;">${esc(s.consignee||"")}</span></td></tr></table>
     <table style="width:100%; border-collapse:collapse; margin-top:3mm;">
-      <tr><th style="${TH}">PLT</th><th style="${TH}">WEIGHT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QNTY (CTNS)</th><th style="${TH}">SC WEIGHT (KGS)</th><th style="${TH}">QTY</th><th style="${TH}">DGD WEIGHT (kg G)</th><th style="${TH}">LABEL NO</th></tr>
+      <tr><th style="${TH}">PLT</th><th style="${TH}">WEIGHT (KGS)</th><th style="${TH}">AVG WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QNTY (CTNS)</th><th style="${TH}">SC WEIGHT (KGS)</th><th style="${TH}">QTY</th><th style="${TH}">DGD WEIGHT (kg G)</th><th style="${TH}">LABEL NO</th></tr>
       ${rows}
-      <tr><td style="${TD}"><b>TOTAL</b></td><td style="${TD}"><b>${tw}</b></td><td style="${TD}"></td><td style="${TD}"><b>${tq}</b></td><td style="${TD}"><b>${ts}</b></td><td style="${TD}"><b>${tq}</b></td><td style="${TD}"><b>${ts}</b></td><td style="${TD}"><b>${PT.length} LABELS</b></td></tr>
+      <tr><td style="${TD}"><b>TOTAL</b></td><td style="${TD}"><b>${tw}</b></td><td style="${TD}"></td><td style="${TD}"></td><td style="${TD}"><b>${tq}</b></td><td style="${TD}"><b>${ts}</b></td><td style="${TD}"><b>${tq}</b></td><td style="${TD}"><b>${ts}</b></td><td style="${TD}"><b>${PT.length} LABELS</b></td></tr>
     </table>
     <div style="font-size:8pt; margin-top:2mm;">DGD WEIGHT = (PLT WEIGHT &minus; tare) &divide; QTY, 3 decimals cut &nbsp;&bull;&nbsp; SC WEIGHT = DGD WEIGHT &times; QTY &nbsp;&bull;&nbsp; Max DGD wt: <b>${maxD} kg G/pkg</b></div>
     <div style="display:flex; justify-content:space-between; font-size:9pt; margin-top:10mm;">
@@ -3069,54 +3104,55 @@ async function xlDownload(){
 
   /* ---- DG TOOL sheet (same layout as the JFS tool) ---- */
   const ws = wb.addWorksheet("DG TOOL");
-  ws.columns = [{width:22},{width:14},{width:18},{width:12},{width:14},{width:44},{width:16},{width:20}];
+  ws.columns = [{width:22},{width:14},{width:13},{width:18},{width:12},{width:14},{width:44},{width:16},{width:20}];
   const set = (addr, val, opt) => { const c = ws.getCell(addr); c.value = val; if(opt){ Object.assign(c, opt); } };
   set("A1", "JFS LOGISTICS   |   DG PACKING LIST  &  OVERPACK LABEL TOOL", {font:{bold:true,size:14,color:{argb:"FFFFFFFF"}}, fill:NAVY});
-  ws.mergeCells("A1:H1");
-  set("A2", "Yellow cells = type / paste here.   White cells = automatic.   Sheet ALL LABELS: one overpack label per page.", {font:{italic:true,size:9}});
-  ws.mergeCells("A2:H2");
+  ws.mergeCells("A1:I1");
+  set("A2", "Yellow cells = type / paste here.   White cells = automatic.   AVG WT = averaged weight (same-QTY pallets). Sheet ALL LABELS: one overpack label per page.", {font:{italic:true,size:9}});
+  ws.mergeCells("A2:I2");
   set("A4","SHIPMENT DETAILS",{font:{bold:true}, fill:TAN}); set("E4","SHIPPER   (label lines 1-4)",{font:{bold:true}, fill:TAN});
   set("A5","AWB No."); set("C5", v("f_awb"), {fill:YEL, font:{bold:true}});
   set("A6","Reference"); set("C6", v("f_ref"), {fill:YEL});
   set("A7","Route"); set("C7", route, {fill:YEL});
   set("A8","Pallet tare weight (kg)"); set("C8", tare, {fill:YEL});
   for(let i=0;i<4;i++){ set("E"+(5+i), "Line "+(i+1)); set("F"+(5+i), shipLines[i]||"", {fill:YEL, font:{bold:true}}); }
-  set("A9","DGD WEIGHT = (PLT WEIGHT - pallet tare) / QTY, 3 decimals cut not rounded.   SC WEIGHT = DGD WEIGHT x QTY = exact declared quantity on the label.",{font:{italic:true,size:8.5}});
-  ws.mergeCells("A9:H9");
+  set("A9","DGD WEIGHT = (PLT WEIGHT - pallet tare) / QTY, 3 decimals cut not rounded.   SC WEIGHT = DGD WEIGHT x QTY.   AVG WT used when set (same-QTY averaging, actual weight stays as record).",{font:{italic:true,size:8.5}});
+  ws.mergeCells("A9:I9");
   set("A10","SUMMARY",{font:{bold:true}, fill:TAN}); set("E10","CONSIGNEE   (label lines 1-6)",{font:{bold:true}, fill:TAN});
   const N = PT.length, hdr = 18, first = 19, last = first + N - 1, tot = last + 1;
   set("A11","Total PLT (overpacks)"); set("C11",{formula:`COUNT(A${first}:A${last})`});
   set("A12","Total gross weight (kg)"); set("C12",{formula:`SUM(B${first}:B${last})`});
-  set("A13","Total SC weight (kg G)"); set("C13",{formula:`SUM(E${first}:E${last})`});
-  set("A14","Total cartons (QTY)"); set("C14",{formula:`SUM(D${first}:D${last})`});
-  set("A15","Max DGD weight (kg G/pkg)"); set("C15",{formula:`MAX(G${first}:G${last})`});
+  set("A13","Total SC weight (kg G)"); set("C13",{formula:`SUM(F${first}:F${last})`});
+  set("A14","Total cartons (QTY)"); set("C14",{formula:`SUM(E${first}:E${last})`});
+  set("A15","Max DGD weight (kg G/pkg)"); set("C15",{formula:`MAX(H${first}:H${last})`});
   set("A16","Labels to print"); set("C16",{formula:`COUNT(A${first}:A${last})`});
   for(let r=11;r<=16;r++) ws.getCell("C"+r).font = {bold:true};
   for(let i=0;i<6;i++){ set("E"+(11+i), "Line "+(i+1)); set("F"+(11+i), consLines[i]||"", {fill:YEL, font:{bold:true}}); }
-  ["PLT","WEIGHT (KGS)","DIMENSIONS (cm)","QNTY (CTNS)","SC WEIGHT (KGS)","QTY","DGD WEIGHT (kg G)","LABEL NO"].forEach((t,ci)=>{
+  ["PLT","WEIGHT (KGS)","AVG WT (KGS)","DIMENSIONS (cm)","QNTY (CTNS)","SC WEIGHT (KGS)","QTY","DGD WEIGHT (kg G)","LABEL NO"].forEach((t,ci)=>{
     const c = ws.getRow(hdr).getCell(ci+1); c.value = t; c.font = {bold:true}; c.fill = TAN; c.border = BORD; c.alignment = {horizontal:"center"};
   });
   PT.forEach((r,i) => {
     const row = ws.getRow(first + i), rn = first + i;
     row.getCell(1).value = i+1;
     row.getCell(2).value = r.w;   row.getCell(2).fill = YEL;
-    row.getCell(3).value = r.d;   row.getCell(3).fill = YEL;
-    row.getCell(4).value = r.q;   row.getCell(4).fill = YEL;
-    row.getCell(5).value = {formula:`ROUND(G${rn}*D${rn},3)`};
-    row.getCell(6).value = {formula:`D${rn}`};
-    row.getCell(7).value = {formula:`TRUNC((B${rn}-$C$8)/D${rn},3)`};
-    row.getCell(8).value = "OVERPACK#SC" + String(i+1).padStart(2,"0");
-    for(let ci=1;ci<=8;ci++){ row.getCell(ci).border = BORD; if(ci!==3) row.getCell(ci).alignment = {horizontal:"center"}; }
+    if(r.aw != null && r.aw > 0){ row.getCell(3).value = r.aw; row.getCell(3).font = {bold:true, color:{argb:"FF1A5FB4"}}; }
+    row.getCell(4).value = r.d;   row.getCell(4).fill = YEL;
+    row.getCell(5).value = r.q;   row.getCell(5).fill = YEL;
+    row.getCell(6).value = {formula:`ROUND(H${rn}*E${rn},3)`};
+    row.getCell(7).value = {formula:`E${rn}`};
+    row.getCell(8).value = {formula:`TRUNC((IF(C${rn}>0,C${rn},B${rn})-$C$8)/E${rn},3)`};
+    row.getCell(9).value = "OVERPACK#SC" + String(i+1).padStart(2,"0");
+    for(let ci=1;ci<=9;ci++){ row.getCell(ci).border = BORD; if(ci!==4) row.getCell(ci).alignment = {horizontal:"center"}; }
   });
   const tr = ws.getRow(tot);
   tr.getCell(1).value = "TOTAL";
   tr.getCell(2).value = {formula:`SUM(B${first}:B${last})`};
-  tr.getCell(4).value = {formula:`SUM(D${first}:D${last})`};
   tr.getCell(5).value = {formula:`SUM(E${first}:E${last})`};
   tr.getCell(6).value = {formula:`SUM(F${first}:F${last})`};
-  tr.getCell(7).value = {formula:`SUM(E${first}:E${last})`};
-  tr.getCell(8).value = N + " LABELS";
-  for(let ci=1;ci<=8;ci++){ tr.getCell(ci).font = {bold:true}; tr.getCell(ci).fill = TAN; tr.getCell(ci).border = BORD; tr.getCell(ci).alignment = {horizontal:"center"}; }
+  tr.getCell(7).value = {formula:`SUM(G${first}:G${last})`};
+  tr.getCell(8).value = {formula:`SUM(F${first}:F${last})`};
+  tr.getCell(9).value = N + " LABELS";
+  for(let ci=1;ci<=9;ci++){ tr.getCell(ci).font = {bold:true}; tr.getCell(ci).fill = TAN; tr.getCell(ci).border = BORD; tr.getCell(ci).alignment = {horizontal:"center"}; }
 
   /* ---- ALL LABELS sheet: one overpack label per page ---- */
   const wl = wb.addWorksheet("ALL LABELS", {pageSetup:{paperSize:9, orientation:"portrait", fitToPage:true, fitToWidth:1, fitToHeight:0,
