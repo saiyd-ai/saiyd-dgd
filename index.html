@@ -284,6 +284,7 @@
     <div class="nav">
       <button id="nav-dash" onclick="showTab('dash')">&#128202; DASHBOARD</button>
       <button id="nav-dgd" class="on" onclick="showTab('dgd')">&#128203; DGD PREPARE</button>
+      <button id="nav-pl" onclick="showTab('pl')">&#128196; PACKING LIST</button>
       <button id="nav-checklist" onclick="showTab('checklist')">&#9989; CHECKLIST</button>
       <button id="nav-stickers" onclick="showTab('stickers')">&#127991; STICKERS</button>
       <button id="nav-labels" onclick="showTab('labels')">&#9888; DG LABELS</button>
@@ -315,6 +316,20 @@
           <button class="btn btn-save" style="background:#0f2b4c;" onclick="jobNew()">&#10133; NEW DGD (new job)</button>
         </div>
         <div style="overflow-x:auto;"><table id="dash_table" style="border-collapse:collapse; width:100%;"></table></div>
+      </div></div>
+    </div>
+
+    <!-- ============ JFS PACKING LIST TAB (editable document) ============ -->
+    <div class="tab" id="tab-pl">
+      <div class="card" style="border-left:5px solid #1a5fb4;"><h2 style="background:#e3ecf7; color:#1a5fb4;">&#128196; JFS PACKING LIST &mdash; editable (your Excel style, linked to the DGD)</h2><div class="body">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
+          <button class="btn btn-save" style="background:#1a5fb4;" onclick="plvPrint()">&#128424; PRINT PACKING LIST</button>
+          <button class="btn btn-save" style="background:#1d6b34;" onclick="xlDownload()">&#11015; DOWNLOAD EXCEL (editable)</button>
+          <button class="smallbtn sb-green" onclick="plvAddRow()">+ Add pallet</button>
+          <span style="font-size:12px; color:#5b6b7d;">Edit anything &mdash; DGD &amp; SC weights recalculate automatically and stay linked to the DGD form.</span>
+        </div>
+        <div id="plview" style="overflow-x:auto;"></div>
+        <div id="plvprint" style="display:none;"></div>
       </div></div>
     </div>
 
@@ -1452,6 +1467,7 @@ function showTab(name){
   document.getElementById("nav-"+name).classList.add("on");
   document.querySelector(".previewwrap").style.display = (name === "dgd") ? "" : "none";
   if(name === "dash"){ renderDash(); inboxPoll(); }
+  if(name === "pl") plvRender();
   if(name === "wh"){ whRender(); whRefreshSent(); }
   if(name === "customers") renderCustomers();
   if(name === "items") renderItems();
@@ -2389,25 +2405,28 @@ function jobStart(){
   document.getElementById("jobgate").style.display = "none";
   document.getElementById("jobmsg").textContent = "Job " + j + " started " + new Date().toLocaleString("en-GB");
   if(_acceptRow){
-    const p = _acceptRow.payload || {};
-    document.getElementById("f_shipper").value = p.shipper || ""; custAfterFill("shipper");
-    document.getElementById("f_consignee").value = p.consignee || ""; custAfterFill("consignee");
-    if(p.awb) document.getElementById("f_awb").value = p.awb;
-    if(p.ref) document.getElementById("f_ref").value = p.ref;
-    if(p.route){
-      const pr = p.route.split(/[-–>]+/).map(s => s.trim()).filter(Boolean);
-      if(pr[0]) document.getElementById("f_dep").value = pr[0].toUpperCase();
-      if(pr[1]) document.getElementById("f_dest").value = pr[1].toUpperCase();
-    }
-    if(p.tare) document.getElementById("pt_tare").value = p.tare;
-    PT = (p.pallets || []).map(r => ({w: r.w, d: r.d, q: r.q}));
-    ptRender();
-    if(p.notes) document.getElementById("jobmsg").textContent = "Job " + j + " — from warehouse. Notes: " + p.notes.slice(0, 80);
+    applyQueuePayload(_acceptRow.payload || {});
+    const nts = (_acceptRow.payload || {}).notes;
+    if(nts) document.getElementById("jobmsg").textContent = "Job " + j + " — from warehouse. Notes: " + nts.slice(0, 80);
     sb.from("dgd_queue").update({status: "ACCEPTED", accepted_by: (sbUser && sbUser.email) || "", accepted_at: new Date().toISOString(), job_no: j})
       .eq("id", _acceptRow.id).then(() => inboxPoll());
     _acceptRow = null;
   }
-  showTab("dgd"); refresh();
+  showTab(_afterStartTab || "dgd"); _afterStartTab = null; refresh();
+}
+function applyQueuePayload(p){
+  document.getElementById("f_shipper").value = p.shipper || ""; custAfterFill("shipper");
+  document.getElementById("f_consignee").value = p.consignee || ""; custAfterFill("consignee");
+  if(p.awb) document.getElementById("f_awb").value = p.awb;
+  if(p.ref) document.getElementById("f_ref").value = p.ref;
+  if(p.route){
+    const pr = p.route.split(/[-–>]+/).map(s => s.trim()).filter(Boolean);
+    if(pr[0]) document.getElementById("f_dep").value = pr[0].toUpperCase();
+    if(pr[1]) document.getElementById("f_dest").value = pr[1].toUpperCase();
+  }
+  if(p.tare) document.getElementById("pt_tare").value = p.tare;
+  PT = (p.pallets || []).map(r => ({w: r.w, d: r.d, q: r.q}));
+  ptRender();
 }
 function jobContinue(){
   try{ const s = JSON.parse(localStorage.getItem("jfs_dgd_current")||"null"); if(s) applySnapshot(s); }catch(e){}
@@ -2519,7 +2538,7 @@ async function dashReport(){
 }
 
 /* ---------- warehouse → operations queue ---------- */
-let WH = [], INBOX = [], _acceptRow = null, _inboxT = null;
+let WH = [], INBOX = [], _acceptRow = null, _inboxT = null, _afterStartTab = null;
 function whRender(){
   const tb = document.getElementById("wh_table"); if(!tb) return;
   const TH = "padding:5px 8px; font-size:11.5px; background:#fff4e5; border:1px solid #eedcc3; color:#7a4b00;";
@@ -2688,8 +2707,10 @@ function renderInbox(){
   INBOX.forEach(r => {
     const p = r.payload || {};
     const st = r.status === "NEW"
-      ? `<button class="smallbtn sb-green" onclick="inboxAccept('${r.id}')">&#10004; ACCEPT &amp; START</button>`
-      : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}</span>`;
+      ? `<button class="smallbtn sb-green" onclick="inboxAccept('${r.id}')">&#10004; ACCEPT &amp; START</button>
+         <button class="smallbtn sb-blue" onclick="inboxAccept('${r.id}','pl')">&#128196; CONVERT &rarr; PL</button>`
+      : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}</span>
+         <button class="smallbtn sb-blue" onclick="inboxOpenPl('${r.id}')">&#128196; PL</button>`;
     h += `<tr${r.status === "NEW" ? ' style="background:#fffaf0;"' : ""}>
       <td style="${TD}">${new Date(r.created_at).toLocaleString("en-GB")}</td>
       <td style="${TD} font-weight:bold;">${esc(p.job || r.job_no || "")}</td>
@@ -2703,10 +2724,11 @@ function renderInbox(){
   });
   tb.innerHTML = h;
 }
-function inboxAccept(id){
+function inboxAccept(id, after){
   const row = INBOX.find(r => r.id === id);
   if(!row) return;
   _acceptRow = row;
+  _afterStartTab = after || null;
   jobGateShow();
   const p = row.payload || {};
   document.getElementById("jg_job").value = p.job || row.job_no || "";
@@ -2714,6 +2736,145 @@ function inboxAccept(id){
     "Accepting packing list from " + (row.sender_email||"warehouse") + ": " +
     ((p.shipper||"").split("\n")[0]) + " → " + ((p.consignee||"").split("\n")[0]) +
     " (" + ((p.totals||{}).plt||"?") + " PLT)";
+}
+
+/* ---------- editable JFS packing list view (Excel-tool style) ---------- */
+function inboxOpenPl(id){
+  const row = INBOX.find(r => r.id === id);
+  if(!row) return;
+  const p = row.payload || {};
+  document.getElementById("f_job").value = (p.job || row.job_no || "").toUpperCase();
+  applyQueuePayload(p);
+  refresh();
+  showTab("pl");
+}
+function plvSync(id, val){
+  const e = document.getElementById(id);
+  if(e){ e.value = val; }
+  if(typeof refresh === "function") refresh();
+}
+function plvRoute(val){
+  const pr = val.split(/[-–>]+/).map(s => s.trim()).filter(Boolean);
+  document.getElementById("f_dep").value = (pr[0] || "").toUpperCase();
+  document.getElementById("f_dest").value = (pr[1] || "").toUpperCase();
+  refresh();
+}
+function plvAddRow(){ PT.push({w: 0, d: "", q: 0}); plvRender(); ptRender(); }
+function plvRender(){
+  const el = document.getElementById("plview"); if(!el) return;
+  ptCompute();
+  const IN = "border:1px solid #c9d4e2; border-radius:4px; padding:5px 6px; font-size:13px;";
+  const TH = "padding:5px 7px; font-size:11px; background:#efe6d6; border:1px solid #d8cdb8; color:#5b4a1e; text-align:center;";
+  const TD = "padding:3px 5px; border:1px solid #e2dccd; font-size:12.5px; text-align:center;";
+  const CAP = "font-size:10px; font-weight:bold; color:#44546a; text-transform:uppercase; display:block; margin:8px 0 2px;";
+  let rows = "";
+  PT.forEach((r, i) => {
+    rows += `<tr>
+      <td style="${TD}">${i+1}</td>
+      <td style="${TD}"><input style="${IN} width:82px; text-align:center;" value="${r.w || ""}" oninput="PT[${i}].w=parseFloat(this.value)||0; plvCalc();"></td>
+      <td style="${TD}"><input style="${IN} width:112px; text-align:center;" value="${esc(r.d || "")}" oninput="PT[${i}].d=this.value;"></td>
+      <td style="${TD}"><input style="${IN} width:64px; text-align:center;" value="${r.q || ""}" oninput="PT[${i}].q=parseInt(this.value)||0; plvCalc();"></td>
+      <td style="${TD} font-weight:bold;" id="plv_sc_${i}"></td>
+      <td style="${TD}" id="plv_q2_${i}"></td>
+      <td style="${TD} font-weight:bold;" id="plv_dgd_${i}"></td>
+      <td style="${TD}" id="plv_lb_${i}"></td>
+      <td style="${TD}"><button class="smallbtn sb-red" onclick="PT.splice(${i},1); plvRender(); ptRender();">x</button></td></tr>`;
+  });
+  el.innerHTML = `
+  <div style="background:#fff; border:1px solid #d7dee8; max-width:210mm; margin:0 auto; padding:7mm;">
+    <div style="background:#0f2b4c; color:#fff; font-weight:bold; padding:8px 12px; font-size:14px;">JFS LOGISTICS &nbsp;|&nbsp; DG PACKING LIST &amp; OVERPACK LABEL TOOL
+      <span style="float:right; font-weight:normal; font-size:12px;">JOB: <b>${esc(v("f_job") || "—")}</b></span></div>
+    <div class="grid g2" style="margin-top:10px;">
+      <div>
+        <span style="${CAP}">Shipment details</span>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <div><label style="font-size:10px;">AWB No.</label><input style="${IN} width:130px;" value="${esc(v("f_awb"))}" oninput="plvSync('f_awb', this.value)"></div>
+          <div><label style="font-size:10px;">Reference</label><input style="${IN} width:120px;" value="${esc(v("f_ref"))}" oninput="plvSync('f_ref', this.value)"></div>
+          <div><label style="font-size:10px;">Route</label><input style="${IN} width:110px;" value="${esc([iata3(v("f_dep")), iata3(v("f_dest"))].filter(Boolean).join(" - "))}" oninput="plvRoute(this.value)"></div>
+          <div><label style="font-size:10px;">Pallet tare (kg)</label><input style="${IN} width:70px;" value="${esc(v("pt_tare"))}" oninput="document.getElementById('pt_tare').value=this.value; plvCalc();"></div>
+        </div>
+        <span style="${CAP}">Summary (automatic)</span>
+        <table style="border-collapse:collapse; width:100%;">
+          <tr><td style="${TD} text-align:left;">Total PLT (overpacks)</td><td style="${TD} font-weight:bold;" id="plv_splt"></td>
+              <td style="${TD} text-align:left;">Total cartons (QTY)</td><td style="${TD} font-weight:bold;" id="plv_sctn"></td></tr>
+          <tr><td style="${TD} text-align:left;">Total gross weight (kg)</td><td style="${TD} font-weight:bold;" id="plv_sgross"></td>
+              <td style="${TD} text-align:left;">Max DGD weight (kg G/pkg)</td><td style="${TD} font-weight:bold;" id="plv_smax"></td></tr>
+          <tr><td style="${TD} text-align:left;">Total SC weight (kg G)</td><td style="${TD} font-weight:bold;" id="plv_ssc"></td>
+              <td style="${TD} text-align:left;">Labels to print</td><td style="${TD} font-weight:bold;" id="plv_slb"></td></tr>
+        </table>
+      </div>
+      <div>
+        <span style="${CAP}">Shipper (label lines)</span>
+        <textarea style="${IN} width:100%; min-height:74px; font-weight:bold;" oninput="plvSync('f_shipper', this.value)" onblur="custAfterFill('shipper')">${esc(v("f_shipper"))}</textarea>
+        <span style="${CAP}">Consignee (label lines)</span>
+        <textarea style="${IN} width:100%; min-height:92px; font-weight:bold;" oninput="plvSync('f_consignee', this.value)" onblur="custAfterFill('consignee')">${esc(v("f_consignee"))}</textarea>
+      </div>
+    </div>
+    <div style="font-size:10.5px; color:#5b6b7d; margin:8px 0 4px;">DGD WEIGHT = (PLT WEIGHT &minus; pallet tare) &divide; QTY, 3 decimals <b>cut</b> &nbsp;&bull;&nbsp; SC WEIGHT = DGD WEIGHT &times; QTY = exact declared quantity on the label.</div>
+    <table style="border-collapse:collapse; width:100%;">
+      <tr><th style="${TH}">PLT</th><th style="${TH}">WEIGHT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QNTY (CTNS)</th><th style="${TH}">SC WEIGHT (KGS)</th><th style="${TH}">QTY</th><th style="${TH}">DGD WEIGHT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>
+      ${rows}
+      <tr><td style="${TD} font-weight:bold;">TOTAL</td><td style="${TD} font-weight:bold;" id="plv_tw"></td><td style="${TD}"></td>
+          <td style="${TD} font-weight:bold;" id="plv_tq"></td><td style="${TD} font-weight:bold;" id="plv_ts"></td>
+          <td style="${TD} font-weight:bold;" id="plv_tq2"></td><td style="${TD} font-weight:bold;" id="plv_ts2"></td>
+          <td style="${TD} font-weight:bold;">${PT.length} LABELS</td><td style="${TD}"></td></tr>
+    </table>
+    ${PT.length ? "" : `<div style="color:#8a97a5; font-size:12.5px; margin-top:8px;">No pallets yet — accept a warehouse packing list from the INBOX, use the pallet calculator, or click + Add pallet.</div>`}
+  </div>`;
+  plvCalc();
+}
+function plvCalc(){
+  ptCompute();
+  let tw = 0, tq = 0, ts = 0, maxD = 0;
+  PT.forEach((r, i) => {
+    const sc = document.getElementById("plv_sc_" + i), q2 = document.getElementById("plv_q2_" + i),
+          dg = document.getElementById("plv_dgd_" + i), lb = document.getElementById("plv_lb_" + i);
+    if(sc) sc.textContent = r.sc || "";
+    if(q2) q2.textContent = r.q || "";
+    if(dg){ dg.textContent = r.dgd || ""; dg.style.color = r.dgd > 30 ? "#a40000" : "#1d6b34"; }
+    if(lb) lb.textContent = r.label || "";
+    tw += r.w || 0; tq += r.q || 0; ts += r.sc || 0; if(r.dgd > maxD) maxD = r.dgd;
+  });
+  const set = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+  set("plv_tw", ptR3(tw)); set("plv_tq", tq); set("plv_ts", ptR3(ts)); set("plv_tq2", tq); set("plv_ts2", ptR3(ts));
+  set("plv_splt", PT.length); set("plv_sgross", ptR3(tw)); set("plv_ssc", ptR3(ts)); set("plv_sctn", tq);
+  set("plv_smax", maxD); set("plv_slb", PT.length);
+  if(typeof ptRecalc === "function") ptRecalc();     // keep the calculator card in sync
+  if(typeof autosaveCurrent === "function") autosaveCurrent();
+}
+function plvPrint(){
+  if(!PT.length){ alert("No pallets on the packing list yet."); return; }
+  ptCompute();
+  const s = snapshot();
+  const PC = "-webkit-print-color-adjust:exact; print-color-adjust:exact;";
+  const TH = `padding:4px 6px; font-size:9.5pt; background:#efe6d6; border:1px solid #888; text-align:center; ${PC}`;
+  const TD = "padding:3px 5px; border:1px solid #888; font-size:9.5pt; text-align:center;";
+  let rows = "";
+  PT.forEach((r, i) => rows += `<tr><td style="${TD}">${i+1}</td><td style="${TD}">${r.w||""}</td><td style="${TD}">${esc(r.d||"")}</td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.sc||""}</b></td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.dgd||""}</b></td><td style="${TD}">${esc(r.label||"")}</td></tr>`);
+  const tw = ptR3(PT.reduce((a,r) => a+(r.w||0), 0)), tq = PT.reduce((a,r) => a+(r.q||0), 0),
+        ts = ptR3(PT.reduce((a,r) => a+(r.sc||0), 0)), maxD = Math.max(0, ...PT.map(r => r.dgd||0));
+  document.getElementById("plvprint").innerHTML = `
+  <div style="font-family:Arial; color:#000; max-width:190mm; margin:0 auto;">
+    <div style="background:#0f2b4c; color:#fff; font-weight:bold; padding:6px 10px; font-size:12pt; ${PC}">JFS LOGISTICS &nbsp;|&nbsp; PACKING LIST${s.job ? " &mdash; JOB " + esc(s.job) : ""}</div>
+    <table style="width:100%; border-collapse:collapse; margin-top:4mm;">
+      <tr><td style="${TD} text-align:left;"><b>AWB:</b> ${esc(s.awb||"")}</td><td style="${TD} text-align:left;"><b>REF:</b> ${esc(s.ref||"")}</td>
+          <td style="${TD} text-align:left;"><b>ROUTE:</b> ${esc([iata3(s.dep), iata3(s.dest)].filter(Boolean).join(" - "))}</td>
+          <td style="${TD} text-align:left;"><b>TARE:</b> ${esc(v("pt_tare"))} kg</td><td style="${TD} text-align:left;"><b>DATE:</b> ${esc(s.date||"")}</td></tr>
+    </table>
+    <table style="width:100%; border-collapse:collapse; margin-top:3mm;"><tr>
+      <td style="${TD} text-align:left; width:50%; vertical-align:top;"><b>SHIPPER:</b><br><span style="white-space:pre-wrap; font-weight:bold;">${esc(s.shipper||"")}</span></td>
+      <td style="${TD} text-align:left; vertical-align:top;"><b>CONSIGNEE:</b><br><span style="white-space:pre-wrap; font-weight:bold;">${esc(s.consignee||"")}</span></td></tr></table>
+    <table style="width:100%; border-collapse:collapse; margin-top:3mm;">
+      <tr><th style="${TH}">PLT</th><th style="${TH}">WEIGHT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QNTY (CTNS)</th><th style="${TH}">SC WEIGHT (KGS)</th><th style="${TH}">QTY</th><th style="${TH}">DGD WEIGHT (kg G)</th><th style="${TH}">LABEL NO</th></tr>
+      ${rows}
+      <tr><td style="${TD}"><b>TOTAL</b></td><td style="${TD}"><b>${tw}</b></td><td style="${TD}"></td><td style="${TD}"><b>${tq}</b></td><td style="${TD}"><b>${ts}</b></td><td style="${TD}"><b>${tq}</b></td><td style="${TD}"><b>${ts}</b></td><td style="${TD}"><b>${PT.length} LABELS</b></td></tr>
+    </table>
+    <div style="font-size:8pt; margin-top:2mm;">DGD WEIGHT = (PLT WEIGHT &minus; tare) &divide; QTY, 3 decimals cut &nbsp;&bull;&nbsp; SC WEIGHT = DGD WEIGHT &times; QTY &nbsp;&bull;&nbsp; Max DGD wt: <b>${maxD} kg G/pkg</b></div>
+    <div style="display:flex; justify-content:space-between; font-size:9pt; margin-top:10mm;">
+      <div>PREPARED BY: ____________________</div><div>CHECKED BY: ____________________</div><div>DATE: ____________</div>
+    </div>
+  </div>`;
+  printAlt("plvprint");
 }
 
 /* ---------- Excel download (packing list + labels, JFS tool format) ---------- */
