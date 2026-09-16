@@ -326,6 +326,7 @@
           <button class="btn btn-save" style="background:#1a5fb4;" onclick="plvPrint()">&#128424; PRINT PACKING LIST</button>
           <button class="btn btn-save" style="background:#1d6b34;" onclick="xlDownload()">&#11015; DOWNLOAD EXCEL (editable)</button>
           <button class="btn btn-save" style="background:#0f2b4c;" onclick="ptAverage()">&#9878; AVERAGE SAME-QTY (&le;50 kg)</button>
+          <button class="smallbtn sb-blue" onclick="ptSort()">&#128290; SORT GROUPS</button>
           <button class="smallbtn sb-blue" onclick="ptAvgReset()">&#8634; Actual</button>
           <button class="smallbtn sb-green" onclick="plvAddRow()">+ Add pallet</button>
           <span style="font-size:12px; color:#5b6b7d;">Edit anything &mdash; DGD &amp; SC weights recalculate automatically and stay linked to the DGD form.</span>
@@ -551,6 +552,7 @@
       <div style="display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap;">
         <button class="smallbtn sb-green" onclick="ptAddRow()">+ Add pallet</button>
         <button class="btn btn-save" style="background:#1a5fb4;" onclick="ptAverage()">&#9878; AVERAGE SAME-QTY (&le;50 kg)</button>
+        <button class="smallbtn sb-blue" onclick="ptSort()">&#128290; SORT GROUPS (SC continuous)</button>
         <button class="smallbtn sb-blue" onclick="ptAvgReset()">&#8634; Actual</button>
         <button class="btn btn-save" style="background:#7a4b00;" onclick="ptFillDgd()">&#10145; FILL DGD FROM PALLETS (official format)</button>
         <button class="btn btn-save" style="background:#1d6b34;" onclick="xlDownload()">&#11015; DOWNLOAD EXCEL (packing list + labels)</button>
@@ -2282,11 +2284,25 @@ function ptAverage(){
     return;
   }
   PT.forEach(r => { r.aw = (r._avgTmp != null) ? r._avgTmp : null; delete r._avgTmp; });
-  ptRender(); plvRender();
+  ptSort(true);
   const m = document.getElementById("pt_summary");
-  if(m) m.textContent = "⚖ AVERAGED same-QTY pallets — adjustment used " + adj + " kg (limit 50 kg). Actual weights kept as record. Now FILL DGD → few lines only.";
+  if(m) m.textContent = "⚖ AVERAGED + SORTED — adjustment used " + adj + " kg (limit 50 kg). Same-group pallets are together, SC numbers continuous. Actual weights kept as record. Now FILL DGD → few lines only.";
 }
 function ptAvgReset(){ PT.forEach(r => r.aw = null); ptRender(); plvRender(); }
+/* sort: same group (same QTY + same DGD weight) pallets together → SC numbers continuous per group */
+function ptSort(silent){
+  if(!PT.length){ if(!silent) alert("No pallets yet."); return; }
+  ptCompute();
+  const keyOf = r => r.q + "@" + r.dgd;
+  const order = [];
+  PT.forEach(r => { const k = keyOf(r); if(order.indexOf(k) < 0) order.push(k); });
+  PT = PT.slice().sort((a, b) => order.indexOf(keyOf(a)) - order.indexOf(keyOf(b)));
+  ptRender(); plvRender();
+  if(!silent){
+    const m = document.getElementById("pt_summary");
+    if(m) m.textContent = "🔢 SORTED — same-group pallets together, SC numbers continuous (#SC ranges clean on the DGD & Excel).";
+  }
+}
 function ptRender(){
   ptCompute();
   const tb = document.getElementById("pt_table");
