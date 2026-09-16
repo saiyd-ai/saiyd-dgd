@@ -871,80 +871,95 @@
 
       <table class="s-table">
         <tr>
-          <td style="width:55%;" rowspan="2">
-            <div class="cap">Shipper</div>
-            <div class="val big" id="p_shipper"></div>
+          <td style="width:55%;">
+            <div style="font-size:10.5pt; font-weight:bold;">Shipper</div>
+            <div class="val big" id="p_shipper" style="font-weight:bold; padding-left:2mm;"></div>
           </td>
-          <td>
-            <div class="cap">Air Waybill No.</div><div class="val" id="p_awb"></div>
+          <td style="vertical-align:top;">
+            <div style="display:flex; gap:4mm; align-items:baseline;">
+              <span style="font-size:9.5pt;">Air Way bill No.</span>
+              <span class="val" id="p_awb" style="font-weight:bold; font-size:10.5pt;"></span>
+            </div>
+            <div style="font-size:9.5pt; margin-top:1.5mm;">Page &nbsp;<span id="p_page">1 of 1</span>&nbsp; Pages</div>
+            <div style="font-size:9.5pt; margin-top:1.5mm;">Shipper's Reference Number:</div>
+            <div class="val" id="p_ref" style="font-weight:bold;"></div>
+            <div style="font-size:8pt; font-style:italic; margin-top:2.5mm;">(optional)</div>
           </td>
         </tr>
         <tr>
           <td>
-            <div class="cap">Page <span id="p_page"></span> Pages</div>
-            <div class="cap" style="margin-top:2mm;">Shipper's Reference Number <span style="font-weight:normal;">(optional)</span></div>
-            <div class="val" id="p_ref"></div>
+            <div style="font-size:10.5pt; font-weight:bold;">Consignee</div>
+            <div class="val big" id="p_consignee" style="font-weight:bold; padding-left:2mm;"></div>
           </td>
-        </tr>
-        <tr>
-          <td>
-            <div class="cap">Consignee</div>
-            <div class="val big" id="p_consignee"></div>
-          </td>
-          <td class="center" style="vertical-align:middle;">
-            <div style="font-size:8pt; font-weight:bold;">Two completed and signed copies of this<br>Declaration must be handed to the operator.</div>
-          </td>
+          <td></td>
         </tr>
       </table>
 
       <table class="s-table" style="margin-top:1.5mm;">
         <tr>
-          <td style="width:55%;">
-            <div class="cap">TRANSPORT DETAILS</div>
-            <div style="font-size:8pt; margin-top:1mm;">This shipment is within the<br>limitations prescribed for:<br><span style="font-size:7pt;">(delete non-applicable)</span></div>
-            <table class="s-table" style="margin-top:1mm;"><tr>
-              <td class="center" style="width:50%;"><span id="p_paxbox" class="cap">PASSENGER<br>AND CARGO<br>AIRCRAFT</span></td>
-              <td class="center"><span id="p_caobox" class="cap">CARGO<br>AIRCRAFT<br>ONLY</span></td>
-            </tr></table>
+          <td style="width:55%; font-size:9pt;">Two Completed and signed copies of this Declaration<br>must be handed to the operator</td>
+          <td rowspan="2" style="vertical-align:top;">
+            <div style="font-weight:bold; font-size:10pt;">WARNING</div>
+            <div style="font-size:9pt; margin-top:1mm; line-height:1.45;">Failure to comply in all respects with the applicable
+            Dangerous Goods Regulations may be in breach of the applicable law, subject to legal penalties</div>
           </td>
-          <td>
-            <div class="cap">Airport of Departure</div><div class="val" id="p_dep"></div>
-            <div class="cap" style="margin-top:2mm;">Airport of Destination</div><div class="val" id="p_dest"></div>
+        </tr>
+        <tr>
+          <td style="padding:0;">
+            <div class="cap" style="padding:1.4mm 2mm; border-bottom:1px solid #000; font-size:8.5pt;">TRANSPORT DETAILS</div>
+            <table class="s-table" style="border:none;"><tr>
+              <td style="width:52%; border-top:none; border-left:none; border-bottom:none;">
+                <div style="font-size:8.5pt;">This shipment is within the<br>limitations prescribed for<br><span style="font-style:italic; font-size:7.5pt;">(delete non-applicable )</span></div>
+                <table class="s-table" style="margin-top:1mm;"><tr>
+                  <td class="center" style="width:50%;"><span id="p_paxbox" class="cap">PASSENGER<br>AND CARGO<br>AIRCRAFT</span></td>
+                  <td class="center"><span id="p_caobox" class="cap">CARGO<br>AIRCRAFT<br>ONLY</span></td>
+                </tr></table>
+              </td>
+              <td style="vertical-align:top; border:none;">
+                <div style="font-size:9.5pt; font-weight:bold;">Airport of Departure</div>
+                <div class="center" id="p_dep" style="font-size:10.5pt; font-weight:bold; margin-top:6mm;"></div>
+              </td>
+            </tr></table>
           </td>
         </tr>
         <tr>
           <td>
-            <div class="cap">Shipment type: <span style="font-weight:normal; font-size:7pt;">(delete non-applicable)</span></div>
-            <div style="font-size:10pt; font-weight:bold; margin-top:1mm;">
-              <span id="p_nonradio">NON-RADIOACTIVE</span> &nbsp;/&nbsp; <span id="p_radio">RADIOACTIVE</span>
+            <div style="display:flex; align-items:baseline; gap:6mm;">
+              <span style="font-size:9.5pt; font-weight:bold; white-space:nowrap;">Airport of Destination</span>
+              <span id="p_dest" class="center" style="font-size:10.5pt; font-weight:bold; flex:1; text-align:center;"></span>
             </div>
           </td>
-          <td class="warnbox" style="vertical-align:middle;">
-            WARNING<br>
-            <span style="font-weight:normal;">Failure to comply in all respects with the applicable
-            Dangerous Goods Regulations may be in breach of the applicable law, subject to legal penalties.</span>
+          <td>
+            <div style="font-size:8.5pt;">Shipment type <span style="font-style:italic; font-size:7.5pt;">(delete non-applicable )</span></div>
+            <table class="s-table" style="margin-top:1mm;"><tr>
+              <td class="center" style="width:55%; font-weight:bold; font-size:9.5pt;"><span id="p_nonradio">NON-RADIOACTIVE</span></td>
+              <td class="center" style="font-weight:bold; font-size:9.5pt;"><span id="p_radio">RADIOACTIVE</span></td>
+            </tr></table>
           </td>
         </tr>
       </table>
 
-      <div class="cap" style="margin-top:2mm; font-size:8pt;">NATURE AND QUANTITY OF DANGEROUS GOODS</div>
+      <div style="margin-top:2mm; font-size:9.5pt; font-weight:bold;">NATURE AND QUANTITY OF DANGEROUS GOODS</div>
       <table class="s-table goods" style="margin-top:1mm;">
         <tr>
-          <th style="width:12%;">UN or<br>ID No.</th>
-          <th style="width:34%;">Proper Shipping Name</th>
-          <th style="width:10%;">Class or Division<br>(Subsidiary Hazard)</th>
-          <th style="width:8%;">Packing<br>Group</th>
-          <th style="width:20%;">Quantity and<br>type of packing</th>
-          <th style="width:8%;">Packing<br>Inst.</th>
-          <th style="width:8%;">Authorization</th>
+          <th colspan="4" style="font-size:8.5pt;">Dangerous Goods Identification</th>
+          <th rowspan="2" style="width:20%;">Quantity and<br>type of packing</th>
+          <th rowspan="2" style="width:8%;">Pack-<br>ing<br>Inst.</th>
+          <th rowspan="2" style="width:8%;">Authorization</th>
+        </tr>
+        <tr>
+          <th style="width:8%;">UN<br>or<br>ID<br>NO</th>
+          <th style="width:36%;">Proper Shipping Name</th>
+          <th style="width:10%;">Class or<br>Division<br>(Subsidiary<br>Hazard)</th>
+          <th style="width:8%;">Pack-<br>ing<br>Group</th>
         </tr>
         <tbody id="p_goods"></tbody>
       </table>
 
       <table class="s-table" style="margin-top:1.5mm;">
         <tr><td>
-          <div class="cap">Additional Handling Information</div>
-          <div class="val" id="p_handling" style="min-height:10mm; font-weight:bold;"></div>
+          <div style="font-size:10pt; font-weight:bold;">Additional Handling Information</div>
+          <div class="val" id="p_handling" style="min-height:10mm; font-weight:bold; padding-left:2mm;"></div>
         </td></tr>
         <tr>
           <td>
@@ -957,11 +972,11 @@
                 <b>I declare that all of the applicable air transport requirements have been met.</b></div>
               </td>
               <td style="border:none;">
-                <div class="cap">Name/Title of Signatory</div><div class="val" id="p_signname"></div>
-                <div class="cap" style="margin-top:1.5mm;">Place and Date</div><div class="val" id="p_placedate"></div>
-                <div class="cap" style="margin-top:1.5mm;">Signature</div>
+                <div style="font-size:9.5pt; font-weight:bold;">Name of Signatory</div><div class="val" id="p_signname" style="font-weight:bold;"></div>
+                <div style="font-size:9.5pt; font-weight:bold; margin-top:1.5mm;">Date</div><div class="val" id="p_placedate" style="font-weight:bold;"></div>
+                <div style="font-size:9.5pt; font-weight:bold; margin-top:1.5mm;">Signature</div>
                 <div class="sigline"></div>
-                <div style="font-size:6.5pt;">(see warning above)</div>
+                <div style="font-size:7pt; font-style:italic;">(see warning above)</div>
               </td>
             </tr></table>
           </td>
