@@ -337,7 +337,10 @@
     <div class="tab" id="tab-wh">
       <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#127981; WAREHOUSE &mdash; create packing list &amp; send to operations</h2><div class="body">
         <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px;">
-          <div><label>JFS JOB NUMBER (required)</label><input type="text" id="wh_job" placeholder="e.g. JFS-2026-0451" style="width:200px; font-weight:bold;"></div>
+          <button class="btn btn-save" style="background:#0f2b4c;" onclick="whCreateJob()">&#10133; CREATE JOB (DGS-C standard)</button>
+          <div><label>JOB NUMBER</label><input type="text" id="wh_job" placeholder="DGS-C00001" style="width:160px; font-weight:bold;"></div>
+          <div><label>Customer name</label><input type="text" id="wh_customer" list="whcustlist" placeholder="e.g. LATTAFA PERFUMES" style="width:230px; font-weight:bold;"></div>
+          <datalist id="whcustlist"></datalist>
         </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; background:#faf5ec; border:1px dashed #d8b98a; border-radius:8px; padding:9px 12px;">
           <b style="font-size:12px; color:#7a4b00;">&#128247; PHOTO &rarr; &#129302; AI :</b>
@@ -350,15 +353,45 @@
           <button class="smallbtn sb-blue" onclick="whPlPhoto()">&#129302; READ PACKING LIST</button>
           <span id="wh_aimsg" style="font-size:12px; color:#7a4b00; font-weight:bold;"></span>
         </div>
+        <div id="wh_paste_zone" tabindex="0" style="border:2px dashed #b45309; border-radius:8px; padding:10px 12px; margin-bottom:12px; background:#fffdf8; cursor:text; font-size:12.5px; color:#7a4b00;"
+          onclick="this.focus();">
+          &#128203; <b>PASTE PHOTO HERE (Ctrl+V)</b> — click ivide, ennitt WhatsApp/screenshot photo paste cheyyu. Paste kazhinjaal mukalile READ ADDRESS / READ PACKING LIST click cheyyu.
+          <span id="wh_pastedthumbs" style="margin-left:8px;"></span>
+        </div>
         <div class="grid g2">
           <div><label>Shipper (name &amp; address &mdash; exactly as on the label)</label><textarea id="wh_shipper" style="min-height:84px;" placeholder="LATTAFA PERFUMES INDUSTRIES LLC,&#10;P O BOX 69793,&#10;SHARJAH-UAE&#10;TEL: +971 65352603"></textarea></div>
           <div><label>Consignee (name &amp; address)</label><textarea id="wh_consignee" style="min-height:84px;" placeholder="SERENA GROUP S.A.&#10;..."></textarea></div>
         </div>
         <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:10px;">
-          <div><label>Reference / booking no.</label><input type="text" id="wh_ref" style="width:170px;"></div>
-          <div><label>AWB (if known)</label><input type="text" id="wh_awb" style="width:150px;"></div>
-          <div><label>Route (e.g. DWC - MIA)</label><input type="text" id="wh_route" style="width:150px;"></div>
+          <div><label>Reference / booking no.</label><input type="text" id="wh_ref" style="width:160px;"></div>
+          <div><label>AWB (if known)</label><input type="text" id="wh_awb" style="width:140px;"></div>
+          <div><label>ORIGIN (airport code)</label><input type="text" id="wh_org" list="apcodes" placeholder="DXB" style="width:110px; font-weight:bold; text-transform:uppercase;"></div>
+          <div><label>DESTINATION (airport code)</label><input type="text" id="wh_dest" list="apcodes" placeholder="MIA" style="width:110px; font-weight:bold; text-transform:uppercase;"></div>
           <div><label>Pallet tare (kg)</label><input type="text" id="wh_tare" value="16" style="width:80px;"></div>
+          <datalist id="apcodes">
+            <option value="DXB">Dubai Intl</option><option value="DWC">Dubai World Central</option><option value="SHJ">Sharjah</option><option value="AUH">Abu Dhabi</option>
+            <option value="MCT">Muscat</option><option value="DOH">Doha</option><option value="BAH">Bahrain</option><option value="KWI">Kuwait</option>
+            <option value="RUH">Riyadh</option><option value="JED">Jeddah</option><option value="DMM">Dammam</option><option value="AMM">Amman</option>
+            <option value="BEY">Beirut</option><option value="CAI">Cairo</option><option value="IST">Istanbul</option>
+            <option value="COK">Kochi</option><option value="TRV">Trivandrum</option><option value="CCJ">Calicut</option><option value="CNN">Kannur</option>
+            <option value="BOM">Mumbai</option><option value="DEL">Delhi</option><option value="MAA">Chennai</option><option value="BLR">Bengaluru</option>
+            <option value="HYD">Hyderabad</option><option value="AMD">Ahmedabad</option><option value="CMB">Colombo</option><option value="DAC">Dhaka</option>
+            <option value="KHI">Karachi</option><option value="LHE">Lahore</option><option value="ISB">Islamabad</option>
+            <option value="LHR">London Heathrow</option><option value="FRA">Frankfurt</option><option value="CDG">Paris CDG</option><option value="AMS">Amsterdam</option>
+            <option value="MXP">Milan</option><option value="MAD">Madrid</option><option value="BCN">Barcelona</option><option value="VIE">Vienna</option>
+            <option value="ZRH">Zurich</option><option value="BRU">Brussels</option><option value="MUC">Munich</option>
+            <option value="MIA">Miami</option><option value="JFK">New York JFK</option><option value="LAX">Los Angeles</option><option value="ORD">Chicago</option>
+            <option value="ATL">Atlanta</option><option value="DFW">Dallas</option><option value="IAH">Houston</option><option value="SFO">San Francisco</option>
+            <option value="YYZ">Toronto</option><option value="MEX">Mexico City</option><option value="PTY">Panama</option>
+            <option value="ASU">Asuncion</option><option value="GRU">Sao Paulo</option><option value="GIG">Rio</option><option value="EZE">Buenos Aires</option>
+            <option value="SCL">Santiago</option><option value="BOG">Bogota</option><option value="LIM">Lima</option>
+            <option value="JNB">Johannesburg</option><option value="NBO">Nairobi</option><option value="ADD">Addis Ababa</option><option value="LOS">Lagos</option>
+            <option value="ACC">Accra</option><option value="DAR">Dar es Salaam</option>
+            <option value="SIN">Singapore</option><option value="BKK">Bangkok</option><option value="HKG">Hong Kong</option><option value="PVG">Shanghai</option>
+            <option value="PEK">Beijing</option><option value="ICN">Seoul</option><option value="NRT">Tokyo</option><option value="KUL">Kuala Lumpur</option>
+            <option value="CGK">Jakarta</option><option value="MNL">Manila</option><option value="SGN">Ho Chi Minh</option><option value="HAN">Hanoi</option>
+            <option value="SYD">Sydney</option><option value="MEL">Melbourne</option>
+          </datalist>
         </div>
         <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:10px;">
           <div style="flex:1; min-width:240px;"><label>Paste pallet rows (PLT &nbsp;WEIGHT &nbsp;DIMENSIONS &nbsp;QTY &mdash; one per line)</label>
@@ -368,9 +401,15 @@
         </div>
         <div style="overflow-x:auto; margin-top:8px;"><table id="wh_table" style="border-collapse:collapse; width:100%;"></table></div>
         <div style="margin-top:10px;"><label>Notes for operations</label><textarea id="wh_notes" style="min-height:40px;" placeholder="e.g. 10 pallets ready, DG perfume, collection 4 pm"></textarea></div>
-        <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
-          <button class="btn btn-save" style="background:#b45309;" onclick="whSend()">&#128228; SEND TO OPERATIONS</button>
+        <div style="display:flex; gap:12px; align-items:center; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn btn-save" style="background:#5b6b7d;" onclick="whSaveDraft()">&#128190; 1. SAVE DRAFT</button>
+          <button class="btn btn-save" style="background:#1d6b34;" onclick="whConfirm()">&#10004; 2. CONFIRM</button>
+          <button class="btn btn-save" style="background:#b45309;" onclick="whSend()">&#128228; 3. SEND TO OPERATIONS</button>
           <span id="wh_msg" style="font-size:12.5px; font-weight:bold;"></span>
+        </div>
+        <div style="margin-top:14px;">
+          <div style="font-weight:bold; color:#5b6b7d; font-size:12.5px; margin-bottom:6px;">&#128190; MY DRAFTS (not sent yet)</div>
+          <div style="overflow-x:auto;"><table id="wh_drafts" style="border-collapse:collapse; width:100%;"></table></div>
         </div>
       </div></div>
       <div class="card"><h2>&#128203; MY SENT PACKING LISTS</h2><div class="body">
@@ -1468,7 +1507,7 @@ function showTab(name){
   document.querySelector(".previewwrap").style.display = (name === "dgd") ? "" : "none";
   if(name === "dash"){ renderDash(); inboxPoll(); }
   if(name === "pl") plvRender();
-  if(name === "wh"){ whRender(); whRefreshSent(); }
+  if(name === "wh"){ whRender(); whRefreshSent(); whRenderDrafts(); whFillCustList(); whPastedRender(); }
   if(name === "customers") renderCustomers();
   if(name === "items") renderItems();
   if(name === "docs") renderDocs();
@@ -2419,7 +2458,9 @@ function applyQueuePayload(p){
   document.getElementById("f_consignee").value = p.consignee || ""; custAfterFill("consignee");
   if(p.awb) document.getElementById("f_awb").value = p.awb;
   if(p.ref) document.getElementById("f_ref").value = p.ref;
-  if(p.route){
+  if(p.org) document.getElementById("f_dep").value = p.org.toUpperCase();
+  if(p.dest) document.getElementById("f_dest").value = p.dest.toUpperCase();
+  if(!p.org && p.route){
     const pr = p.route.split(/[-–>]+/).map(s => s.trim()).filter(Boolean);
     if(pr[0]) document.getElementById("f_dep").value = pr[0].toUpperCase();
     if(pr[1]) document.getElementById("f_dest").value = pr[1].toUpperCase();
@@ -2576,23 +2617,141 @@ function whParse(){
   if(!rows.length){ alert("No valid rows found."); return; }
   WH = rows; whRender(); document.getElementById("wh_paste").value = "";
 }
-async function whSend(){
-  const msg = document.getElementById("wh_msg");
-  if(!sb || !sbUser){ alert("Log in first."); return; }
+let _whPasted = [], _whConfirmed = false;
+function whMsg(t, color){ const m = document.getElementById("wh_msg"); m.textContent = t; m.style.color = color || "#7a4b00"; }
+function whDrafts(){ try{ return JSON.parse(localStorage.getItem("jfs_wh_drafts") || "{}"); }catch(e){ return {}; } }
+function whPayload(){
+  const org = v("wh_org").trim().toUpperCase(), dest = v("wh_dest").trim().toUpperCase();
+  return { job: v("wh_job").trim().toUpperCase(), customer: v("wh_customer").trim(),
+    ref: v("wh_ref") || v("wh_job").trim().toUpperCase(), awb: v("wh_awb"),
+    org, dest, route: [org, dest].filter(Boolean).join(" - "), tare: v("wh_tare"),
+    shipper: v("wh_shipper"), consignee: v("wh_consignee"), notes: v("wh_notes"), pallets: WH,
+    totals: { plt: WH.length, gross: ptR3(WH.reduce((a,r) => a+(r.w||0), 0)), ctns: WH.reduce((a,r) => a+(r.q||0), 0) } };
+}
+async function whCreateJob(){
+  let maxN = 0;
+  const scan = s => { const m = /^DGS-C(\d{5})$/i.exec((s||"").trim()); if(m) maxN = Math.max(maxN, parseInt(m[1], 10)); };
+  store("jfs_joblog").forEach(e => scan(e.job));
+  Object.keys(whDrafts()).forEach(scan);
+  if(sb && sbUser){
+    try{
+      const { data } = await sb.from("dgd_queue").select("job_no").ilike("job_no", "DGS-C%").order("created_at", {ascending:false}).limit(200);
+      (data||[]).forEach(r => scan(r.job_no));
+    }catch(e){}
+  }
+  const next = "DGS-C" + String(maxN + 1).padStart(5, "0");
+  document.getElementById("wh_job").value = next;
+  _whConfirmed = false;
+  whMsg("✓ New job created: " + next + " — fill the details, then SAVE DRAFT.", "#1d6b34");
+}
+function whFillCustList(){
+  const dl = document.getElementById("whcustlist"); if(!dl) return;
+  dl.innerHTML = customers().map(c => `<option value="${esc(c.name)}"></option>`).join("");
+}
+function whPasteHandler(e){
+  const whTab = document.getElementById("tab-wh");
+  if(!whTab || !whTab.classList.contains("on")) return;
+  const items = [...((e.clipboardData || {}).items || [])].filter(it => it.type && it.type.indexOf("image/") === 0);
+  if(!items.length) return;
+  e.preventDefault();
+  items.slice(0, 3).forEach(it => { const f = it.getAsFile(); if(f) _whPasted.push(f); });
+  while(_whPasted.length > 3) _whPasted.shift();
+  whPastedRender();
+  whMsg("✓ " + _whPasted.length + " photo(s) pasted — now click READ ADDRESS or READ PACKING LIST.", "#1d6b34");
+}
+function whPastedRender(){
+  const z = document.getElementById("wh_pastedthumbs"); if(!z) return;
+  z.innerHTML = _whPasted.map((f, i) =>
+    `<span style="display:inline-flex; align-items:center; gap:4px; background:#fff; border:1px solid #d8b98a; border-radius:6px; padding:2px 7px; font-size:11px; margin-left:4px;">&#128247; photo ${i+1}
+     <button class="smallbtn sb-red" style="padding:0 6px;" onclick="_whPasted.splice(${i},1); whPastedRender();">x</button></span>`).join("");
+}
+function whSaveDraft(){
   const job = v("wh_job").trim().toUpperCase();
-  if(!job){ alert("JOB NUMBER REQUIRED!\n\nEnter the JFS Job Number first — it travels with the packing list to operations."); document.getElementById("wh_job").focus(); return; }
+  if(!job){ alert("Create / enter the JOB NUMBER first (CREATE JOB button)."); return; }
+  const all = whDrafts();
+  const p = whPayload();
+  p.when = new Date().toLocaleString("en-GB");
+  all[job] = p;
+  setStore("jfs_wh_drafts", all);
+  _whConfirmed = false;
+  whMsg("✓ Draft saved: " + job + " — check everything, then press CONFIRM.", "#1d6b34");
+  whRenderDrafts();
+}
+function whConfirm(){
+  const job = v("wh_job").trim().toUpperCase();
+  if(!job){ alert("Create the job and SAVE DRAFT first."); return; }
+  if(!whDrafts()[job]){ alert("SAVE DRAFT first — then confirm."); return; }
   if(!WH.length){ alert("Add the pallet rows first."); return; }
   if(!v("wh_shipper").trim() || !v("wh_consignee").trim()){ alert("Shipper and consignee are required."); return; }
-  msg.textContent = "Sending..."; msg.style.color = "#7a4b00";
-  const payload = { job, ref:v("wh_ref") || job, awb:v("wh_awb"), route:v("wh_route"), tare:v("wh_tare"),
-    shipper:v("wh_shipper"), consignee:v("wh_consignee"), notes:v("wh_notes"), pallets: WH,
-    totals:{ plt: WH.length, gross: ptR3(WH.reduce((a,r) => a+(r.w||0), 0)), ctns: WH.reduce((a,r) => a+(r.q||0), 0) } };
+  if(!v("wh_org").trim() || !v("wh_dest").trim()){ alert("Enter ORIGIN and DESTINATION airport codes."); return; }
+  const p = whPayload();
+  const ok = confirm("CONFIRM PACKING LIST — job " + job +
+    "\n\nCustomer: " + (p.customer || "—") +
+    "\nRoute: " + (p.route || "—") +
+    "\nShipper: " + (p.shipper.split("\n")[0] || "—") +
+    "\nConsignee: " + (p.consignee.split("\n")[0] || "—") +
+    "\nPallets: " + p.totals.plt + "  •  Gross: " + p.totals.gross + " kg  •  Cartons: " + p.totals.ctns +
+    "\n\nEverything correct?");
+  if(!ok){ whMsg("Not confirmed — correct the details and confirm again.", "#a40000"); return; }
+  whSaveDraft();
+  _whConfirmed = true;
+  whMsg("✓ CONFIRMED — now press SEND TO OPERATIONS.", "#1d6b34");
+}
+function whRenderDrafts(){
+  const tb = document.getElementById("wh_drafts"); if(!tb) return;
+  const all = whDrafts();
+  const TH = "padding:5px 8px; font-size:11.5px; background:#eef2f7; border:1px solid #dde5ee; color:#0f2b4c; text-align:left;";
+  const TD = "padding:5px 8px; border:1px solid #e8edf3; font-size:12.5px;";
+  const keys = Object.keys(all);
+  let h = `<tr><th style="${TH}">JOB</th><th style="${TH}">CUSTOMER</th><th style="${TH}">ROUTE</th><th style="${TH}">PLT</th><th style="${TH}">SAVED</th><th style="${TH}"></th></tr>`;
+  if(!keys.length) h += `<tr><td colspan="6" style="${TD} color:#8a97a5;">No drafts.</td></tr>`;
+  keys.forEach(k => {
+    const p = all[k];
+    h += `<tr><td style="${TD} font-weight:bold;">${esc(k)}</td><td style="${TD}">${esc(p.customer||"")}</td>
+      <td style="${TD}">${esc(p.route||"")}</td><td style="${TD} text-align:center;">${(p.totals||{}).plt||0}</td>
+      <td style="${TD}">${esc(p.when||"")}</td>
+      <td style="${TD}"><button class="smallbtn sb-green" onclick="whOpenDraft('${esc(k)}')">Open</button>
+        <button class="smallbtn sb-red" onclick="whDelDraft('${esc(k)}')">Del</button></td></tr>`;
+  });
+  tb.innerHTML = h;
+}
+function whOpenDraft(job){
+  const p = whDrafts()[job]; if(!p) return;
+  document.getElementById("wh_job").value = p.job || job;
+  document.getElementById("wh_customer").value = p.customer || "";
+  document.getElementById("wh_ref").value = p.ref || "";
+  document.getElementById("wh_awb").value = p.awb || "";
+  document.getElementById("wh_org").value = p.org || "";
+  document.getElementById("wh_dest").value = p.dest || "";
+  document.getElementById("wh_tare").value = p.tare || "16";
+  document.getElementById("wh_shipper").value = p.shipper || "";
+  document.getElementById("wh_consignee").value = p.consignee || "";
+  document.getElementById("wh_notes").value = p.notes || "";
+  WH = (p.pallets || []).map(r => ({w: r.w, d: r.d, q: r.q}));
+  _whConfirmed = false;
+  whRender();
+  whMsg("Draft " + job + " opened — edit, CONFIRM, then SEND.", "#5b6b7d");
+}
+function whDelDraft(job){
+  if(!confirm("Delete draft " + job + "?")) return;
+  const all = whDrafts(); delete all[job];
+  setStore("jfs_wh_drafts", all); whRenderDrafts();
+}
+async function whSend(){
+  if(!sb || !sbUser){ alert("Log in first."); return; }
+  const job = v("wh_job").trim().toUpperCase();
+  if(!job){ alert("Create the job first (CREATE JOB button)."); return; }
+  if(!_whConfirmed){ alert("Order: 1. SAVE DRAFT → 2. CONFIRM → 3. SEND.\n\nPress CONFIRM first."); return; }
+  if(!WH.length){ alert("Add the pallet rows first."); return; }
+  whMsg("Sending...");
+  const payload = whPayload();
   const { error } = await sb.from("dgd_queue").insert({ payload, job_no: job });
-  if(error){ msg.textContent = "Send failed: " + error.message.slice(0,80); msg.style.color = "#a40000"; return; }
-  msg.textContent = "✓ Sent to operations — job " + job + " is now in their INBOX.";
-  msg.style.color = "#1d6b34";
-  WH = []; whRender();
-  ["wh_job","wh_ref","wh_awb","wh_route","wh_notes","wh_shipper","wh_consignee"].forEach(id => document.getElementById(id).value = "");
+  if(error){ whMsg("Send failed: " + error.message.slice(0,80), "#a40000"); return; }
+  whMsg("✓ SENT — job " + job + " is now in the operations INBOX.", "#1d6b34");
+  const all = whDrafts(); delete all[job]; setStore("jfs_wh_drafts", all);
+  _whConfirmed = false; _whPasted = []; whPastedRender();
+  WH = []; whRender(); whRenderDrafts();
+  ["wh_job","wh_customer","wh_ref","wh_awb","wh_org","wh_dest","wh_notes","wh_shipper","wh_consignee"].forEach(id => document.getElementById(id).value = "");
   whRefreshSent(); inboxPoll();
 }
 async function imgFileToB64(file, maxDim){
@@ -2622,13 +2781,14 @@ async function filesToImgs(files, maxPages){
   return imgs.slice(0, 3);
 }
 async function whAddrPhoto(){
-  const f = document.getElementById("wh_addrfile").files[0];
+  const fList = [...document.getElementById("wh_addrfile").files];
+  const src = fList.length ? fList : _whPasted;
   const msg = document.getElementById("wh_aimsg");
-  if(!f){ alert("Choose or take the photo first."); return; }
+  if(!src.length){ alert("Choose/take a photo, or PASTE it (Ctrl+V) in the paste box first."); return; }
   if(!aiKey()){ msg.textContent = "Add the Claude API key in SETTINGS → AI first."; return; }
   msg.textContent = "🤖 AI reading the address photo...";
   try{
-    const imgs = await filesToImgs([f], 2);
+    const imgs = await filesToImgs(src, 2);
     const sys = `You read logistics documents and photos for a freight forwarder (JFS Logistics).
 Extract the SHIPPER (sender/exporter) and CONSIGNEE (receiver/importer) name and FULL address as CLEAN TEXT, ready to print on an IATA Dangerous Goods Declaration.
 Format each: company name on line 1, then the address lines, then "TEL: ..." as the last line — ALL CAPITALS.
@@ -2643,13 +2803,14 @@ Respond ONLY JSON: {"shipper":"multi-line text or empty","consignee":"multi-line
   }catch(e){ msg.textContent = "AI failed: " + e.message.slice(0,70); }
 }
 async function whPlPhoto(){
-  const fs = [...document.getElementById("wh_plfile").files];
+  const fList = [...document.getElementById("wh_plfile").files];
+  const src = fList.length ? fList : _whPasted;
   const msg = document.getElementById("wh_aimsg");
-  if(!fs.length){ alert("Choose or take the packing list photo(s) first."); return; }
+  if(!src.length){ alert("Choose/take the packing list photo(s), or PASTE them (Ctrl+V) in the paste box first."); return; }
   if(!aiKey()){ msg.textContent = "Add the Claude API key in SETTINGS → AI first."; return; }
   msg.textContent = "🤖 AI reading the packing list (handwriting OK)...";
   try{
-    const imgs = await filesToImgs(fs, 2);
+    const imgs = await filesToImgs(src, 2);
     const sys = `You read WAREHOUSE PACKING LISTS for a freight forwarder. They are often HANDWRITTEN by warehouse staff with imperfect, rushed writing — read like an expert who knows the context.
 Extract every pallet row into clean columns.
 Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15}],"tare":pallet tare kg if written else null}
@@ -2673,7 +2834,7 @@ async function whRefreshSent(){
     .eq("sender_id", sbUser.id).order("created_at", {ascending:false}).limit(30);
   const TH = "padding:5px 8px; font-size:11.5px; background:#eef2f7; border:1px solid #dde5ee; color:#0f2b4c; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #e8edf3; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">SENT</th><th style="${TH}">JOB</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">STATUS</th></tr>`;
+  let h = `<tr><th style="${TH}">SENT</th><th style="${TH}">JOB</th><th style="${TH}">CUSTOMER</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">STATUS</th></tr>`;
   (data||[]).forEach(r => {
     const p = r.payload || {};
     const st = r.status === "NEW"
@@ -2681,6 +2842,7 @@ async function whRefreshSent(){
       : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}</span>`;
     h += `<tr><td style="${TD}">${new Date(r.created_at).toLocaleString("en-GB")}</td>
       <td style="${TD} font-weight:bold;">${esc(p.job || r.job_no || "")}</td>
+      <td style="${TD}">${esc(p.customer || "")}</td>
       <td style="${TD}">${esc((p.shipper||"").split("\n")[0])}</td><td style="${TD}">${esc((p.consignee||"").split("\n")[0])}</td>
       <td style="${TD} text-align:center;">${(p.totals||{}).plt||""}</td><td style="${TD}">${st}</td></tr>`;
   });
@@ -2702,8 +2864,8 @@ function renderInbox(){
   const tb = document.getElementById("inbox_table"); if(!tb) return;
   const TH = "padding:5px 8px; font-size:11.5px; background:#b45309; color:#fff; border:1px solid #b45309; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #f0e6d8; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">RECEIVED</th><th style="${TH}">JOB</th><th style="${TH}">FROM</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">GROSS</th><th style="${TH}">NOTES</th><th style="${TH}">STATUS</th></tr>`;
-  if(!INBOX.length) h += `<tr><td colspan="9" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
+  let h = `<tr><th style="${TH}">RECEIVED</th><th style="${TH}">JOB</th><th style="${TH}">CUSTOMER</th><th style="${TH}">FROM</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">GROSS</th><th style="${TH}">NOTES</th><th style="${TH}">STATUS</th></tr>`;
+  if(!INBOX.length) h += `<tr><td colspan="10" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
   INBOX.forEach(r => {
     const p = r.payload || {};
     const st = r.status === "NEW"
@@ -2714,6 +2876,7 @@ function renderInbox(){
     h += `<tr${r.status === "NEW" ? ' style="background:#fffaf0;"' : ""}>
       <td style="${TD}">${new Date(r.created_at).toLocaleString("en-GB")}</td>
       <td style="${TD} font-weight:bold;">${esc(p.job || r.job_no || "")}</td>
+      <td style="${TD}">${esc(p.customer || "")}</td>
       <td style="${TD}">${esc(r.sender_email||"")}</td>
       <td style="${TD} font-weight:bold;">${esc((p.shipper||"").split("\n")[0])}</td>
       <td style="${TD}">${esc((p.consignee||"").split("\n")[0])}</td>
@@ -3482,7 +3645,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts"];
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
   const blob = new Blob([JSON.stringify({when: new Date().toISOString(), data}, null, 1)], {type:"application/json"});
@@ -3636,6 +3799,7 @@ DEF_FIELDS_INIT: {
 }
 ["shipper","consignee"].forEach(role =>
   document.getElementById("f_" + role).addEventListener("blur", () => spellCheck(role)));
+document.addEventListener("paste", whPasteHandler);
 fillPickers();
 document.getElementById("ai_key").value = aiKey();
 document.getElementById("ai_model").value = aiModel();
