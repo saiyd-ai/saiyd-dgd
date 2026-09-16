@@ -1117,7 +1117,7 @@ function v(id){ return document.getElementById(id).value; }
 function rv(name){ const el = document.querySelector(`input[name=${name}]:checked`); return el ? el.value : ""; }
 
 /* goods rows as an array with a line-count estimate (for multi-page DGD printing) */
-function goodsRowsArr(){
+function goodsRowsArr(split){
   const rows = getItems();
   const arr = [];
   const n = parseInt(v("f_opcount")) || 1;
@@ -1126,14 +1126,31 @@ function goodsRowsArr(){
       <td>${n > 1 && oq ? esc(oq) : ""}</td><td></td><td></td></tr>`;
   let anyOp = false;
   rows.forEach((r, idx) => {
-    const qtyLines = (r.qty || "").split("\n").length;
     const psnLines = Math.ceil(Math.max(1, (r.psn || "").length) / 36);
-    const lines = Math.max(2, qtyLines + 1, psnLines + 1);
-    arr.push({lines, html: `<tr>
-    <td>${esc(r.un)}</td><td>${esc(r.psn)}</td>
+    const qty = r.qty || "";
+    // split a long qty block (many overpack groups) into chunks so it can flow to the next page —
+    // the item columns (UN, PSN, class, PG, PI) repeat on every chunk/page
+    let chunks = [qty];
+    if(split && qty.split("\n").length + 1 > split){
+      const paras = qty.split(/\n\n+/);
+      chunks = [];
+      let cur = [], lines = 0;
+      paras.forEach(p => {
+        const pl = p.split("\n").length + 1;
+        if(lines + pl > split && cur.length){ chunks.push(cur.join("\n\n")); cur = []; lines = 0; }
+        cur.push(p); lines += pl;
+      });
+      if(cur.length) chunks.push(cur.join("\n\n"));
+    }
+    chunks.forEach((chunk, ci) => {
+      const qtyLines = chunk.split("\n").length;
+      const lines = Math.max(2, qtyLines + 1, (ci === 0 ? psnLines + 1 : 2));
+      arr.push({lines, html: `<tr>
+    <td>${esc(r.un)}</td><td>${esc(r.psn)}${chunks.length > 1 ? ` <span style="font-size:7pt;">(cont. ${ci+1}/${chunks.length})</span>` : ""}</td>
     <td class="center">${esc(r.cls)}${r.sub ? " " + esc(r.sub):""}</td>
-    <td class="center">${esc(r.pg)}</td><td style="white-space:pre-wrap;">${esc(r.qty)}</td>
+    <td class="center">${esc(r.pg)}</td><td style="white-space:pre-wrap;">${esc(chunk)}</td>
     <td class="center">${esc(r.pi)}</td><td class="center">${esc(r.auth)}</td></tr>`});
+    });
     if(r.op){
       anyOp = true;
       const nextInSameOp = rows[idx+1] && rows[idx+1].op;   // group consecutive overpack items
@@ -1566,7 +1583,7 @@ function printDGD(){
   }
   // multi-page: everything repeats on every page, only the goods rows change
   const CAP = 24;                                       // goods-table lines per page
-  const arr = goodsRowsArr();
+  const arr = goodsRowsArr(20);                         // split long qty blocks so they flow across pages
   const totalLines = arr.reduce((a, r) => a + r.lines, 0);
   if(totalLines <= CAP){
     document.getElementById("f_page").value = "1 of 1"; refresh();
