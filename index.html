@@ -655,6 +655,27 @@
         </div>
         <div id="opstickerArea" style="margin-top:14px;"></div>
       </div></div>
+
+      <!-- AIRLINE BARCODE LABELS -->
+      <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#9992; AIRLINE BARCODE LABELS &mdash; against the DGD AWB (IATA 606 style)</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">AWB number, route, pieces and weights are pulled from the DGD &amp; pallet table automatically.
+          Barcode is Code&nbsp;128 of the 11-digit AWB &mdash; scannable at airline/GHA acceptance. Prints 2 labels per A4.</div>
+        <div class="grid g4">
+          <div><label>No. of pieces (auto: pallets / overpacks)</label><input type="text" id="bl_count" placeholder="auto"></div>
+          <div><label>Total weight kg (auto from pallets)</label><input type="text" id="bl_weight" placeholder="auto"></div>
+          <div><label>Dangerous goods line?</label>
+            <div class="radios">
+              <label><input type="radio" name="bl_dg" value="Y" checked> Yes</label>
+              <label><input type="radio" name="bl_dg" value="N"> No</label>
+            </div>
+          </div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#0f2b4c;" onclick="buildAwbLabels()">&#8635; GENERATE LABELS</button>
+            <button class="btn btn-print" onclick="printAlt('awblblArea')">&#128424; PRINT (2 per A4)</button>
+          </div>
+        </div>
+        <div id="awblblArea" style="margin-top:14px;"></div>
+      </div></div>
     </div>
 
     <!-- ================= DG LABELS TAB ================= -->
@@ -3140,6 +3161,75 @@ function buildOpStickers(){
     </div>`;
   }
   out.innerHTML = h;
+}
+
+/* ---------- airline barcode labels (IATA 606 style, against the DGD AWB) ---------- */
+async function loadJsBarcode(){
+  if(window.JsBarcode) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js";
+    s.onload = res; s.onerror = () => rej(new Error("barcode library load failed"));
+    document.head.appendChild(s);
+  });
+}
+function iata3(txt){
+  const m = (txt||"").match(/\(([A-Z0-9]{3})\)/i);
+  if(m) return m[1].toUpperCase();
+  const t = (txt||"").trim();
+  return t.length <= 4 ? t.toUpperCase() : t.slice(0, 18).toUpperCase();
+}
+async function buildAwbLabels(){
+  const s = snapshot();
+  const out = document.getElementById("awblblArea");
+  const digits = (s.awb||"").replace(/\D/g, "");
+  if(digits.length !== 11){
+    alert("Enter a valid AWB number on the DGD tab first (11 digits, e.g. 147-93884184).\n\nAirline labels are generated AGAINST the DGD AWB.");
+    showTab("dgd"); document.getElementById("f_awb").focus(); return;
+  }
+  try{ await loadJsBarcode(); }catch(e){ alert("Could not load the barcode engine — check the internet connection."); return; }
+  const awbDisp = digits.slice(0,3) + "-" + digits.slice(3);
+  const dep = iata3(s.dep), dest = iata3(s.dest);
+  ptCompute();
+  const usePT = PT.length > 0;
+  const n = Math.min(60, parseInt(v("bl_count")) || (usePT ? PT.length : (s.overpack === "Y" ? (parseInt(s.opcount) || 1) : 1)));
+  const totW = v("bl_weight") || (usePT ? String(ptR3(PT.reduce((a, r) => a + (r.w||0), 0))) : "");
+  const isDG = rv("bl_dg") === "Y" && (s.items||[]).some(r => r.un);
+  const cao = s.pax === "CAO";
+  let h = "";
+  for(let i = 0; i < n; i++){
+    const pw = usePT && PT[i] ? PT[i].w : "";
+    const scNo = usePT && PT[i] ? PT[i].label : "";
+    h += `<div style="border:2.5px solid #000; width:100%; max-width:150mm; margin:0 auto 8mm auto; padding:5mm 6mm; font-family:Arial; color:#000; background:#fff; page-break-inside:avoid; ${i % 2 === 1 ? "page-break-after:always;" : ""}">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; border-bottom:2px solid #000; padding-bottom:2mm;">
+        <div style="font-size:21pt; font-weight:bold; letter-spacing:1px;">${esc(awbDisp)}</div>
+        <div style="font-size:9.5pt; font-weight:bold;">AIR CARGO LABEL</div>
+      </div>
+      <svg class="blsvg" data-code="${esc(digits)}" style="width:100%; height:26mm; margin-top:2mm;"></svg>
+      <div style="display:flex; justify-content:space-between; margin-top:2mm; align-items:flex-end;">
+        <div><div style="font-size:8pt; font-weight:bold;">DESTINATION</div><div style="font-size:32pt; font-weight:900; line-height:1;">${esc(dest||"—")}</div></div>
+        <div style="text-align:center;"><div style="font-size:8pt; font-weight:bold;">ORIGIN</div><div style="font-size:17pt; font-weight:bold;">${esc(dep||"—")}</div></div>
+        <div style="text-align:right;"><div style="font-size:8pt; font-weight:bold;">PIECE</div><div style="font-size:19pt; font-weight:bold;">${i+1} <span style="font-size:11pt;">of</span> ${n}</div></div>
+      </div>
+      <table style="width:100%; border-collapse:collapse; margin-top:2mm; font-size:9.5pt;">
+        <tr>
+          <td style="border:1px solid #000; padding:1.5mm 2mm;"><b>TOTAL PCS:</b> ${n}</td>
+          <td style="border:1px solid #000; padding:1.5mm 2mm;"><b>TOTAL WT:</b> ${esc(totW || "—")} kg</td>
+          <td style="border:1px solid #000; padding:1.5mm 2mm;"><b>THIS PIECE:</b> ${pw ? esc(String(pw)) + " kg" : "—"}${scNo ? " — " + esc(scNo) : ""}</td>
+        </tr>
+      </table>
+      ${isDG ? `<div style="border:2px solid #c00000; color:#c00000; font-weight:bold; font-size:10pt; text-align:center; padding:1.5mm; margin-top:2mm;">CONTAINS DANGEROUS GOODS AS PER ATTACHED SHIPPER'S DECLARATION${cao ? " — CARGO AIRCRAFT ONLY" : ""}</div>` : ""}
+      <div style="display:flex; justify-content:space-between; gap:4mm; font-size:8.5pt; margin-top:2mm; flex-wrap:wrap;">
+        <div><b>AGENT:</b> JFS LOGISTICS${s.job ? " — JOB " + esc(s.job) : ""}</div>
+        <div><b>SHIPPER:</b> ${esc((s.shipper||"").split("\n")[0].slice(0,30))}</div>
+        <div><b>CNEE:</b> ${esc((s.consignee||"").split("\n")[0].slice(0,30))}</div>
+      </div>
+    </div>`;
+  }
+  out.innerHTML = h;
+  out.querySelectorAll(".blsvg").forEach(el => {
+    JsBarcode(el, el.dataset.code, {format:"CODE128", displayValue:true, fontSize:15, height:62, margin:0});
+  });
 }
 
 /* ---------- DG label advisor ---------- */
