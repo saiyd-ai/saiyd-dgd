@@ -804,6 +804,17 @@
 
     <!-- ================= SETTINGS TAB ================= -->
     <div class="tab" id="tab-settings">
+      <div class="card"><h2>&#128444; DGD CORNER LOGO (top-right of the printed DGD)</h2><div class="body">
+        <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">Upload the logo image that must appear on the DGD's top-right corner
+          (crop it from your own IATA DGR form / letterhead). Saved to your account — prints on every page of every DGD.</div>
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <input type="file" id="dgdlogofile" accept="image/*" style="font-size:12.5px;">
+          <button class="btn btn-save" onclick="dgdLogoSave()">&#128190; SAVE LOGO</button>
+          <button class="smallbtn sb-red" onclick="dgdLogoClear()">Remove</button>
+          <span id="dgdlogomsg" style="font-size:12.5px; font-weight:bold; color:#1d6b34;"></span>
+        </div>
+      </div></div>
+
       <div class="card"><h2>&#9881; BACKUP &mdash; export / import all data</h2><div class="body">
         <p style="font-size:13px; margin-bottom:10px;">Customers, custom items, saved documents, drafts and defaults are all stored in this browser. Take a regular backup and keep it safe:</p>
         <div class="actions" style="margin:0;">
@@ -855,7 +866,8 @@
     <div class="sheet" id="sheet">
       <div class="hatch l"></div><div class="hatch r"></div>
 
-      <div class="s-h">SHIPPER'S DECLARATION FOR DANGEROUS GOODS</div>
+      <div class="s-h" style="display:flex; justify-content:space-between; align-items:center; gap:6mm;">SHIPPER'S DECLARATION FOR DANGEROUS GOODS
+        <img id="dgdlogo" alt="" style="height:12mm; max-width:42mm; object-fit:contain; display:none;"></div>
 
       <table class="s-table">
         <tr>
@@ -1104,6 +1116,34 @@ function getItems(){
 function v(id){ return document.getElementById(id).value; }
 function rv(name){ const el = document.querySelector(`input[name=${name}]:checked`); return el ? el.value : ""; }
 
+/* goods rows as an array with a line-count estimate (for multi-page DGD printing) */
+function goodsRowsArr(){
+  const rows = getItems();
+  const arr = [];
+  const n = parseInt(v("f_opcount")) || 1;
+  const oq = v("f_opqty");
+  const opRowHtml = `<tr><td></td><td colspan="3"><b>OVERPACK USED${n > 1 ? " x " + n : ""}</b></td>
+      <td>${n > 1 && oq ? esc(oq) : ""}</td><td></td><td></td></tr>`;
+  let anyOp = false;
+  rows.forEach((r, idx) => {
+    const qtyLines = (r.qty || "").split("\n").length;
+    const psnLines = Math.ceil(Math.max(1, (r.psn || "").length) / 36);
+    const lines = Math.max(2, qtyLines + 1, psnLines + 1);
+    arr.push({lines, html: `<tr>
+    <td>${esc(r.un)}</td><td>${esc(r.psn)}</td>
+    <td class="center">${esc(r.cls)}${r.sub ? " " + esc(r.sub):""}</td>
+    <td class="center">${esc(r.pg)}</td><td style="white-space:pre-wrap;">${esc(r.qty)}</td>
+    <td class="center">${esc(r.pi)}</td><td class="center">${esc(r.auth)}</td></tr>`});
+    if(r.op){
+      anyOp = true;
+      const nextInSameOp = rows[idx+1] && rows[idx+1].op;   // group consecutive overpack items
+      if(!nextInSameOp) arr.push({lines: 2, html: opRowHtml});
+    }
+  });
+  const opEmbedded = rows.some(r => /OVERPACK USED/i.test(r.qty || ""));   // pallet calculator writes it inside the qty block
+  if(!anyOp && !opEmbedded && rv("f_overpack") === "Y") arr.push({lines: 2, html: opRowHtml});
+  return arr;
+}
 function refresh(){
   document.getElementById("p_shipper").textContent = v("f_shipper");
   document.getElementById("p_consignee").textContent = v("f_consignee");
@@ -1127,31 +1167,10 @@ function refresh(){
   document.getElementById("p_nonradio").className = (rad==="RADIO") ? "strike":"";
   document.getElementById("p_radio").className = (rad==="NONRADIO") ? "strike":"";
 
-  const rows = getItems();
-  const body = document.getElementById("p_goods");
-  const min = 4;
-  const n = parseInt(v("f_opcount")) || 1;
-  const oq = v("f_opqty");
-  const opRowHtml = `<tr><td></td><td colspan="3"><b>OVERPACK USED${n > 1 ? " x " + n : ""}</b></td>
-      <td>${n > 1 && oq ? esc(oq) : ""}</td><td></td><td></td></tr>`;
-  let html = "", used = 0, anyOp = false;
-  rows.forEach((r, idx) => {
-    html += `<tr>
-    <td>${esc(r.un)}</td><td>${esc(r.psn)}</td>
-    <td class="center">${esc(r.cls)}${r.sub ? " " + esc(r.sub):""}</td>
-    <td class="center">${esc(r.pg)}</td><td style="white-space:pre-wrap;">${esc(r.qty)}</td>
-    <td class="center">${esc(r.pi)}</td><td class="center">${esc(r.auth)}</td></tr>`;
-    used++;
-    if(r.op){
-      anyOp = true;
-      const nextInSameOp = rows[idx+1] && rows[idx+1].op;   // group consecutive overpack items
-      if(!nextInSameOp){ html += opRowHtml; used++; }
-    }
-  });
-  const opEmbedded = rows.some(r => /OVERPACK USED/i.test(r.qty || ""));   // pallet calculator writes it inside the qty block
-  if(!anyOp && !opEmbedded && rv("f_overpack") === "Y"){ html += opRowHtml; used++; }
-  for(let i=used; i<min; i++) html += `<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
-  body.innerHTML = html;
+  const arr = goodsRowsArr();
+  let html = arr.map(a => a.html).join("");
+  for(let i = arr.length; i < 4; i++) html += `<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+  document.getElementById("p_goods").innerHTML = html;
   if(typeof updateAirline === "function") updateAirline();
   if(typeof autosaveCurrent === "function") autosaveCurrent();
 }
@@ -1545,7 +1564,41 @@ function printDGD(){
     const plEl = document.getElementById("plfile"); if(plEl.scrollIntoView) plEl.scrollIntoView({behavior:"smooth", block:"center"});
     return;
   }
-  saveDocument(false); jobLogPrint(); window.print();
+  // multi-page: everything repeats on every page, only the goods rows change
+  const CAP = 24;                                       // goods-table lines per page
+  const arr = goodsRowsArr();
+  const totalLines = arr.reduce((a, r) => a + r.lines, 0);
+  if(totalLines <= CAP){
+    document.getElementById("f_page").value = "1 of 1"; refresh();
+    saveDocument(false); jobLogPrint(); window.print(); return;
+  }
+  const pages = [];
+  let cur = [], used = 0;
+  arr.forEach(r => {
+    if(used + r.lines > CAP && cur.length){ pages.push(cur); cur = []; used = 0; }
+    cur.push(r); used += r.lines;
+  });
+  if(cur.length) pages.push(cur);
+  document.getElementById("f_page").value = "1 of " + pages.length; refresh();
+  const pz = document.getElementById("printzone");
+  pz.innerHTML = "";
+  const base = document.getElementById("sheet");
+  pages.forEach((pg, i) => {
+    const clone = base.cloneNode(true);
+    clone.removeAttribute("id");
+    let h = pg.map(r => r.html).join("");
+    let lines = pg.reduce((a, r) => a + r.lines, 0);
+    while(lines < CAP){ h += `<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`; lines += 2; }
+    clone.querySelector("#p_goods").innerHTML = h;
+    const pc = clone.querySelector("#p_page");
+    if(pc) pc.textContent = (i + 1) + " of " + pages.length;
+    clone.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+    if(i < pages.length - 1) clone.style.pageBreakAfter = "always";
+    pz.appendChild(clone);
+  });
+  saveDocument(false); jobLogPrint();
+  document.body.classList.add("pm-alt");
+  window.print();
 }
 
 /* ---------- Claude AI integration ---------- */
@@ -2809,7 +2862,9 @@ async function imgFileToB64(file, maxDim){
     const sc = Math.min(1, maxDim / Math.max(img.width, img.height));
     const c = document.createElement("canvas");
     c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
-    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, c.width, c.height);   // white behind transparent PNGs
+    ctx.drawImage(img, 0, 0, c.width, c.height);
     return c.toDataURL("image/jpeg", 0.85).split(",")[1];
   } finally { URL.revokeObjectURL(url); }
 }
@@ -3697,7 +3752,27 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo"];
+/* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
+function dgdLogoApply(){
+  let rec = null;
+  try{ rec = JSON.parse(localStorage.getItem("jfs_dgd_logo") || "null"); }catch(e){}
+  const src = (rec && rec.img) ? rec.img : "";
+  document.querySelectorAll("#dgdlogo").forEach(img => { img.src = src; img.style.display = src ? "" : "none"; });
+}
+async function dgdLogoSave(){
+  const f = document.getElementById("dgdlogofile").files[0];
+  if(!f){ alert("Choose the logo image first."); return; }
+  const b64 = await imgFileToB64(f, 600);
+  setStore("jfs_dgd_logo", {img: "data:image/jpeg;base64," + b64});
+  dgdLogoApply();
+  document.getElementById("dgdlogomsg").textContent = "✓ Saved — the logo now prints on every DGD page (top-right).";
+}
+function dgdLogoClear(){
+  setStore("jfs_dgd_logo", {});
+  dgdLogoApply();
+  document.getElementById("dgdlogomsg").textContent = "Removed.";
+}
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
   const blob = new Blob([JSON.stringify({when: new Date().toISOString(), data}, null, 1)], {type:"application/json"});
@@ -3785,6 +3860,7 @@ async function enterApp(user){
     }
   }catch(e){}
   await cloudPullAll(false);
+  dgdLogoApply();
   jobGateShow();
   inboxPoll();
   if(_inboxT) clearInterval(_inboxT);
@@ -3860,6 +3936,7 @@ document.querySelectorAll("img.jfslogo").forEach(i => { i.src = window.JFS_LOGO 
 addItem();
 refreshDraftList();
 ptRender();
+dgdLogoApply();
 refresh();
 authInit();
 </script>
