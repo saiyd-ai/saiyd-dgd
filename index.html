@@ -1200,11 +1200,11 @@ function refresh(){
   document.getElementById("p_ref").textContent = v("f_ref");
   document.getElementById("p_dep").textContent = v("f_dep");
   document.getElementById("p_dest").textContent = v("f_dest");
-  // handling info + emergency phone printed together inside the box (always visible)
+  // emergency contact first (JFS standard), then any user-typed lines (e.g. USA emergency no.)
   const handTxt = v("f_handling");
   const emgTxt = v("f_emergency");
   document.getElementById("p_handling").textContent =
-    handTxt + (emgTxt ? (handTxt ? "\n" : "") + "24 HRS EMERGENCY CONTACT NO: " + emgTxt : "");
+    (emgTxt ? "24 HOURS EMERGENCY CONTACT NO: " + emgTxt : "") + (handTxt ? (emgTxt ? "\n" : "") + handTxt : "");
   document.getElementById("p_signname").textContent = v("f_signname");
   document.getElementById("p_placedate").textContent = [v("f_place"), v("f_date")].filter(Boolean).join(", ");
 
@@ -1309,16 +1309,9 @@ const HANDLING_MAP = [
  [/^9/,    "Handle with care."]
 ];
 function suggestHandling(){
-  const box = document.getElementById("f_handling");
-  if(box.value.trim()) return;               // never overwrite user's own text
-  const classes = getItems().map(r => (r.cls||"").trim()).filter(Boolean);
-  const psns = getItems().map(r => (r.psn||"").toLowerCase()).join(" ");
-  const msgs = new Set();
-  classes.forEach(c => { for(const [re, t] of HANDLING_MAP){ if(re.test(c)){ msgs.add(t); break; } } });
-  if(/lithium/.test(psns)) msgs.add("Lithium batteries — do not load or transport package if damaged.");
-  if(/dry ice|carbon dioxide, solid/.test(psns)) msgs.add("Dry ice — ventilate. Do not stow in unventilated areas.");
-  if(rv("f_pax") === "CAO") msgs.add("CARGO AIRCRAFT ONLY.");
-  if(msgs.size){ box.value = [...msgs].join(" "); refresh(); }
+  /* disabled by JFS request — handling information carries ONLY the emergency contact
+     (plus anything the user types, e.g. the USA emergency line). No auto class text. */
+  return;
 }
 
 /* ---------- remember defaults (shipper / signatory / place / emergency) ---------- */
@@ -1500,7 +1493,6 @@ function autoFill(){
 
   const dep = grab("dep"); if(dep){ document.getElementById("f_dep").value = dep.toUpperCase(); found.push("Departure"); }
   const dest = grab("dest"); if(dest){ document.getElementById("f_dest").value = dest.toUpperCase(); found.push("Destination"); }
-  const hand = grab("handling", true); if(hand){ document.getElementById("f_handling").value = hand; found.push("Handling info"); }
   const emg = grab("emergency");
   if(emg){ document.getElementById("f_emergency").value = emg; found.push("Emergency contact"); }
   else { const ph = raw.match(/(\+?\d[\d\s\-()]{8,16}\d)/); if(ph && /emergency/i.test(raw)) { document.getElementById("f_emergency").value = ph[1].trim(); found.push("Emergency contact"); } }
@@ -1745,8 +1737,8 @@ async function aiExtractShipment(text, label, imgs){
   if(j.ref) document.getElementById("f_ref").value = j.ref;
   if(j.dep) document.getElementById("f_dep").value = j.dep.toUpperCase();
   if(j.dest) document.getElementById("f_dest").value = j.dest.toUpperCase();
-  if(j.emergency) document.getElementById("f_emergency").value = j.emergency;
-  if(j.handling && !v("f_handling")) document.getElementById("f_handling").value = j.handling;
+  if(j.emergency && !v("f_emergency")) document.getElementById("f_emergency").value = j.emergency;
+  // handling info deliberately NOT auto-filled — it must carry only the emergency contact (JFS rule)
   if(j.cao === true) document.querySelector('input[name=f_pax][value=CAO]').checked = true;
   else if(j.cao === false) document.querySelector('input[name=f_pax][value=PAX]').checked = true;
   if(j.radioactive === true) document.querySelector('input[name=f_radio][value=RADIO]').checked = true;
@@ -2057,6 +2049,19 @@ function plFromText(){
   if(plUNs(t).length) plExtractItems(t);
   refresh();
 }
+/* AI: extract the pallet table (PLT/weight/dims/qty) from packing-list page images */
+async function aiPalletRows(imgs, hintText){
+  const sys = `You read WAREHOUSE PACKING LISTS for a freight forwarder. They may be typed or HANDWRITTEN — read like an expert.
+Extract every pallet row into clean columns.
+Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15}],"tare":pallet tare kg if stated else null}
+"weight" = GROSS weight of that pallet in kg (number). "qty" = cartons on that pallet (integer). "dims" = dimensions text.
+Sanity-check unclear digits (pallet usually 50–999 kg, qty 1–60). Keep the printed order. NEVER invent pallets.`;
+  const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
+  content.push({type:"text", text: "Packing list" + (hintText && hintText.trim().length > 30 ? " — extracted text as an extra hint, trust the image(s) first:\n\n" + hintText.slice(0, 8000) : " — read the page image(s) carefully.")});
+  const j = aiJson(await aiCall(sys, content, 1800));
+  const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0})).filter(r => r.w && r.q);
+  return {rows, tare: (j.tare && parseFloat(j.tare) > 0) ? String(j.tare) : null};
+}
 async function readPlPdf(){
   const f = document.getElementById("plfile").files[0];
   if(!f){ alert("Choose the packing list PDF first."); return; }
@@ -2078,15 +2083,34 @@ async function readPlPdf(){
       lines.push(line.join(" "));
       text += lines.join("\n") + "\n";
     }
-    if(text.trim().length < 30){
+    const scanned = text.trim().length < 30;
+    if(scanned && !aiKey()){
       if(!confirm("⚠ This PDF has no readable text (scanned image) — the contents cannot be verified or extracted.\n\nAttach anyway?")) return;
       plSet(f.name); refresh(); return;
     }
-    if(!plCrossCheck(text)){ alert("Packing list NOT attached — please attach the correct one."); return; }
+    if(!scanned){
+      if(!plCrossCheck(text)){ alert("Packing list NOT attached — please attach the correct one."); return; }
+      document.getElementById("f_pl").value = text;
+      if(plUNs(text).length) plExtractItems(text);
+    }
     plSet(f.name);
-    document.getElementById("f_pl").value = text;
-    if(plUNs(text).length) plExtractItems(text);
     refresh();
+    // pallets auto-fetch: fill the pallet calculator from the same packing list
+    if(aiKey()){
+      const st = document.getElementById("plstatus");
+      const keep = st.innerHTML;
+      st.innerHTML = keep + " — 🤖 fetching pallets...";
+      try{
+        const imgs = await pdfPageImages(pdf, 2);
+        const res = await aiPalletRows(imgs, text);
+        if(res.rows.length){
+          PT = res.rows;
+          if(res.tare) document.getElementById("pt_tare").value = res.tare;
+          ptRender();
+          st.innerHTML = keep + " — 🤖 " + res.rows.length + " pallet(s) fetched into the calculator ✓ (check, then AVERAGE / FILL DGD)";
+        } else st.innerHTML = keep;
+      }catch(e){ st.innerHTML = keep; }
+    }
   }catch(e){ alert("PDF read failed (" + e.message + "). Paste the text instead."); }
 }
 
@@ -2549,18 +2573,11 @@ async function ptReadPdf(){
     const scanned = text.trim().length < 200;
     msg.textContent = scanned ? "🤖 Scanned PDF — AI reading the page image(s)..." : "🤖 AI extracting pallet table...";
     const imgs = await pdfPageImages(pdf, 2);
-    const sys = `You are a dangerous-goods assistant for JFS Logistics. From this customer PACKING LIST, extract the pallet/overpack table.
-Respond with ONLY JSON, no markdown:
-{"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15}],"tare":pallet tare weight in kg if stated else null}
-"weight" = GROSS weight of that pallet in kg (number). "qty" = number of cartons/boxes on that pallet (integer). "dims" = dimensions text as printed.
-One entry per pallet, in printed order. Never invent pallets or numbers not in the document.`;
-    const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
-    content.push({type:"text", text: "Packing list" + (text.trim().length > 30 ? " — extracted text as an extra hint, trust the page image(s) first:\n\n" + text.slice(0, 8000) : " — scanned page image(s) above. Read them carefully.")});
-    const j = aiJson(await aiCall(sys, content, 1800));
-    const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0})).filter(r => r.w && r.q);
+    const res = await aiPalletRows(imgs, text);
+    const rows = res.rows;
     if(!rows.length){ msg.textContent = "AI found no pallet rows in this PDF — paste them manually below."; return; }
     PT = rows;
-    if(j.tare && parseFloat(j.tare) > 0) document.getElementById("pt_tare").value = String(j.tare);
+    if(res.tare) document.getElementById("pt_tare").value = res.tare;
     ptRender();
     // this PDF IS the packing list → attach it (cross-check + unlock DGD printing) and pull DG items too
     if(text.trim().length >= 30){
@@ -2598,6 +2615,7 @@ function jobStart(){
   applySnapshot({items:[null]});                       // fresh form (no confirm)
   if(typeof loadDefaults === "function") loadDefaults();
   document.getElementById("f_date").value = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+  if(!v("f_emergency").trim()) document.getElementById("f_emergency").value = "00971 50 138 3146";   // JFS standard 24-hr number
   document.getElementById("f_job").value = j;
   document.getElementById("jg_job").value = "";
   document.getElementById("jobgate").style.display = "none";
@@ -3824,14 +3842,27 @@ async function dgdLogoSave(){
   const f = document.getElementById("dgdlogofile").files[0];
   if(!f){ alert("Choose the logo image first."); return; }
   const b64 = await imgFileToB64(f, 600);
-  setStore("jfs_dgd_logo", {img: "data:image/jpeg;base64," + b64});
+  const rec = {img: "data:image/jpeg;base64," + b64};
+  setStore("jfs_dgd_logo", rec);
   dgdLogoApply();
-  document.getElementById("dgdlogomsg").textContent = "✓ Saved — the logo now prints on every DGD page (top-right).";
+  if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key: "dgd_logo", value: rec, updated_by: sbUser.email}); }catch(e){} }
+  document.getElementById("dgdlogomsg").textContent = "✓ Saved for the WHOLE company — prints on every DGD page (top-right), all users.";
 }
 function dgdLogoClear(){
   setStore("jfs_dgd_logo", {});
   dgdLogoApply();
-  document.getElementById("dgdlogomsg").textContent = "Removed.";
+  if(sb && sbUser){ try{ sb.from("company_settings").upsert({key: "dgd_logo", value: {}, updated_by: sbUser.email}); }catch(e){} }
+  document.getElementById("dgdlogomsg").textContent = "Removed (all users).";
+}
+async function dgdLogoPull(){
+  if(!sb || !sbUser) return;
+  try{
+    const { data } = await sb.from("company_settings").select("value").eq("key", "dgd_logo").maybeSingle();
+    if(data && data.value && data.value.img){
+      localStorage.setItem("jfs_dgd_logo", JSON.stringify({img: data.value.img}));
+      dgdLogoApply();
+    }
+  }catch(e){}
 }
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
@@ -3921,6 +3952,7 @@ async function enterApp(user){
   }catch(e){}
   await cloudPullAll(false);
   dgdLogoApply();
+  dgdLogoPull();          // company-wide logo — same for every user
   jobGateShow();
   inboxPoll();
   if(_inboxT) clearInterval(_inboxT);
@@ -3979,6 +4011,7 @@ async function authInit(){
 
 /* init */
 document.getElementById("f_date").value = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+if(!document.getElementById("f_emergency").value.trim()) document.getElementById("f_emergency").value = "00971 50 138 3146";
 document.querySelectorAll("input,textarea,select").forEach(el => el.addEventListener("input", refresh));
 document.querySelectorAll("input[type=radio]").forEach(el => el.addEventListener("change", () => { refresh(); }));
 DEF_FIELDS_INIT: {
