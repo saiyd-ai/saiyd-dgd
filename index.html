@@ -718,8 +718,8 @@
 
       <!-- AIRLINE BARCODE LABELS -->
       <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#9992; AIRLINE BARCODE LABELS &mdash; against the DGD AWB (IATA 606 style)</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">AWB number, route, pieces and weights are pulled from the DGD &amp; pallet table automatically.
-          Barcode is Code&nbsp;128 of the 11-digit AWB &mdash; scannable at airline/GHA acceptance. Prints 2 labels per A4.</div>
+        <div class="warnbar" style="margin-top:0;">Airline-style cargo label (JFS format): airline name, barcode of AWB + piece serial (00001, 00002...),
+          AWB, destination, piece i/n, weight, origin &mdash; all pulled from the DGD &amp; pallet table. One label per page.</div>
         <div class="grid g4">
           <div><label>No. of pieces (auto: pallets / overpacks)</label><input type="text" id="bl_count" placeholder="auto"></div>
           <div><label>Total weight kg (auto from pallets)</label><input type="text" id="bl_weight" placeholder="auto"></div>
@@ -731,7 +731,7 @@
           </div>
           <div style="align-self:end;">
             <button class="btn btn-save" style="background:#0f2b4c;" onclick="buildAwbLabels()">&#8635; GENERATE LABELS</button>
-            <button class="btn btn-print" onclick="printAlt('awblblArea')">&#128424; PRINT (2 per A4)</button>
+            <button class="btn btn-print" onclick="printAlt('awblblArea')">&#128424; PRINT (1 per page)</button>
           </div>
         </div>
         <div id="awblblArea" style="margin-top:14px;"></div>
@@ -945,11 +945,11 @@
           <th colspan="4" style="font-size:8.5pt;">Dangerous Goods Identification</th>
           <th rowspan="2" style="width:24%;">Quantity and<br>type of packing</th>
           <th rowspan="2" style="width:8%;">Pack-<br>ing<br>Inst.</th>
-          <th rowspan="2" style="width:8%;">Authorization</th>
+          <th rowspan="2" style="width:12%;">Authorization</th>
         </tr>
         <tr>
           <th style="width:8%;">UN<br>or<br>ID<br>NO</th>
-          <th style="width:32%;">Proper Shipping Name</th>
+          <th style="width:28%;">Proper Shipping Name</th>
           <th style="width:10%;">Class or<br>Division<br>(Subsidiary<br>Hazard)</th>
           <th style="width:8%;">Pack-<br>ing<br>Group</th>
         </tr>
@@ -1177,10 +1177,11 @@ function goodsRowsArr(split){
       const qtyLines = chunk.split("\n").length;
       const lines = Math.max(2, qtyLines + 1, (ci === 0 ? psnLines + 1 : 2));
       arr.push({lines, html: `<tr>
-    <td>${esc(r.un)}</td><td>${esc(r.psn)}${chunks.length > 1 ? ` <span style="font-size:7pt;">(cont. ${ci+1}/${chunks.length})</span>` : ""}</td>
-    <td class="center">${esc(r.cls)}${r.sub ? " " + esc(r.sub):""}</td>
-    <td class="center">${esc(r.pg)}</td><td style="white-space:pre-wrap; font-size:8.5pt;">${esc(chunk)}</td>
-    <td class="center">${esc(r.pi)}</td><td class="center">${esc(r.auth)}</td></tr>`});
+    <td style="white-space:pre-line; font-weight:bold;">${esc((r.un||"").replace(/^(UN|ID)\s*/i, "$1\n"))}</td>
+    <td style="text-transform:uppercase; font-weight:bold;">${esc(r.psn)}${chunks.length > 1 ? ` <span style="font-size:7pt; font-weight:normal;">(cont. ${ci+1}/${chunks.length})</span>` : ""}</td>
+    <td class="center" style="font-weight:bold;">${esc(r.cls)}${r.sub ? " " + esc(r.sub):""}</td>
+    <td class="center" style="font-weight:bold;">${esc(r.pg)}</td><td style="white-space:pre-wrap; font-size:8.5pt; font-weight:bold;">${esc(chunk)}</td>
+    <td class="center" style="font-weight:bold;">${esc(r.pi)}</td><td class="center">${esc(r.auth)}</td></tr>`});
     });
     if(r.op){
       anyOp = true;
@@ -1217,7 +1218,8 @@ function refresh(){
 
   const arr = goodsRowsArr();
   let html = arr.map(a => a.html).join("");
-  for(let i = arr.length; i < 4; i++) html += `<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+  // one tall OPEN row (column lines only, no ruled empties) — same as the Excel print
+  html += `<tr style="height:28mm;"><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td></tr>`;
   document.getElementById("p_goods").innerHTML = html;
   if(typeof updateAirline === "function") updateAirline();
   if(typeof autosaveCurrent === "function") autosaveCurrent();
@@ -3697,47 +3699,60 @@ async function buildAwbLabels(){
     showTab("dgd"); document.getElementById("f_awb").focus(); return;
   }
   try{ await loadJsBarcode(); }catch(e){ alert("Could not load the barcode engine — check the internet connection."); return; }
-  const awbDisp = digits.slice(0,3) + "-" + digits.slice(3);
+  const awbDisp = digits.slice(0,3) + "  " + digits.slice(3);
   const dep = iata3(s.dep), dest = iata3(s.dest);
   ptCompute();
   const usePT = PT.length > 0;
-  const n = Math.min(60, parseInt(v("bl_count")) || (usePT ? PT.length : (s.overpack === "Y" ? (parseInt(s.opcount) || 1) : 1)));
-  const totW = v("bl_weight") || (usePT ? String(ptR3(PT.reduce((a, r) => a + (r.w||0), 0))) : "");
-  const isDG = rv("bl_dg") === "Y" && (s.items||[]).some(r => r.un);
-  const cao = s.pax === "CAO";
+  const n = Math.min(99, parseInt(v("bl_count")) || (usePT ? PT.length : (s.overpack === "Y" ? (parseInt(s.opcount) || 1) : 1)));
+  // airline name (plain text) from the AWB prefix
+  const al = (typeof AIRLINE_DB !== "undefined" && AIRLINE_DB[digits.slice(0,3)]) ? AIRLINE_DB[digits.slice(0,3)][1] : "";
+  const alName = al ? al.split("/").pop().trim().toUpperCase() : "";
+  const CELL = "border:2px solid #000; padding:1.5mm 2.5mm;";
   let h = "";
   for(let i = 0; i < n; i++){
     const pw = usePT && PT[i] ? PT[i].w : "";
-    const scNo = usePT && PT[i] ? PT[i].label : "";
-    h += `<div style="border:2.5px solid #000; width:100%; max-width:150mm; margin:0 auto 8mm auto; padding:5mm 6mm; font-family:Arial; color:#000; background:#fff; page-break-inside:avoid; ${i % 2 === 1 ? "page-break-after:always;" : ""}">
-      <div style="display:flex; justify-content:space-between; align-items:baseline; border-bottom:2px solid #000; padding-bottom:2mm;">
-        <div style="font-size:21pt; font-weight:bold; letter-spacing:1px;">${esc(awbDisp)}</div>
-        <div style="font-size:9.5pt; font-weight:bold;">AIR CARGO LABEL</div>
-      </div>
-      <svg class="blsvg" data-code="${esc(digits)}" style="width:100%; height:26mm; margin-top:2mm;"></svg>
-      <div style="display:flex; justify-content:space-between; margin-top:2mm; align-items:flex-end;">
-        <div><div style="font-size:8pt; font-weight:bold;">DESTINATION</div><div style="font-size:32pt; font-weight:900; line-height:1;">${esc(dest||"—")}</div></div>
-        <div style="text-align:center;"><div style="font-size:8pt; font-weight:bold;">ORIGIN</div><div style="font-size:17pt; font-weight:bold;">${esc(dep||"—")}</div></div>
-        <div style="text-align:right;"><div style="font-size:8pt; font-weight:bold;">PIECE</div><div style="font-size:19pt; font-weight:bold;">${i+1} <span style="font-size:11pt;">of</span> ${n}</div></div>
-      </div>
-      <table style="width:100%; border-collapse:collapse; margin-top:2mm; font-size:9.5pt;">
+    const code = digits + String(i + 1).padStart(5, "0");     // AWB + piece serial, like the airline label
+    h += `<div style="width:100mm; font-family:Arial; color:#000; background:#fff; padding:2mm; ${i < n - 1 ? "page-break-after:always;" : ""}">
+      <div style="text-align:center; font-size:15pt; font-weight:bold;">${esc(alName || "AIR CARGO")}</div>
+      <div style="text-align:center; margin-top:1mm;"><svg class="blsvg" data-code="${esc(code)}" style="width:76mm; height:20mm;"></svg></div>
+      <table style="width:100%; border-collapse:collapse; margin-top:1.5mm;">
+        <tr><td colspan="2" style="${CELL} border-left:none; border-right:none;">
+          <div style="font-size:9pt; font-weight:bold;">AIRWAY BILL NO</div>
+          <div style="font-size:19pt; font-weight:900; letter-spacing:1px;">${esc(awbDisp)}</div>
+        </td></tr>
         <tr>
-          <td style="border:1px solid #000; padding:1.5mm 2mm;"><b>TOTAL PCS:</b> ${n}</td>
-          <td style="border:1px solid #000; padding:1.5mm 2mm;"><b>TOTAL WT:</b> ${esc(totW || "—")} kg</td>
-          <td style="border:1px solid #000; padding:1.5mm 2mm;"><b>THIS PIECE:</b> ${pw ? esc(String(pw)) + " kg" : "—"}${scNo ? " — " + esc(scNo) : ""}</td>
+          <td style="${CELL} width:46%;">
+            <div style="font-size:9pt; font-weight:bold;">DESTINATION</div>
+            <div style="font-size:17pt; font-weight:900;">${esc(dest || "")}</div>
+          </td>
+          <td style="${CELL}">
+            <div style="font-size:9pt; font-weight:bold;">TOTAL NO. OF PIECES</div>
+            <div style="font-size:17pt; font-weight:900;">${i + 1}/${n}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="${CELL}">
+            <div style="font-size:9pt; font-weight:bold;">WEIGHT</div>
+            <div style="font-size:13pt; font-weight:bold;">${pw ? esc(String(pw)) + " KG" : "&nbsp;"}</div>
+          </td>
+          <td style="${CELL}">
+            <div style="font-size:9pt; font-weight:bold;">HAWB NO.</div>
+            <div style="font-size:12pt; font-weight:bold;">&nbsp;</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="${CELL}"><span style="font-size:10pt; font-weight:bold;">PRODUCT CODE :</span></td>
+          <td style="${CELL}">
+            <span style="font-size:10pt; font-weight:bold;">ORIGIN</span>
+            <span style="font-size:14pt; font-weight:900; float:right;">${esc(dep || "")}</span>
+          </td>
         </tr>
       </table>
-      ${isDG ? `<div style="border:2px solid #c00000; color:#c00000; font-weight:bold; font-size:10pt; text-align:center; padding:1.5mm; margin-top:2mm;">CONTAINS DANGEROUS GOODS AS PER ATTACHED SHIPPER'S DECLARATION${cao ? " — CARGO AIRCRAFT ONLY" : ""}</div>` : ""}
-      <div style="display:flex; justify-content:space-between; gap:4mm; font-size:8.5pt; margin-top:2mm; flex-wrap:wrap;">
-        <div><b>AGENT:</b> JFS LOGISTICS${s.job ? " — JOB " + esc(s.job) : ""}</div>
-        <div><b>SHIPPER:</b> ${esc((s.shipper||"").split("\n")[0].slice(0,30))}</div>
-        <div><b>CNEE:</b> ${esc((s.consignee||"").split("\n")[0].slice(0,30))}</div>
-      </div>
     </div>`;
   }
   out.innerHTML = h;
   out.querySelectorAll(".blsvg").forEach(el => {
-    JsBarcode(el, el.dataset.code, {format:"CODE128", displayValue:true, fontSize:15, height:62, margin:0});
+    JsBarcode(el, el.dataset.code, {format:"CODE128", displayValue:true, fontSize:13, height:52, margin:0});
   });
 }
 
