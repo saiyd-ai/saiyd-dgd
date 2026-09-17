@@ -514,7 +514,7 @@
     </div></div>
 
     <!-- PACKING LIST (required) -->
-    <div class="card" style="border-left:5px solid #1a5fb4;"><h2 style="background:#e3ecf7; color:#1a5fb4;">&#128230; PACKING LIST &mdash; required before the DGD can be printed</h2><div class="body">
+    <div class="card" style="border-left:5px solid #1a5fb4;"><h2 style="background:#e3ecf7; color:#1a5fb4;">&#128230; PACKING LIST &mdash; optional (attach for cross-checking)</h2><div class="body">
       <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
         <label style="margin:0;">Attach Packing List PDF:</label>
         <input type="file" id="plfile" accept=".pdf" style="font-size:12.5px;">
@@ -524,7 +524,7 @@
       <textarea id="f_pl" style="min-height:70px;" placeholder="Paste packing list text here (items, UN numbers, quantities, boxes)..."></textarea>
       <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
         <button class="btn btn-save" style="background:#1a5fb4;" onclick="plFromText()">&#128230; ATTACH &amp; EXTRACT FROM TEXT</button>
-        <span id="plstatus" style="font-size:12.5px; font-weight:bold; color:#a40000;">&#10008; No packing list attached &mdash; DGD printing is LOCKED</span>
+        <span id="plstatus" style="font-size:12.5px; font-weight:bold; color:#b45309;">&#9888; No packing list attached &mdash; optional (asked once before printing)</span>
       </div>
     </div></div>
 
@@ -1104,7 +1104,23 @@ function addItem(data){
     div.querySelector(".i_qty").value = data.qty||"";
     div.querySelector(".i_auth").value = data.auth||"";
     div.querySelector(".i_op").checked = !!data.op;
+  } else {
+    // default item — ID8000 CONSUMER COMMODITY with PI Y963 (most common JFS shipment)
+    div.querySelector(".i_un").value = "ID8000";
+    div.querySelector(".i_psn").value = "CONSUMER COMMODITY";
+    div.querySelector(".i_cls").value = "9";
+    div.querySelector(".i_pi").value = "Y963";
   }
+  unInput.addEventListener("blur", () => setTimeout(() => {
+    const uv = unInput.value.trim().toUpperCase().replace(/\s/g, "");
+    if(uv === "ID8000"){
+      const p = div.querySelector(".i_psn"), c = div.querySelector(".i_cls"), pi = div.querySelector(".i_pi");
+      if(!p.value) p.value = "CONSUMER COMMODITY";
+      if(!c.value) c.value = "9";
+      if(!pi.value) pi.value = "Y963";
+      refresh();
+    }
+  }, 300));
   refresh();
 }
 
@@ -1591,36 +1607,44 @@ function printDGD(){
     const jEl = document.getElementById("f_job"); if(jEl.scrollIntoView) jEl.scrollIntoView({behavior:"smooth", block:"center"}); jEl.focus();
     return;
   }
-  if(!PL.name){
-    alert("PACKING LIST REQUIRED!\n\nAttach the packing list (PDF or text) in the blue PACKING LIST section before printing the DGD.");
-    const plEl = document.getElementById("plfile"); if(plEl.scrollIntoView) plEl.scrollIntoView({behavior:"smooth", block:"center"});
-    return;
+  if(!PL.name && !(PT && PT.length)){
+    if(!confirm("No packing list attached.\n\nPrint the DGD anyway?")) return;
   }
-  // multi-page: everything repeats on every page, only the goods rows change
-  const CAP = 24;                                       // goods-table lines per page
-  const arr = goodsRowsArr(20);                         // split long qty blocks so they flow across pages
-  const totalLines = arr.reduce((a, r) => a + r.lines, 0);
-  if(totalLines <= CAP){
+  dgdLogoApply();                                        // make sure the corner logo is on before printing
+  // multi-page: paginate by REAL rendered heights — every page repeats the full header/footer,
+  // only the goods rows flow from page to page
+  const sheet = document.getElementById("sheet");
+  const tbody = document.getElementById("p_goods");
+  const pxMM = sheet.offsetWidth / 210;                  // true px-per-mm scale of the preview
+  const PAGE = Math.floor(283 * pxMM);                   // printable sheet height
+  const arr = goodsRowsArr(12);                          // long qty blocks pre-split into chunks
+  tbody.innerHTML = arr.map(a => a.html).join("");       // render split rows to MEASURE them
+  const trs = [...tbody.children];
+  const rowH = trs.map(tr => tr.offsetHeight);
+  const nonGoods = sheet.offsetHeight - tbody.offsetHeight;   // header + footer + table head
+  const cap = PAGE - nonGoods;
+  const fillerH = Math.ceil(9.5 * pxMM);
+  const totalH = rowH.reduce((a, b) => a + b, 0);
+  if(totalH + fillerH * Math.max(0, 4 - arr.length) <= cap){
     document.getElementById("f_page").value = "1 of 1"; refresh();
     saveDocument(false); jobLogPrint(); window.print(); return;
   }
   const pages = [];
   let cur = [], used = 0;
-  arr.forEach(r => {
-    if(used + r.lines > CAP && cur.length){ pages.push(cur); cur = []; used = 0; }
-    cur.push(r); used += r.lines;
+  arr.forEach((r, i) => {
+    if(used + rowH[i] > cap && cur.length){ pages.push(cur); cur = []; used = 0; }
+    cur.push({html: r.html, h: rowH[i]}); used += rowH[i];
   });
   if(cur.length) pages.push(cur);
   document.getElementById("f_page").value = "1 of " + pages.length; refresh();
   const pz = document.getElementById("printzone");
   pz.innerHTML = "";
-  const base = document.getElementById("sheet");
   pages.forEach((pg, i) => {
-    const clone = base.cloneNode(true);
+    const clone = sheet.cloneNode(true);
     clone.removeAttribute("id");
     let h = pg.map(r => r.html).join("");
-    let lines = pg.reduce((a, r) => a + r.lines, 0);
-    while(lines < CAP){ h += `<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`; lines += 2; }
+    let hUsed = pg.reduce((a, r) => a + r.h, 0);
+    while(hUsed + fillerH <= cap){ h += `<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`; hUsed += fillerH; }
     clone.querySelector("#p_goods").innerHTML = h;
     const pc = clone.querySelector("#p_page");
     if(pc) pc.textContent = (i + 1) + " of " + pages.length;
@@ -1907,8 +1931,8 @@ function plSet(name){
 function plClear(){
   PL = {name:"", when:""};
   const el = document.getElementById("plstatus");
-  el.innerHTML = "&#10008; No packing list attached — DGD printing is LOCKED";
-  el.style.color = "#a40000";
+  el.innerHTML = "&#9888; No packing list attached — optional (you will be asked once before printing)";
+  el.style.color = "#b45309";
 }
 function plUNs(text){
   const s = new Set();
@@ -1958,8 +1982,11 @@ function mergeItem(it){
     else if(it.qty && q.value && !q.value.includes(it.qty)) q.value += "; " + it.qty;   // same UN, extra pallet → merge
     return;
   }
-  // remove a single empty starter row
-  if(els.length === 1 && !els[0].querySelector(".i_un").value) els[0].remove();
+  // remove a single untouched starter row (empty, or the default ID8000 with no quantity)
+  if(els.length === 1){
+    const u0 = els[0].querySelector(".i_un").value;
+    if(!u0 || (u0 === "ID8000" && un !== "ID8000" && !els[0].querySelector(".i_qty").value)) els[0].remove();
+  }
   const db = UNDB.find(r => r.un === un);
   addItem({
     un, psn: it.psn || (db ? db.psn : ""), cls: it.cls || (db ? db.cls : ""),
@@ -2600,6 +2627,7 @@ function applyQueuePayload(p){
   if(p.tare) document.getElementById("pt_tare").value = p.tare;
   PT = (p.pallets || []).map(r => ({w: r.w, d: r.d, q: r.q}));
   ptRender();
+  if(PT.length) plSet("Warehouse packing list" + (p.job ? " — job " + p.job : ""));   // warehouse data = packing list, DGD unlocked
 }
 function jobContinue(){
   try{ const s = JSON.parse(localStorage.getItem("jfs_dgd_current")||"null"); if(s) applySnapshot(s); }catch(e){}
