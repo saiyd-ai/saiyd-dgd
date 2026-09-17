@@ -37,7 +37,12 @@
   .userchip button{border:0; background:#c00000; color:#fff; border-radius:12px; padding:3px 10px;
     font-size:11px; font-weight:bold; cursor:pointer;}
   #syncdot{display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;}
-  @media print{ #authgate{display:none !important;} .userchip{display:none !important;} #jobgate{display:none !important;} }
+  @media print{
+    @page{ size:A4 portrait; margin:5mm; }
+    body{ margin:0 !important; padding:0 !important; }
+    #authgate{display:none !important;} .userchip{display:none !important;} #jobgate{display:none !important;}
+    .toolfoot{display:none !important;}
+  }
 
   /* ============ DGDOC BRAND (sAiyd.ai design language) ============ */
   .dgwm{font-family:'Poppins', Arial, sans-serif; font-weight:800; letter-spacing:.5px; line-height:1;}
@@ -585,7 +590,7 @@
       <div class="grid g4">
         <div><label>Air Waybill No.</label><input type="text" id="f_awb" placeholder="176-12345675"></div>
         <div><label>Page / of Pages</label><input type="text" id="f_page" value="1 of 1"></div>
-        <div><label>Shipper's Reference No. (optional)</label><input type="text" id="f_ref"></div>
+        <div><label>Shipper's Reference No. (HOUSE AWB only — optional)</label><input type="text" id="f_ref" placeholder="HAWB no. (if any)"></div>
         <div><label>Aircraft Limitation</label>
           <div class="radios">
             <label><input type="radio" name="f_pax" value="PAX" checked> Passenger &amp; Cargo</label>
@@ -1145,6 +1150,11 @@ function getItems(){
 }
 
 function v(id){ return document.getElementById(id).value; }
+function dgdDate(){
+  const M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const d = new Date();
+  return String(d.getDate()).padStart(2, "0") + " " + M[d.getMonth()] + " " + d.getFullYear();
+}
 function rv(name){ const el = document.querySelector(`input[name=${name}]:checked`); return el ? el.value : ""; }
 
 /* goods rows as an array with a line-count estimate (for multi-page DGD printing) */
@@ -1194,6 +1204,17 @@ function goodsRowsArr(split){
   return arr;
 }
 function refresh(){
+  // packing instruction as per IATA rule — auto-fill empty PI from the UN database (PAX/CAO aware)
+  const paxSel = rv("f_pax");
+  document.querySelectorAll(".item").forEach(d => {
+    const un = d.querySelector(".i_un").value.trim().toUpperCase().replace(/\s/g, "");
+    const piEl = d.querySelector(".i_pi");
+    if(un && piEl && !piEl.value){
+      const db = UNDB.find(r => r.un === un);
+      const pi = db ? (paxSel === "CAO" ? db.picao : db.pipax) : "";
+      if(pi && /^Y?\d{3,4}[A-Za-z]?$/.test(pi)) piEl.value = pi;
+    }
+  });
   document.getElementById("p_shipper").textContent = v("f_shipper");
   document.getElementById("p_consignee").textContent = v("f_consignee");
   document.getElementById("p_awb").textContent = v("f_awb");
@@ -1201,11 +1222,20 @@ function refresh(){
   document.getElementById("p_ref").textContent = v("f_ref");
   document.getElementById("p_dep").textContent = v("f_dep");
   document.getElementById("p_dest").textContent = v("f_dest");
-  // emergency contact first (JFS standard), then any user-typed lines (e.g. USA emergency no.)
+  // emergency contact first (JFS standard) + automatic state-variation line (IATA rule), then user-typed lines
   const handTxt = v("f_handling");
   const emgTxt = v("f_emergency");
-  document.getElementById("p_handling").textContent =
-    (emgTxt ? "24 HOURS EMERGENCY CONTACT NO: " + emgTxt : "") + (handTxt ? (emgTxt ? "\n" : "") + handTxt : "");
+  const lines = [];
+  if(emgTxt) lines.push("24 HOURS EMERGENCY CONTACT NO: " + emgTxt);
+  // USA state variation (USG): US destination needs a US 24-hr emergency contact
+  const destBlob = (v("f_dest") + " " + v("f_consignee")).toUpperCase();
+  const usDest = /\b(MIA|JFK|LAX|ORD|ATL|DFW|IAH|SFO|EWR|BOS|SEA|IAD|MCO)\b|U\.?S\.?A|UNITED STATES|,\s*US\b|\bUS,/.test(destBlob);
+  if(usDest && !/USA 24/i.test(handTxt)){
+    const tel = ((v("f_consignee").match(/TE?L[:\s]*([+\d][\d\s\-,()]{6,}\d)/i) || [])[1] || "").trim();
+    lines.push("USA 24 HOURS EMERGENCY CONTACT NO: " + (tel || "____________"));
+  }
+  if(handTxt) lines.push(handTxt);
+  document.getElementById("p_handling").textContent = lines.join("\n");
   document.getElementById("p_signname").textContent = v("f_signname");
   document.getElementById("p_placedate").textContent = [v("f_place"), v("f_date")].filter(Boolean).join(", ");
 
@@ -1736,7 +1766,7 @@ async function aiExtractShipment(text, label, imgs){
   if(j.consignee){ document.getElementById("f_consignee").value = j.consignee; custAfterFill("consignee"); }
   if(j.awb) document.getElementById("f_awb").value = j.awb;
   if(j.pages) document.getElementById("f_page").value = j.pages;
-  if(j.ref) document.getElementById("f_ref").value = j.ref;
+  // reference NOT auto-filled — it is only for a HOUSE airway bill, entered manually
   if(j.dep) document.getElementById("f_dep").value = j.dep.toUpperCase();
   if(j.dest) document.getElementById("f_dest").value = j.dest.toUpperCase();
   if(j.emergency && !v("f_emergency")) document.getElementById("f_emergency").value = j.emergency;
@@ -2616,7 +2646,7 @@ function jobStart(){
   if(!j){ alert("Enter the JFS Job Number to start."); return; }
   applySnapshot({items:[null]});                       // fresh form (no confirm)
   if(typeof loadDefaults === "function") loadDefaults();
-  document.getElementById("f_date").value = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+  document.getElementById("f_date").value = dgdDate();
   if(!v("f_emergency").trim()) document.getElementById("f_emergency").value = "00971 50 138 3146";   // JFS standard 24-hr number
   document.getElementById("f_job").value = j;
   document.getElementById("jg_job").value = "";
@@ -2636,7 +2666,7 @@ function applyQueuePayload(p){
   document.getElementById("f_shipper").value = p.shipper || ""; custAfterFill("shipper");
   document.getElementById("f_consignee").value = p.consignee || ""; custAfterFill("consignee");
   if(p.awb) document.getElementById("f_awb").value = p.awb;
-  if(p.ref) document.getElementById("f_ref").value = p.ref;
+  // reference NOT auto-filled — HAWB only, manual
   if(p.org) document.getElementById("f_dep").value = p.org.toUpperCase();
   if(p.dest) document.getElementById("f_dest").value = p.dest.toUpperCase();
   if(!p.org && p.route){
@@ -4025,7 +4055,7 @@ async function authInit(){
 }
 
 /* init */
-document.getElementById("f_date").value = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+document.getElementById("f_date").value = dgdDate();
 if(!document.getElementById("f_emergency").value.trim()) document.getElementById("f_emergency").value = "00971 50 138 3146";
 document.querySelectorAll("input,textarea,select").forEach(el => el.addEventListener("input", refresh));
 document.querySelectorAll("input[type=radio]").forEach(el => el.addEventListener("change", () => { refresh(); }));
