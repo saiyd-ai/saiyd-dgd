@@ -871,8 +871,12 @@
     <div class="sheet" id="sheet">
       <div class="hatch l"></div><div class="hatch r"></div>
 
-      <div class="s-h" style="display:flex; justify-content:space-between; align-items:center; gap:6mm;">SHIPPER'S DECLARATION FOR DANGEROUS GOODS
-        <img id="dgdlogo" alt="" style="height:12mm; max-width:42mm; object-fit:contain; display:none;"></div>
+      <table class="s-table"><tr><td style="border-bottom:none; padding:1mm 2mm;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:6mm;">
+          <span style="font-size:10.5pt; font-weight:bold; border-bottom:1.5px solid #000; padding-bottom:0.5mm;">SHIPPER'S DECLARATION FOR DANGEROUS GOODS</span>
+          <img id="dgdlogo" alt="" style="height:11mm; max-width:40mm; object-fit:contain; display:none;">
+        </div>
+      </td></tr></table>
 
       <table class="s-table">
         <tr>
@@ -886,8 +890,7 @@
               <span class="val" id="p_awb" style="font-weight:bold; font-size:10.5pt;"></span>
             </div>
             <div style="font-size:9.5pt; margin-top:1.5mm;">Page &nbsp;<span id="p_page">1 of 1</span>&nbsp; Pages</div>
-            <div style="font-size:9.5pt; margin-top:1.5mm;">Shipper's Reference Number:</div>
-            <div class="val" id="p_ref" style="font-weight:bold;"></div>
+            <div style="font-size:9pt; margin-top:1.5mm;">Shipper's Reference Number: <span id="p_ref" style="font-weight:bold;"></span></div>
             <div style="font-size:8pt; font-style:italic; margin-top:2.5mm;">(optional)</div>
           </td>
         </tr>
@@ -900,7 +903,7 @@
         </tr>
       </table>
 
-      <table class="s-table" style="margin-top:1.5mm;">
+      <table class="s-table">
         <tr>
           <td style="width:55%; font-size:9pt;">Two Completed and signed copies of this Declaration<br>must be handed to the operator</td>
           <td rowspan="2" style="vertical-align:top;">
@@ -944,8 +947,8 @@
         </tr>
       </table>
 
-      <div style="margin-top:2mm; font-size:9.5pt; font-weight:bold;">NATURE AND QUANTITY OF DANGEROUS GOODS</div>
-      <table class="s-table goods" style="margin-top:1mm;">
+      <table class="s-table"><tr><td style="font-size:9pt; font-weight:bold; padding:0.8mm 1.6mm;">NATURE AND QUANTITY OF DANGEROUS GOODS</td></tr></table>
+      <table class="s-table goods">
         <tr>
           <th colspan="4" style="font-size:8.5pt;">Dangerous Goods Identification</th>
           <th rowspan="2" style="width:24%;">Quantity and<br>type of packing</th>
@@ -961,7 +964,7 @@
         <tbody id="p_goods"></tbody>
       </table>
 
-      <table class="s-table" style="margin-top:1.5mm;">
+      <table class="s-table">
         <tr><td>
           <div style="font-size:9.5pt; font-weight:bold;">Additional Handling Information</div>
           <div class="val" id="p_handling" style="min-height:7mm; font-weight:bold; padding-left:2mm; font-size:8.5pt;"></div>
@@ -1151,9 +1154,9 @@ function getItems(){
 
 function v(id){ return document.getElementById(id).value; }
 function dgdDate(){
-  const M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const M = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   const d = new Date();
-  return String(d.getDate()).padStart(2, "0") + " " + M[d.getMonth()] + " " + d.getFullYear();
+  return String(d.getDate()).padStart(2, "0") + "/" + M[d.getMonth()] + "/" + d.getFullYear();
 }
 function rv(name){ const el = document.querySelector(`input[name=${name}]:checked`); return el ? el.value : ""; }
 
@@ -1635,23 +1638,29 @@ function printDGD(){
     if(!confirm("No packing list attached.\n\nPrint the DGD anyway?")) return;
   }
   dgdLogoApply();                                        // make sure the corner logo is on before printing
-  // multi-page: paginate by REAL rendered heights — every page repeats the full header/footer,
-  // only the goods rows flow from page to page
+  const n = buildPrintPages();
+  saveDocument(false); jobLogPrint();
+  if(n > 1) document.body.classList.add("pm-alt");
+  window.print();
+}
+/* paginate by REAL rendered heights — every page repeats the full form, only goods rows flow.
+   Also used by the beforeprint hook, so Ctrl+P prints exactly the same. Returns the page count. */
+function buildPrintPages(){
+  dgdLogoApply();
   const sheet = document.getElementById("sheet");
   const tbody = document.getElementById("p_goods");
   const pxMM = sheet.offsetWidth / 210;                  // true px-per-mm scale of the preview
-  const PAGE = Math.floor(270 * pxMM);                   // printable sheet height at 100% (A4 minus printer margins)
+  const PAGE = Math.floor(270 * pxMM);                   // printable sheet height (A4 minus printer margins)
   const arr = goodsRowsArr(12);                          // long qty blocks pre-split into chunks
   tbody.innerHTML = arr.map(a => a.html).join("");       // render split rows to MEASURE them
   const trs = [...tbody.children];
   const rowH = trs.map(tr => tr.offsetHeight);
   const nonGoods = sheet.offsetHeight - tbody.offsetHeight;   // header + footer + table head
   const cap = PAGE - nonGoods;
-  const fillerH = Math.ceil(9.5 * pxMM);
   const totalH = rowH.reduce((a, b) => a + b, 0);
-  if(totalH + fillerH * Math.max(0, 4 - arr.length) <= cap){
+  if(totalH + Math.ceil(9.5 * pxMM) <= cap){
     document.getElementById("f_page").value = "1 of 1"; refresh();
-    saveDocument(false); jobLogPrint(); window.print(); return;
+    return 1;
   }
   const pages = [];
   let cur = [], used = 0;
@@ -1667,8 +1676,8 @@ function printDGD(){
     const clone = sheet.cloneNode(true);
     clone.removeAttribute("id");
     let h = pg.map(r => r.html).join("");
-    let hUsed = pg.reduce((a, r) => a + r.h, 0);
-    while(hUsed + fillerH <= cap){ h += `<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`; hUsed += fillerH; }
+    const hUsed = pg.reduce((a, r) => a + r.h, 0);
+    if(cap - hUsed > 8) h += `<tr style="height:${Math.floor(cap - hUsed)}px;"><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td></tr>`;
     clone.querySelector("#p_goods").innerHTML = h;
     const pc = clone.querySelector("#p_page");
     if(pc) pc.textContent = (i + 1) + " of " + pages.length;
@@ -1676,10 +1685,13 @@ function printDGD(){
     if(i < pages.length - 1) clone.style.pageBreakAfter = "always";
     pz.appendChild(clone);
   });
-  saveDocument(false); jobLogPrint();
-  document.body.classList.add("pm-alt");
-  window.print();
+  return pages.length;
 }
+window.addEventListener("beforeprint", () => {
+  // Ctrl+P from the browser gets the same multi-page DGD with repeated headers
+  if(document.body.classList.contains("pm-alt")) return;    // app buttons already prepared the print
+  try{ if(buildPrintPages() > 1) document.body.classList.add("pm-alt"); }catch(e){}
+});
 
 /* ---------- Claude AI integration ---------- */
 function aiKey(){ return localStorage.getItem("jfs_ai_key") || ""; }
