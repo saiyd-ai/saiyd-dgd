@@ -274,7 +274,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-G</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-H</span></span>
           </div>
         </div>
       </div>
@@ -2935,23 +2935,18 @@ function whSaveDraft(){
 }
 function whConfirm(){
   const job = v("wh_job").trim().toUpperCase();
-  if(!job){ alert("Create the job and SAVE DRAFT first."); return; }
-  if(!whDrafts()[job]){ alert("SAVE DRAFT first — then confirm."); return; }
+  if(!job){ alert("Create / enter the JOB NUMBER first (CREATE JOB button)."); return; }
   if(!WH.length){ alert("Add the pallet rows first."); return; }
   if(!v("wh_shipper").trim() || !v("wh_consignee").trim()){ alert("Shipper and consignee are required."); return; }
   if(!v("wh_org").trim() || !v("wh_dest").trim()){ alert("Enter ORIGIN and DESTINATION airport codes."); return; }
-  const p = whPayload();
-  const ok = confirm("CONFIRM PACKING LIST — job " + job +
-    "\n\nCustomer: " + (p.customer || "—") +
-    "\nRoute: " + (p.route || "—") +
-    "\nShipper: " + (p.shipper.split("\n")[0] || "—") +
-    "\nConsignee: " + (p.consignee.split("\n")[0] || "—") +
-    "\nPallets: " + p.totals.plt + "  •  Gross: " + p.totals.gross + " kg  •  Cartons: " + p.totals.ctns +
-    "\n\nEverything correct?");
-  if(!ok){ whMsg("Not confirmed — correct the details and confirm again.", "#a40000"); return; }
-  whSaveDraft();
+  whSaveDraft();                                  // confirm also saves — one tap on mobile
   _whConfirmed = true;
-  whMsg("✓ CONFIRMED — now press SEND TO OPERATIONS.", "#1d6b34");
+  const p = whPayload();
+  const m = document.getElementById("wh_msg");
+  m.style.color = "#1d6b34";
+  m.innerHTML = "✔ <b>CONFIRMED — " + esc(job) + "</b> &bull; " + esc(p.customer || "") + " &bull; " + esc(p.route || "") +
+    " &bull; " + p.totals.plt + " PLT / " + p.totals.gross + " kg / " + p.totals.ctns + " ctns" +
+    "<br>Details correct? Then press <b>3. SEND TO OPERATIONS</b>. (Anything wrong — edit and press CONFIRM again.)";
 }
 function whRenderDrafts(){
   const tb = document.getElementById("wh_drafts"); if(!tb) return;
