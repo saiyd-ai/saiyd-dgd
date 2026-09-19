@@ -274,7 +274,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-J</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-K</span></span>
           </div>
         </div>
       </div>
@@ -1170,8 +1170,20 @@ function dgdDate(){
 function rv(name){ const el = document.querySelector(`input[name=${name}]:checked`); return el ? el.value : ""; }
 
 /* goods rows as an array with a line-count estimate (for multi-page DGD printing) */
-function goodsRowsArr(split){
-  const rows = getItems();
+function goodsRowsArr(split, qfs){
+  // merge items with the same UN + PSN (ignoring old "(CONT. i/n)" labels) into ONE row —
+  // ID/PSN print ONE TIME only, quantity blocks flow continuously with no dividing lines
+  const raw = getItems();
+  const rows = [];
+  raw.forEach(r => {
+    const base = (r.psn || "").replace(/\s*\(\s*CONT\.?[^)]*\)\s*/ig, " ").replace(/\s+/g, " ").trim();
+    const prev = rows[rows.length - 1];
+    if(prev && prev.psn === base && prev.un === r.un && prev.cls === r.cls && prev.pg === r.pg && prev.pi === r.pi){
+      prev.qty = ((prev.qty || "").trim() ? prev.qty.replace(/\s+$/,"") + "\n\n" : "") + (r.qty || "");
+      prev.op = prev.op || r.op;
+    } else rows.push({...r, psn: base});
+  });
+  const QFS = qfs || 8.5;                                // quantity font — shrinks to fit one page
   const arr = [];
   const n = parseInt(v("f_opcount")) || 1;
   const oq = v("f_opqty");
@@ -1207,7 +1219,7 @@ function goodsRowsArr(split){
     <td style="text-transform:uppercase; font-weight:bold; ${S}">${withId ? esc(r.psn) : ""}</td>
     <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.cls) + (r.sub ? " " + esc(r.sub) : "") : ""}</td>
     <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.pg) : ""}</td>
-    <td style="white-space:pre-wrap; font-size:8.5pt; font-weight:bold; ${S}">${esc(chunk)}</td>
+    <td style="white-space:pre-wrap; font-size:${QFS}pt; font-weight:bold; ${S}">${esc(chunk)}</td>
     <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.pi) : ""}</td>
     <td class="center" style="${S}">${withId ? esc(r.auth) : ""}</td></tr>`;
       };
@@ -1668,15 +1680,35 @@ function buildPrintPages(){
   const tbody = document.getElementById("p_goods");
   const pxMM = sheet.offsetWidth / 210;                  // true px-per-mm scale of the preview
   const PAGE = Math.floor(281 * pxMM);                   // content budget: 297mm A4 − 12mm sheet padding − 4mm safety
-  const arr = goodsRowsArr(8);                           // one overpack group per chunk → pages pack tight
-  tbody.innerHTML = arr.map(a => a.html).join("");       // render split rows to MEASURE them
-  const trs = [...tbody.children];
-  const rowH = trs.map(tr => tr.offsetHeight);
-  const nonGoods = sheet.offsetHeight - tbody.offsetHeight;   // header + footer + table head
-  const cap = PAGE - nonGoods;
-  const totalH = rowH.reduce((a, b) => a + b, 0);
-  if(totalH + Math.ceil(9.5 * pxMM) <= cap){
-    document.getElementById("f_page").value = "1 of 1"; refresh();
+  // try to fit EVERYTHING on ONE page — shrink the quantity font step by step (8.5 → 6.5pt) before
+  // giving up and flowing to a second page (JFS rule: one page whenever possible)
+  let fs = 8.5, arr, rowH, cap, totalH;
+  const measure = f => {
+    arr = goodsRowsArr(8, f);
+    tbody.innerHTML = arr.map(a => a.html).join("");     // render split rows to MEASURE them
+    rowH = [...tbody.children].map(tr => tr.offsetHeight);
+    cap = PAGE - (sheet.offsetHeight - tbody.offsetHeight);   // page budget − header/footer/table head
+    totalH = rowH.reduce((a, b) => a + b, 0);
+  };
+  measure(fs);
+  while(totalH + Math.ceil(6 * pxMM) > cap && fs > 6.5){ fs -= 0.5; measure(fs); }
+  if(totalH + Math.ceil(6 * pxMM) <= cap){
+    document.getElementById("f_page").value = "1 of 1";
+    refresh();                                           // header fields (page no etc.) up to date
+    if(fs >= 8.5) return 1;                              // fits at normal size → print the preview sheet as-is
+    // fits only with the smaller font → print a one-page clone carrying that font
+    const pz = document.getElementById("printzone");
+    pz.innerHTML = "";
+    const clone = sheet.cloneNode(true);
+    clone.removeAttribute("id");
+    let h1 = arr.map(r => r.html).join("");
+    if(cap - totalH > 8) h1 += `<tr style="height:${Math.floor(cap - totalH)}px;"><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td></tr>`;
+    clone.querySelector("#p_goods").innerHTML = h1;
+    const pc1 = clone.querySelector("#p_page"); if(pc1) pc1.textContent = "1 of 1";
+    clone.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+    clone.style.height = "294mm"; clone.style.overflow = "hidden";
+    pz.appendChild(clone);
+    document.body.classList.add("pm-alt");
     return 1;
   }
   const pages = [];
@@ -1692,7 +1724,7 @@ function buildPrintPages(){
   pages.forEach((pg, i) => {
     const clone = sheet.cloneNode(true);
     clone.removeAttribute("id");
-    let h = pg.map((r, idx) => (idx === 0 && r.fullHtml) ? r.fullHtml : r.html).join("");
+    let h = pg.map(r => r.html).join("");                 // ID/PSN ONE TIME only — never repeated on later pages
     const hUsed = pg.reduce((a, r) => a + r.h, 0);
     if(cap - hUsed > 8) h += `<tr style="height:${Math.floor(cap - hUsed)}px;"><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td></tr>`;
     clone.querySelector("#p_goods").innerHTML = h;
