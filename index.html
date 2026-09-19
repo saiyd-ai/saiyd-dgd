@@ -39,7 +39,9 @@
   #syncdot{display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;}
   @media print{
     @page{ size:A4 portrait; margin:5mm; }
-    body{ margin:0 !important; padding:0 !important; }
+    body{ margin:0 !important; padding:0 !important; background:#fff !important; }
+    .previewwrap{ background:none !important; padding:0 !important; border-radius:0 !important; }
+    .previewwrap .plabel{ display:none !important; }
     #authgate{display:none !important;} .userchip{display:none !important;} #jobgate{display:none !important;}
     .toolfoot{display:none !important;}
   }
@@ -273,7 +275,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v18.09-B</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-A</span></span>
           </div>
         </div>
       </div>
@@ -1191,11 +1193,11 @@ function goodsRowsArr(split){
       const qtyLines = chunk.split("\n").length;
       const lines = Math.max(2, qtyLines + 1, (ci === 0 ? psnLines + 1 : 2));
       arr.push({lines, html: `<tr>
-    <td style="white-space:pre-line; font-weight:bold;">${esc((r.un||"").replace(/^(UN|ID)\s*/i, "$1\n"))}</td>
-    <td style="text-transform:uppercase; font-weight:bold;">${esc(r.psn)}${chunks.length > 1 ? ` <span style="font-size:7pt; font-weight:normal;">(cont. ${ci+1}/${chunks.length})</span>` : ""}</td>
-    <td class="center" style="font-weight:bold;">${esc(r.cls)}${r.sub ? " " + esc(r.sub):""}</td>
-    <td class="center" style="font-weight:bold;">${esc(r.pg)}</td><td style="white-space:pre-wrap; font-size:8.5pt; font-weight:bold;">${esc(chunk)}</td>
-    <td class="center" style="font-weight:bold;">${esc(r.pi)}</td><td class="center">${esc(r.auth)}</td></tr>`});
+    <td style="white-space:pre-line; font-weight:bold; border-bottom:none;">${esc((r.un||"").replace(/^(UN|ID)\s*/i, "$1\n"))}</td>
+    <td style="text-transform:uppercase; font-weight:bold; border-bottom:none;">${esc(r.psn)}${chunks.length > 1 ? ` <span style="font-size:7pt; font-weight:normal;">(cont. ${ci+1}/${chunks.length})</span>` : ""}</td>
+    <td class="center" style="font-weight:bold; border-bottom:none;">${esc(r.cls)}${r.sub ? " " + esc(r.sub):""}</td>
+    <td class="center" style="font-weight:bold; border-bottom:none;">${esc(r.pg)}</td><td style="white-space:pre-wrap; font-size:8.5pt; font-weight:bold; border-bottom:none;">${esc(chunk)}</td>
+    <td class="center" style="font-weight:bold; border-bottom:none;">${esc(r.pi)}</td><td class="center" style="border-bottom:none;">${esc(r.auth)}</td></tr>`});
     });
     if(r.op){
       anyOp = true;
@@ -1758,7 +1760,9 @@ Respond with ONLY a JSON object, no markdown, using exactly these keys (empty st
 "pg":"I/II/III or empty","pi":"packing instruction number if stated","qty":"e.g. 4 fibreboard boxes x 20 L","auth":""}]}
 Rules: only include items that are dangerous goods with a UN/ID number stated or clearly identifiable.
 If the same UN/ID number appears on multiple pallets or packages, output it ONCE and combine all pallet quantities in "qty" separated by "; ".
-Put shipper and consignee EXACTLY as printed: company name on the first line, then address lines, then TEL on the last line.
+Shipper/consignee format: company name on line 1, then address lines, then the FULL COUNTRY NAME on its own line
+(always write the country in full — "UNITED ARAB EMIRATES", "UNITED KINGDOM", "USA" — NEVER 2-letter codes like AE/GB),
+then "TEL: +..." as the LAST line. If the document shows "AE,TL:+971..." style, convert it to the country line + TEL line.
 For dep/dest use the airport name in CAPITALS with the IATA code in brackets when known, e.g. "DUBAI WORLD CENTRAL (DWC)".
 Never invent UN numbers, PI numbers or quantities that are not supported by the document.`;
 async function aiExtractShipment(text, label, imgs){
@@ -1775,8 +1779,8 @@ async function aiExtractShipment(text, label, imgs){
   const raw = await aiCall(AI_EXTRACT_SYSTEM, content, 2500);
   const j = aiJson(raw);
   // apply — every value goes to its exact field
-  if(j.shipper){ document.getElementById("f_shipper").value = j.shipper; custAfterFill("shipper"); }
-  if(j.consignee){ document.getElementById("f_consignee").value = j.consignee; custAfterFill("consignee"); }
+  if(j.shipper){ document.getElementById("f_shipper").value = fixAddr(j.shipper); custAfterFill("shipper"); }
+  if(j.consignee){ document.getElementById("f_consignee").value = fixAddr(j.consignee); custAfterFill("consignee"); }
   if(j.awb) document.getElementById("f_awb").value = j.awb;
   if(j.pages) document.getElementById("f_page").value = j.pages;
   // reference NOT auto-filled — it is only for a HOUSE airway bill, entered manually
@@ -2581,7 +2585,7 @@ function ptFillDgd(){
   });
   if(!document.querySelectorAll(".item").length) addItem();
   const first = document.querySelector(".item");
-  first.querySelector(".i_qty").value = blocks.join("\n\n");
+  first.querySelector(".i_qty").value = blocks.join("\n\n").replace(/ kg G/g, " kg G");   // keep "kg G" glued to the number (no lonely wrap)
   first.querySelector(".i_op").checked = false;   // overpack text already inside the quantity block
   document.querySelector('input[name=f_overpack][value=Y]').checked = true;
   document.getElementById("f_opcount").value = String(PT.length);
@@ -2675,9 +2679,29 @@ function jobStart(){
   }
   showTab(_afterStartTab || "dgd"); _afterStartTab = null; refresh();
 }
+/* expand "AE,TL:+971..." style endings into FULL COUNTRY NAME + TEL line (DGD requires country in full) */
+const COUNTRY_MAP = {AE:"UNITED ARAB EMIRATES", GB:"UNITED KINGDOM", UK:"UNITED KINGDOM", US:"USA", SA:"SAUDI ARABIA",
+  QA:"QATAR", KW:"KUWAIT", BH:"BAHRAIN", OM:"OMAN", JO:"JORDAN", LB:"LEBANON", EG:"EGYPT", TR:"TURKEY",
+  IN:"INDIA", LK:"SRI LANKA", PK:"PAKISTAN", BD:"BANGLADESH", CN:"CHINA", HK:"HONG KONG", SG:"SINGAPORE",
+  MY:"MALAYSIA", TH:"THAILAND", VN:"VIETNAM", PH:"PHILIPPINES", ID:"INDONESIA", JP:"JAPAN", KR:"SOUTH KOREA",
+  DE:"GERMANY", FR:"FRANCE", NL:"NETHERLANDS", IT:"ITALY", ES:"SPAIN", BE:"BELGIUM", CH:"SWITZERLAND",
+  AT:"AUSTRIA", PL:"POLAND", SE:"SWEDEN", DK:"DENMARK", NO:"NORWAY", FI:"FINLAND", IE:"IRELAND", PT:"PORTUGAL",
+  GR:"GREECE", RU:"RUSSIA", UA:"UKRAINE", LT:"LITHUANIA", LV:"LATVIA", EE:"ESTONIA", CZ:"CZECH REPUBLIC",
+  KE:"KENYA", TZ:"TANZANIA", NG:"NIGERIA", GH:"GHANA", ZA:"SOUTH AFRICA", ET:"ETHIOPIA", MA:"MOROCCO",
+  BR:"BRAZIL", AR:"ARGENTINA", PY:"PARAGUAY", UY:"URUGUAY", CL:"CHILE", CO:"COLOMBIA", PE:"PERU",
+  MX:"MEXICO", PA:"PANAMA", CA:"CANADA", AU:"AUSTRALIA", NZ:"NEW ZEALAND", IQ:"IRAQ", IR:"IRAN", AF:"AFGHANISTAN"};
+function fixAddr(text){
+  return (text || "").split("\n").map(line => {
+    const m = line.trim().match(/^([A-Z]{2})\s*[,.]?\s*TE?L\s*[:.]?\s*(.*)$/i);
+    if(m && COUNTRY_MAP[m[1].toUpperCase()]) return COUNTRY_MAP[m[1].toUpperCase()] + "\nTEL: " + m[2].trim();
+    const c = line.trim().match(/^([A-Z]{2})[,.]?$/);
+    if(c && COUNTRY_MAP[c[1]]) return COUNTRY_MAP[c[1]];
+    return line;
+  }).join("\n");
+}
 function applyQueuePayload(p){
-  document.getElementById("f_shipper").value = p.shipper || ""; custAfterFill("shipper");
-  document.getElementById("f_consignee").value = p.consignee || ""; custAfterFill("consignee");
+  document.getElementById("f_shipper").value = fixAddr(p.shipper || ""); custAfterFill("shipper");
+  document.getElementById("f_consignee").value = fixAddr(p.consignee || ""); custAfterFill("consignee");
   if(p.awb) document.getElementById("f_awb").value = p.awb;
   // reference NOT auto-filled — HAWB only, manual
   if(p.org) document.getElementById("f_dep").value = p.org.toUpperCase();
@@ -3016,7 +3040,8 @@ async function whAddrPhoto(){
     const imgs = await filesToImgs(src, 2);
     const sys = `You read logistics documents and photos for a freight forwarder (JFS Logistics).
 Extract the SHIPPER (sender/exporter) and CONSIGNEE (receiver/importer) name and FULL address as CLEAN TEXT, ready to print on an IATA Dangerous Goods Declaration.
-Format each: company name on line 1, then the address lines, then "TEL: ..." as the last line — ALL CAPITALS.
+Format each: company name on line 1, then the address lines, then the FULL COUNTRY NAME on its own line
+(never 2-letter codes — write "UNITED ARAB EMIRATES", "UNITED KINGDOM", "USA" etc.), then "TEL: ..." as the last line — ALL CAPITALS.
 The photo may be handwritten, a label, an invoice or low quality — read carefully, fix obvious OCR/handwriting slips in city and country names, but NEVER invent details that are not visible.
 Respond ONLY JSON: {"shipper":"multi-line text or empty","consignee":"multi-line text or empty"}`;
     const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
