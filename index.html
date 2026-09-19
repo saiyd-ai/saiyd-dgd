@@ -275,7 +275,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-E</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-F</span></span>
           </div>
         </div>
       </div>
@@ -379,6 +379,7 @@
           <div><label>ORIGIN (airport code)</label><input type="text" id="wh_org" list="apcodes" placeholder="DXB" style="width:110px; font-weight:bold; text-transform:uppercase;"></div>
           <div><label>DESTINATION (airport code)</label><input type="text" id="wh_dest" list="apcodes" placeholder="MIA" style="width:110px; font-weight:bold; text-transform:uppercase;"></div>
           <div><label>Pallet tare (kg)</label><input type="text" id="wh_tare" value="16" style="width:80px;"></div>
+          <div><label>TOTAL PLT (auto from packing list)</label><input type="text" id="wh_plt" readonly style="width:110px; font-weight:bold; background:#eef7ee; text-align:center;" placeholder="0"></div>
           <datalist id="apcodes">
             <option value="DXB">Dubai Intl</option><option value="DWC">Dubai World Central</option><option value="SHJ">Sharjah</option><option value="AUH">Abu Dhabi</option>
             <option value="MCT">Muscat</option><option value="DOH">Doha</option><option value="BAH">Bahrain</option><option value="KWI">Kuwait</option>
@@ -2849,9 +2850,10 @@ function whRender(){
   tb.innerHTML = h; whTotals();
 }
 function whTotals(){
-  const tw = document.getElementById("wh_tw"), tq = document.getElementById("wh_tq");
+  const tw = document.getElementById("wh_tw"), tq = document.getElementById("wh_tq"), tp = document.getElementById("wh_plt");
   if(tw) tw.textContent = ptR3(WH.reduce((a,r) => a+(r.w||0), 0));
   if(tq) tq.textContent = WH.reduce((a,r) => a+(r.q||0), 0);
+  if(tp) tp.value = WH.length || "";
 }
 function whAddRow(){ WH.push({w:0, d:"", q:0}); whRender(); }
 function whParse(){
