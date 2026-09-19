@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-R</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-S</span></span>
           </div>
         </div>
       </div>
@@ -1714,14 +1714,14 @@ function buildPrintPages(){
   dgdLogoApply();
   const sheet = document.getElementById("sheet");
   const tbody = document.getElementById("p_goods");
+  const mhBak = sheet.style.minHeight;
+  sheet.style.display = "";                              // sheet MUST be visible BEFORE measuring — hidden = width 0!
+  sheet.style.minHeight = "0";                           // measure REAL content height, not the A4 preview minimum
   const pxMM = sheet.offsetWidth / 210;                  // true px-per-mm scale of the preview
   const PAGE = Math.floor(281 * pxMM);                   // content budget: 297mm A4 − 12mm sheet padding − 4mm safety
   // try to fit EVERYTHING on ONE page — shrink the quantity font step by step (8.5 → 6.5pt) before
   // giving up and flowing to a second page (JFS rule: one page whenever possible)
   let fs = 8.5, arr, rowH, cap, totalH;
-  const mhBak = sheet.style.minHeight;
-  sheet.style.display = "";                              // sheet must be visible to measure real heights
-  sheet.style.minHeight = "0";                           // measure REAL content height, not the A4 preview minimum
   const done = ret => { sheet.style.minHeight = mhBak; _pvSync(); return ret; };
   const measure = f => {
     arr = goodsRowsArr(8, f);
