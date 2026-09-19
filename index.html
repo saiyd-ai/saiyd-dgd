@@ -275,7 +275,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-A</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-B</span></span>
           </div>
         </div>
       </div>
@@ -729,6 +729,7 @@
         <div class="warnbar" style="margin-top:0;">Airline-style cargo label (JFS format): airline name, barcode of AWB + piece serial (00001, 00002...),
           AWB, destination, piece i/n, weight, origin &mdash; all pulled from the DGD &amp; pallet table. One label per page.</div>
         <div class="grid g4">
+          <div><label>Airline name (auto from AWB — edit if wrong)</label><input type="text" id="bl_airline" placeholder="e.g. EMIRATES SKYCARGO"></div>
           <div><label>No. of pieces (auto: pallets / overpacks)</label><input type="text" id="bl_count" placeholder="auto"></div>
           <div><label>Total weight kg (auto from pallets)</label><input type="text" id="bl_weight" placeholder="auto"></div>
           <div><label>Dangerous goods line?</label>
@@ -3725,17 +3726,17 @@ function buildOpStickers(){
     const opno = prefix + String(start + i).padStart(2, "0");
     const qty = qtyOverride || (usePT ? fmtDot(PT[i].sc) + " kg G" : (s.opqty || ""));
     h += `<div style="page-break-after:always; font-family:Arial; color:#000; background:#fff;
-        border:1px solid #ccc; padding:10mm 8mm; margin-bottom:14px; max-width:190mm;">
-      <div style="font-size:11pt; font-weight:bold;">SHIPPER :</div>
-      <div style="font-size:11.5pt; font-weight:bold; white-space:pre-wrap; line-height:1.35;">${esc(s.shipper||"")}</div>
-      <div style="font-size:11pt; font-weight:bold; margin-top:5mm;">CONSIGNEE :</div>
-      <div style="font-size:11.5pt; font-weight:bold; white-space:pre-wrap; line-height:1.35;">${esc(s.consignee||"")}</div>
+        border:4px double #000; padding:8mm 7mm; margin-bottom:14px; max-width:150mm;">
+      <div style="font-size:13pt; font-weight:bold;">SHIPPER:</div>
+      <div style="font-size:13pt; font-weight:bold; white-space:pre-wrap; line-height:1.45;">${esc(fixAddr(s.shipper||""))}</div>
+      <div style="font-size:13pt; font-weight:bold; margin-top:6mm;">CONSIGNEE:</div>
+      <div style="font-size:13pt; font-weight:bold; white-space:pre-wrap; line-height:1.45;">${esc(fixAddr(s.consignee||""))}</div>
       ${items.map(r => `
-        <div style="font-size:44pt; font-weight:bold; margin-top:6mm; letter-spacing:1px;">${esc(r.un.replace(/^(UN|ID)/, "$1 "))}</div>
-        <div style="font-size:15pt; font-weight:bold; text-transform:uppercase;">${esc(r.psn)}${r.cls ? " — CLASS " + esc(r.cls) : ""}${r.pg ? ", PG " + esc(r.pg) : ""}</div>`).join("")}
-      <div style="font-size:22pt; font-weight:bold; margin-top:8mm;">OVERPACK#${esc(opno)}</div>
-      <div style="font-size:14pt; font-weight:bold; margin-top:5mm;">TOTAL QUANTITY : ${esc(qty || "____________")}</div>
-      <div style="font-size:11.5pt; font-weight:bold; margin-top:6mm;">24 HOURS EMERGENCY<br>CONTACT NO: ${esc(s.emergency||"____________")}</div>
+        <div style="font-size:52pt; font-weight:900; margin-top:7mm; letter-spacing:2px;">${esc(r.un.replace(/^(UN|ID)/, "$1 "))}</div>
+        <div style="font-size:14pt; font-weight:bold; text-transform:uppercase; margin-top:2mm;">PSN: ${esc(r.psn)}</div>`).join("")}
+      <div style="font-size:18pt; font-weight:bold; margin-top:5mm;">OVERPACK#${esc(opno)}</div>
+      <div style="font-size:13pt; font-weight:bold; margin-top:3mm;">TOTAL QUANTITY : ${esc(qty || "____________")}</div>
+      <div style="font-size:13pt; font-weight:bold; margin-top:6mm;">24 HOURS EMERGENCY CONTACT<br>NUMBER: ${esc(s.emergency||"____________")}</div>
       ${s.pax === "CAO" ? `<div style="font-size:14pt; font-weight:bold; margin-top:5mm; border:3px solid #000; display:inline-block; padding:2mm 6mm;">CARGO AIRCRAFT ONLY</div>` : ""}
     </div>`;
   }
@@ -3772,9 +3773,11 @@ async function buildAwbLabels(){
   ptCompute();
   const usePT = PT.length > 0;
   const n = Math.min(99, parseInt(v("bl_count")) || (usePT ? PT.length : (s.overpack === "Y" ? (parseInt(s.opcount) || 1) : 1)));
-  // airline name (plain text) from the AWB prefix
+  // airline name: editable field first; else auto from the AWB prefix
   const al = (typeof AIRLINE_DB !== "undefined" && AIRLINE_DB[digits.slice(0,3)]) ? AIRLINE_DB[digits.slice(0,3)][1] : "";
-  const alName = al ? al.split("/").pop().trim().toUpperCase() : "";
+  const autoName = al ? al.split("/").pop().trim().toUpperCase() : "";
+  if(!v("bl_airline").trim() && autoName) document.getElementById("bl_airline").value = autoName;
+  const alName = v("bl_airline").trim().toUpperCase() || autoName;
   const CELL = "border:2px solid #000; padding:1.5mm 2.5mm;";
   let h = "";
   for(let i = 0; i < n; i++){
