@@ -38,7 +38,7 @@
     font-size:11px; font-weight:bold; cursor:pointer;}
   #syncdot{display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;}
   @media print{
-    @page{ size:A4 portrait; margin:5mm; }
+    @page{ size:A4 portrait; margin:0; }                  /* sheet is exactly A4 — its own padding is the margin */
     body{ margin:0 !important; padding:0 !important; background:#fff !important; }
     .previewwrap{ background:none !important; padding:0 !important; border-radius:0 !important; }
     .previewwrap .plabel{ display:none !important; }
@@ -201,8 +201,7 @@
     .previewwrap{background:#fff; padding:0; border-radius:0;}
     .previewwrap .plabel{display:none;}
     .app{padding:0; max-width:none;}
-    .sheet{margin:0; width:auto; min-height:auto;}
-    @page{size:A4 portrait; margin:6mm;}
+    .sheet{margin:0 auto; width:210mm; min-height:auto;}   /* SAME width as the preview — measurements match 1:1 */
     body.pm-alt .previewwrap{display:none !important;}
     body.pm-alt #printzone{display:block;}
   }
@@ -275,7 +274,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-F</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-G</span></span>
           </div>
         </div>
       </div>
@@ -1660,7 +1659,7 @@ function buildPrintPages(){
   const sheet = document.getElementById("sheet");
   const tbody = document.getElementById("p_goods");
   const pxMM = sheet.offsetWidth / 210;                  // true px-per-mm scale of the preview
-  const PAGE = Math.floor(270 * pxMM);                   // printable sheet height (A4 minus printer margins)
+  const PAGE = Math.floor(281 * pxMM);                   // content budget: 297mm A4 − 12mm sheet padding − 4mm safety
   const arr = goodsRowsArr(12);                          // long qty blocks pre-split into chunks
   tbody.innerHTML = arr.map(a => a.html).join("");       // render split rows to MEASURE them
   const trs = [...tbody.children];
@@ -1692,6 +1691,8 @@ function buildPrintPages(){
     const pc = clone.querySelector("#p_page");
     if(pc) pc.textContent = (i + 1) + " of " + pages.length;
     clone.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+    clone.style.height = "296mm";                        // every page exactly one A4 — nothing can spill
+    clone.style.overflow = "hidden";
     if(i < pages.length - 1) clone.style.pageBreakAfter = "always";
     pz.appendChild(clone);
   });
