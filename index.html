@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-S</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-T</span></span>
           </div>
         </div>
       </div>
@@ -3369,6 +3369,7 @@ function plvRender(){
       <b style="font-size:11.5px; color:#0f2b4c;">&#9998; MANUAL ADJUST (AVG WT column):</b>
       <span id="plv_adjinfo" style="font-size:12px;"></span>
       <button class="smallbtn sb-green" onclick="plvAdjSave()">&#128190; SAVE ADJUST</button>
+      <button class="smallbtn sb-blue" style="background:#1a5fb4; color:#fff;" onclick="plvForceAvg()">&#9878; FORCE AVERAGE (same QTY = same weight, no 50 kg limit)</button>
       <button class="smallbtn sb-blue" onclick="ptAvgReset()">&#8634; Reset to actual</button>
     </div>` : `<div style="color:#8a97a5; font-size:12.5px; margin-top:8px;">No pallets yet — accept a warehouse packing list from the INBOX, use the pallet calculator, or click + Add pallet.</div>`}
   </div>`;
@@ -3393,6 +3394,25 @@ function plvAdjTotals(){
     ? `Actual total <b>${ptR3(tw)}</b> kg &nbsp;&bull;&nbsp; Adjusted total <b>${ptR3(ta)}</b> kg &nbsp;&bull;&nbsp; Difference <b style="color:${ok ? "#1d6b34" : "#c00000"};">${diff} kg</b> ${ok ? "&#10003; totals match — SAVE allowed" : "&#10007; total must stay the SAME to save"}`
     : `Type the adjusted weight per pallet in the AVG WT column — the TOTAL must stay exactly <b>${ptR3(tw)}</b> kg, otherwise SAVE is blocked.`;
   return diff;
+}
+/* FORCE AVERAGE on the packing list — same QTY pallets get ONE uniform weight, NO 50 kg limit.
+   Group totals stay the same (average × count = group sum), so the overall total is unchanged. */
+function plvForceAvg(){
+  if(!PT.length){ alert("No pallets yet."); return; }
+  const groups = {};
+  PT.forEach(r => { (groups[r.q] = groups[r.q] || []).push(r); });
+  let adj = 0, touched = 0;
+  Object.values(groups).forEach(g => {
+    if(g.length < 2){ g.forEach(r => r.aw = null); return; }
+    const avg = Math.round(g.reduce((a, r) => a + (r.w || 0), 0) / g.length * 100) / 100;
+    g.forEach(r => { adj += Math.abs((r.w || 0) - avg); r.aw = avg; touched++; });
+  });
+  adj = Math.round(adj * 100) / 100;
+  ptSort(true);                                          // groups together, SC continuous, both views re-render
+  const m = document.getElementById("pt_summary");
+  if(m) m.textContent = touched
+    ? "⚖ FORCE AVERAGED — same-QTY pallets set to one uniform weight (adjustment used " + adj + " kg, no limit). Group totals unchanged, actual weights kept as record. Now FILL DGD FROM PALLETS."
+    : "Nothing to average — no two pallets share the same QTY.";
 }
 function plvAdjSave(){
   if(!PT.length){ alert("No pallets yet."); return; }
