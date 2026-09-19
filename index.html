@@ -274,7 +274,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-K</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-L</span></span>
           </div>
         </div>
       </div>
@@ -989,7 +989,7 @@
                 according to applicable international and national governmental regulations.
                 <b>I declare that all of the applicable air transport requirements have been met.</b></div>
               </td>
-              <td style="border:none;">
+              <td style="border:none; border-left:1.5px solid #000; padding-left:3mm;">
                 <div style="font-size:9.5pt; font-weight:bold;">Name of Signatory</div><div class="val" id="p_signname" style="font-weight:bold;"></div>
                 <div style="font-size:9.5pt; font-weight:bold; margin-top:1.5mm;">Date</div><div class="val" id="p_placedate" style="font-weight:bold;"></div>
                 <div style="font-size:9.5pt; font-weight:bold; margin-top:1.5mm;">Signature</div>
@@ -1170,6 +1170,34 @@ function dgdDate(){
 function rv(name){ const el = document.querySelector(`input[name=${name}]:checked`); return el ? el.value : ""; }
 
 /* goods rows as an array with a line-count estimate (for multi-page DGD printing) */
+/* airport code → PLACE name on the printed DGD (JFS rule: DXB prints DUBAI, ATL prints ATLANTA) */
+const AIRPORT_CITY = {DXB:"DUBAI",DWC:"DUBAI WORLD CENTRAL",AUH:"ABU DHABI",SHJ:"SHARJAH",RKT:"RAS AL KHAIMAH",
+ ATL:"ATLANTA",MIA:"MIAMI",JFK:"NEW YORK",EWR:"NEW YORK",LAX:"LOS ANGELES",ORD:"CHICAGO",DFW:"DALLAS",IAH:"HOUSTON",
+ SFO:"SAN FRANCISCO",BOS:"BOSTON",SEA:"SEATTLE",IAD:"WASHINGTON",MCO:"ORLANDO",PHL:"PHILADELPHIA",DTW:"DETROIT",
+ LHR:"LONDON",LGW:"LONDON",STN:"LONDON",MAN:"MANCHESTER",DUB:"DUBLIN",CDG:"PARIS",FRA:"FRANKFURT",MUC:"MUNICH",
+ AMS:"AMSTERDAM",MXP:"MILAN",FCO:"ROME",MAD:"MADRID",BCN:"BARCELONA",ZRH:"ZURICH",GVA:"GENEVA",VIE:"VIENNA",
+ BRU:"BRUSSELS",CPH:"COPENHAGEN",ARN:"STOCKHOLM",OSL:"OSLO",HEL:"HELSINKI",ATH:"ATHENS",LIS:"LISBON",WAW:"WARSAW",
+ PRG:"PRAGUE",BUD:"BUDAPEST",IST:"ISTANBUL",SAW:"ISTANBUL",CAI:"CAIRO",JED:"JEDDAH",RUH:"RIYADH",DMM:"DAMMAM",
+ MED:"MEDINA",DOH:"DOHA",KWI:"KUWAIT",BAH:"BAHRAIN",MCT:"MUSCAT",SLL:"SALALAH",AMM:"AMMAN",BEY:"BEIRUT",
+ BGW:"BAGHDAD",EBL:"ERBIL",BSR:"BASRA",NJF:"NAJAF",SAH:"SANAA",ADE:"ADEN",KRT:"KHARTOUM",
+ DEL:"DELHI",BOM:"MUMBAI",MAA:"CHENNAI",BLR:"BANGALORE",HYD:"HYDERABAD",CCU:"KOLKATA",AMD:"AHMEDABAD",
+ COK:"KOCHI",CCJ:"CALICUT",TRV:"TRIVANDRUM",CNN:"KANNUR",CMB:"COLOMBO",MLE:"MALE",DAC:"DHAKA",KTM:"KATHMANDU",
+ KHI:"KARACHI",LHE:"LAHORE",ISB:"ISLAMABAD",KBL:"KABUL",THR:"TEHRAN",IKA:"TEHRAN",
+ BKK:"BANGKOK",SIN:"SINGAPORE",KUL:"KUALA LUMPUR",CGK:"JAKARTA",MNL:"MANILA",SGN:"HO CHI MINH CITY",HAN:"HANOI",
+ PNH:"PHNOM PENH",RGN:"YANGON",HKG:"HONG KONG",CAN:"GUANGZHOU",PVG:"SHANGHAI",SHA:"SHANGHAI",PEK:"BEIJING",
+ SZX:"SHENZHEN",NRT:"TOKYO",HND:"TOKYO",KIX:"OSAKA",ICN:"SEOUL",TPE:"TAIPEI",
+ SYD:"SYDNEY",MEL:"MELBOURNE",BNE:"BRISBANE",PER:"PERTH",AKL:"AUCKLAND",
+ JNB:"JOHANNESBURG",CPT:"CAPE TOWN",DUR:"DURBAN",NBO:"NAIROBI",MBA:"MOMBASA",ADD:"ADDIS ABABA",LOS:"LAGOS",
+ ABV:"ABUJA",ACC:"ACCRA",DAR:"DAR ES SALAAM",EBB:"ENTEBBE",KGL:"KIGALI",CMN:"CASABLANCA",ALG:"ALGIERS",TUN:"TUNIS",
+ TIP:"TRIPOLI",DKR:"DAKAR",ABJ:"ABIDJAN",DLA:"DOUALA",HRE:"HARARE",LUN:"LUSAKA",MPM:"MAPUTO",TNR:"ANTANANARIVO",
+ MRU:"MAURITIUS",SEZ:"SEYCHELLES",DJI:"DJIBOUTI",MGQ:"MOGADISHU",HGA:"HARGEISA",JIB:"DJIBOUTI",
+ YYZ:"TORONTO",YVR:"VANCOUVER",YUL:"MONTREAL",GRU:"SAO PAULO",GIG:"RIO DE JANEIRO",EZE:"BUENOS AIRES",
+ MEX:"MEXICO CITY",SCL:"SANTIAGO",BOG:"BOGOTA",LIM:"LIMA",PTY:"PANAMA CITY",UIO:"QUITO",CCS:"CARACAS",
+ SVO:"MOSCOW",DME:"MOSCOW",LED:"ST PETERSBURG",TAS:"TASHKENT",ALA:"ALMATY",GYD:"BAKU",TBS:"TBILISI",EVN:"YEREVAN"};
+function airportPlace(s){
+  const t = (s || "").trim().toUpperCase();
+  return AIRPORT_CITY[t] || s;                            // 3-letter code → place; anything else prints as typed
+}
 function goodsRowsArr(split, qfs){
   // merge items with the same UN + PSN (ignoring old "(CONT. i/n)" labels) into ONE row —
   // ID/PSN print ONE TIME only, quantity blocks flow continuously with no dividing lines
@@ -1252,8 +1280,8 @@ function refresh(){
   document.getElementById("p_awb").textContent = v("f_awb");
   document.getElementById("p_page").textContent = v("f_page") ? v("f_page").replace(/of/i,"of") : "1 of 1";
   document.getElementById("p_ref").textContent = v("f_ref");
-  document.getElementById("p_dep").textContent = v("f_dep");
-  document.getElementById("p_dest").textContent = v("f_dest");
+  document.getElementById("p_dep").textContent = airportPlace(v("f_dep"));
+  document.getElementById("p_dest").textContent = airportPlace(v("f_dest"));
   // emergency contact first (JFS standard) + automatic state-variation line (IATA rule), then user-typed lines
   const handTxt = v("f_handling");
   const emgTxt = v("f_emergency");
