@@ -275,7 +275,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-D</span></span>
           </div>
         </div>
       </div>
@@ -730,6 +730,12 @@
           AWB, destination, piece i/n, weight, origin &mdash; all pulled from the DGD &amp; pallet table. One label per page.</div>
         <div class="grid g4">
           <div><label>Airline name (auto from AWB — edit if wrong)</label><input type="text" id="bl_airline" placeholder="e.g. EMIRATES SKYCARGO"></div>
+          <div><label>Airline logo (saved per AWB prefix, all users)</label>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <input type="file" id="bl_logofile" accept="image/*" style="font-size:11.5px; max-width:160px;">
+              <button class="smallbtn sb-green" onclick="airlineLogoSave()">&#128190; Save</button>
+            </div>
+            <span id="bl_logomsg" style="font-size:11px; color:#1d6b34; font-weight:bold;"></span></div>
           <div><label>No. of pieces (auto: pallets / overpacks)</label><input type="text" id="bl_count" placeholder="auto"></div>
           <div><label>Total weight kg (auto from pallets)</label><input type="text" id="bl_weight" placeholder="auto"></div>
           <div><label>Dangerous goods line?</label>
@@ -740,7 +746,7 @@
           </div>
           <div style="align-self:end;">
             <button class="btn btn-save" style="background:#0f2b4c;" onclick="buildAwbLabels()">&#8635; GENERATE LABELS</button>
-            <button class="btn btn-print" onclick="printAlt('awblblArea')">&#128424; PRINT (1 per page)</button>
+            <button class="btn btn-print" onclick="printAwbLabels()">&#128424; PRINT (4 x 6 in label)</button>
           </div>
         </div>
         <div id="awblblArea" style="margin-top:14px;"></div>
@@ -3758,6 +3764,39 @@ function iata3(txt){
   const t = (txt||"").trim();
   return t.length <= 4 ? t.toUpperCase() : t.slice(0, 18).toUpperCase();
 }
+/* airline logo library — one logo per AWB prefix, shared with every user (company_settings) */
+async function airlineLogos(){
+  if(sb && sbUser){
+    try{
+      const { data } = await sb.from("company_settings").select("value").eq("key", "airline_logos").maybeSingle();
+      if(data && data.value){ localStorage.setItem("jfs_airline_logos", JSON.stringify(data.value)); return data.value; }
+    }catch(e){}
+  }
+  try{ return JSON.parse(localStorage.getItem("jfs_airline_logos") || "{}"); }catch(e){ return {}; }
+}
+async function airlineLogoSave(){
+  const f = document.getElementById("bl_logofile").files[0];
+  const digits = (v("f_awb") || "").replace(/\D/g, "");
+  const msg = document.getElementById("bl_logomsg");
+  if(!f){ alert("Choose the airline logo image first."); return; }
+  if(digits.length < 3){ alert("Enter the AWB number on the DGD tab first — the logo is saved for that airline prefix."); return; }
+  const b64 = await imgFileToB64(f, 500);
+  const map = await airlineLogos();
+  map[digits.slice(0, 3)] = "data:image/jpeg;base64," + b64;
+  localStorage.setItem("jfs_airline_logos", JSON.stringify(map));
+  if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key: "airline_logos", value: map, updated_by: sbUser.email}); }catch(e){} }
+  msg.textContent = "✓ Logo saved for prefix " + digits.slice(0, 3) + " — it prints on every label for this airline (all users).";
+  document.getElementById("bl_logofile").value = "";
+}
+function printAwbLabels(){
+  if(!document.getElementById("awblblArea").innerHTML.trim()){ alert("Generate the labels first."); return; }
+  const st = document.createElement("style");
+  st.id = "lblpagestyle";
+  st.textContent = "@media print{ @page{ size:4in 6in; margin:2mm; } }";   // label printer media
+  document.head.appendChild(st);
+  printAlt("awblblArea");
+}
+window.addEventListener("afterprint", () => { const s = document.getElementById("lblpagestyle"); if(s) s.remove(); });
 async function buildAwbLabels(){
   const s = snapshot();
   const out = document.getElementById("awblblArea");
@@ -3777,13 +3816,14 @@ async function buildAwbLabels(){
   const autoName = al ? al.split("/").pop().trim().toUpperCase() : "";
   if(!v("bl_airline").trim() && autoName) document.getElementById("bl_airline").value = autoName;
   const alName = v("bl_airline").trim().toUpperCase() || autoName;
+  const alLogo = (await airlineLogos())[digits.slice(0, 3)] || "";
   const CELL = "border:2px solid #000; padding:1.5mm 2.5mm;";
   let h = "";
   for(let i = 0; i < n; i++){
     const pw = usePT && PT[i] ? PT[i].w : "";
     const code = digits + String(i + 1).padStart(5, "0");     // AWB + piece serial, like the airline label
-    h += `<div style="width:100mm; font-family:Arial; color:#000; background:#fff; padding:2mm; ${i < n - 1 ? "page-break-after:always;" : ""}">
-      <div style="text-align:center; font-size:15pt; font-weight:bold;">${esc(alName || "AIR CARGO")}</div>
+    h += `<div style="width:96mm; font-family:Arial; color:#000; background:#fff; padding:2mm; ${i < n - 1 ? "page-break-after:always;" : ""}">
+      <div style="text-align:center;">${alLogo ? `<img src="${alLogo}" style="height:13mm; max-width:62mm; object-fit:contain;">` : `<span style="font-size:15pt; font-weight:bold;">${esc(alName || "AIR CARGO")}</span>`}</div>
       <div style="text-align:center; margin-top:1mm;"><svg class="blsvg" data-code="${esc(code)}" style="width:76mm; height:20mm;"></svg></div>
       <table style="width:100%; border-collapse:collapse; margin-top:1.5mm;">
         <tr><td colspan="2" style="${CELL} border-left:none; border-right:none;">
@@ -3803,7 +3843,7 @@ async function buildAwbLabels(){
         <tr>
           <td style="${CELL}">
             <div style="font-size:9pt; font-weight:bold;">WEIGHT</div>
-            <div style="font-size:13pt; font-weight:bold;">${pw ? esc(String(pw)) + " KG" : "&nbsp;"}</div>
+            <div style="font-size:13pt; font-weight:bold;">${pw ? esc(String(pw)) : "&nbsp;"}</div>
           </td>
           <td style="${CELL}">
             <div style="font-size:9pt; font-weight:bold;">HAWB NO.</div>
