@@ -274,7 +274,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-H</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-I</span></span>
           </div>
         </div>
       </div>
@@ -1198,12 +1198,20 @@ function goodsRowsArr(split){
     chunks.forEach((chunk, ci) => {
       const qtyLines = chunk.split("\n").length;
       const lines = Math.max(2, qtyLines + 1, (ci === 0 ? psnLines + 1 : 2));
-      arr.push({lines, html: `<tr>
-    <td style="white-space:pre-line; font-weight:bold; border-bottom:none;">${esc((r.un||"").replace(/^(UN|ID)\s*/i, "$1\n"))}</td>
-    <td style="text-transform:uppercase; font-weight:bold; border-bottom:none;">${esc(r.psn)}${chunks.length > 1 ? ` <span style="font-size:7pt; font-weight:normal;">(cont. ${ci+1}/${chunks.length})</span>` : ""}</td>
-    <td class="center" style="font-weight:bold; border-bottom:none;">${esc(r.cls)}${r.sub ? " " + esc(r.sub):""}</td>
-    <td class="center" style="font-weight:bold; border-bottom:none;">${esc(r.pg)}</td><td style="white-space:pre-wrap; font-size:8.5pt; font-weight:bold; border-bottom:none;">${esc(chunk)}</td>
-    <td class="center" style="font-weight:bold; border-bottom:none;">${esc(r.pi)}</td><td class="center" style="border-bottom:none;">${esc(r.auth)}</td></tr>`});
+      // one row per overpack-group chunk; continuation chunks: NO divider line, identification only on the
+      // first chunk of the item — but when a chunk lands on TOP of a new page, fullHtml (with UN/PSN) is used
+      const mk = (withId, contTop) => {
+        const S = "border-bottom:none;" + (contTop ? " border-top:none;" : "");
+        return `<tr>
+    <td style="white-space:pre-line; font-weight:bold; ${S}">${withId ? esc((r.un||"").replace(/^(UN|ID)\s*/i, "$1\n")) : ""}</td>
+    <td style="text-transform:uppercase; font-weight:bold; ${S}">${withId ? esc(r.psn) : ""}</td>
+    <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.cls) + (r.sub ? " " + esc(r.sub) : "") : ""}</td>
+    <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.pg) : ""}</td>
+    <td style="white-space:pre-wrap; font-size:8.5pt; font-weight:bold; ${S}">${esc(chunk)}</td>
+    <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.pi) : ""}</td>
+    <td class="center" style="${S}">${withId ? esc(r.auth) : ""}</td></tr>`;
+      };
+      arr.push({lines, html: mk(ci === 0, ci > 0), fullHtml: mk(true, false)});
     });
     if(r.op){
       anyOp = true;
@@ -1660,7 +1668,7 @@ function buildPrintPages(){
   const tbody = document.getElementById("p_goods");
   const pxMM = sheet.offsetWidth / 210;                  // true px-per-mm scale of the preview
   const PAGE = Math.floor(281 * pxMM);                   // content budget: 297mm A4 − 12mm sheet padding − 4mm safety
-  const arr = goodsRowsArr(12);                          // long qty blocks pre-split into chunks
+  const arr = goodsRowsArr(8);                           // one overpack group per chunk → pages pack tight
   tbody.innerHTML = arr.map(a => a.html).join("");       // render split rows to MEASURE them
   const trs = [...tbody.children];
   const rowH = trs.map(tr => tr.offsetHeight);
@@ -1675,7 +1683,7 @@ function buildPrintPages(){
   let cur = [], used = 0;
   arr.forEach((r, i) => {
     if(used + rowH[i] > cap && cur.length){ pages.push(cur); cur = []; used = 0; }
-    cur.push({html: r.html, h: rowH[i]}); used += rowH[i];
+    cur.push({html: r.html, fullHtml: r.fullHtml, h: rowH[i]}); used += rowH[i];
   });
   if(cur.length) pages.push(cur);
   document.getElementById("f_page").value = "1 of " + pages.length; refresh();
@@ -1684,14 +1692,14 @@ function buildPrintPages(){
   pages.forEach((pg, i) => {
     const clone = sheet.cloneNode(true);
     clone.removeAttribute("id");
-    let h = pg.map(r => r.html).join("");
+    let h = pg.map((r, idx) => (idx === 0 && r.fullHtml) ? r.fullHtml : r.html).join("");
     const hUsed = pg.reduce((a, r) => a + r.h, 0);
     if(cap - hUsed > 8) h += `<tr style="height:${Math.floor(cap - hUsed)}px;"><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td></tr>`;
     clone.querySelector("#p_goods").innerHTML = h;
     const pc = clone.querySelector("#p_page");
     if(pc) pc.textContent = (i + 1) + " of " + pages.length;
     clone.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
-    clone.style.height = "296mm";                        // every page exactly one A4 — nothing can spill
+    clone.style.height = "294mm";                        // one A4 with slack — no phantom blank pages
     clone.style.overflow = "hidden";
     if(i < pages.length - 1) clone.style.pageBreakAfter = "always";
     pz.appendChild(clone);
