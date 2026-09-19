@@ -274,7 +274,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-O</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-P</span></span>
           </div>
         </div>
       </div>
@@ -1195,7 +1195,12 @@ const AIRPORT_CITY = {DXB:"DUBAI",DWC:"DUBAI WORLD CENTRAL",AUH:"ABU DHABI",SHJ:
  SVO:"MOSCOW",DME:"MOSCOW",LED:"ST PETERSBURG",TAS:"TASHKENT",ALA:"ALMATY",GYD:"BAKU",TBS:"TBILISI",EVN:"YEREVAN"};
 function airportPlace(s){
   const t = (s || "").trim().toUpperCase();
-  return AIRPORT_CITY[t] || s;                            // 3-letter code → place; anything else prints as typed
+  if(AIRPORT_CITY[t]) return AIRPORT_CITY[t];             // bare 3-letter code → place name
+  let m = t.match(/\(([A-Z]{3})\)/);                      // "DUBAI INTERNATIONAL (DXB)" → DUBAI
+  if(m && AIRPORT_CITY[m[1]]) return AIRPORT_CITY[m[1]];
+  m = t.match(/\b([A-Z]{3})\b\s*$/);                      // "... ATL" trailing code → place name
+  if(m && AIRPORT_CITY[m[1]]) return AIRPORT_CITY[m[1]];
+  return s;                                               // unknown → prints as typed
 }
 function goodsRowsArr(split, qfs){
   // merge items with the same UN + PSN (ignoring old "(CONT. i/n)" labels) into ONE row —
