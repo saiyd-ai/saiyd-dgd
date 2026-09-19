@@ -275,7 +275,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-D</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-E</span></span>
           </div>
         </div>
       </div>
@@ -3764,6 +3764,26 @@ function iata3(txt){
   const t = (txt||"").trim();
   return t.length <= 4 ? t.toUpperCase() : t.slice(0, 18).toUpperCase();
 }
+/* AWB prefix → IATA code + name (for automatic airline logo & name on labels) */
+const PREFIX_AIRLINES = {
+ "001":["AA","AMERICAN AIRLINES"], "006":["DL","DELTA CARGO"], "014":["AC","AIR CANADA"], "016":["UA","UNITED CARGO"],
+ "020":["LH","LUFTHANSA CARGO"], "023":["FX","FEDEX"], "045":["LA","LATAM CARGO"], "047":["TP","TAP AIR PORTUGAL"],
+ "055":["AZ","ITA AIRWAYS"], "057":["AF","AIR FRANCE CARGO"], "065":["SV","SAUDIA CARGO"], "071":["ET","ETHIOPIAN CARGO"],
+ "072":["GF","GULF AIR"], "074":["KL","KLM CARGO"], "075":["IB","IBERIA"], "077":["MS","EGYPTAIR CARGO"],
+ "079":["PR","PHILIPPINE AIRLINES"], "080":["OS","AUSTRIAN CARGO"], "081":["QF","QANTAS FREIGHT"],
+ "083":["SA","SOUTH AFRICAN AIRWAYS"], "086":["NZ","AIR NEW ZEALAND"], "098":["AI","AIR INDIA CARGO"],
+ "105":["AY","FINNAIR CARGO"], "108":["FI","ICELANDAIR"], "114":["LY","EL AL"], "117":["SK","SAS CARGO"],
+ "125":["BA","IAG CARGO"], "126":["GA","GARUDA INDONESIA"], "131":["JL","JAL CARGO"], "139":["AM","AEROMEXICO CARGO"],
+ "141":["FZ","FLYDUBAI CARGO"], "147":["AT","ROYAL AIR MAROC"], "157":["QR","QATAR AIRWAYS CARGO"],
+ "160":["CX","CATHAY CARGO"], "172":["CV","CARGOLUX"], "176":["EK","EMIRATES SKYCARGO"], "180":["KE","KOREAN AIR CARGO"],
+ "217":["TG","THAI CARGO"], "229":["KU","KUWAIT AIRWAYS"], "232":["MH","MASKARGO"], "235":["TK","TURKISH CARGO"],
+ "239":["MK","AIR MAURITIUS"], "297":["CI","CHINA AIRLINES"], "406":["5X","UPS AIRLINES"], "465":["KC","AIR ASTANA"],
+ "512":["RJ","ROYAL JORDANIAN"], "603":["UL","SRILANKAN CARGO"], "607":["EY","ETIHAD CARGO"], "618":["SQ","SINGAPORE AIRLINES CARGO"],
+ "623":["SN","BRUSSELS AIRLINES"], "632":["MF","XIAMEN AIR"], "657":["BT","AIR BALTIC"], "695":["BR","EVA AIR CARGO"],
+ "706":["KQ","KENYA AIRWAYS CARGO"], "716":["MU","CHINA EASTERN"], "724":["LX","SWISS WORLDCARGO"],
+ "738":["VN","VIETNAM AIRLINES"], "781":["CZ","CHINA SOUTHERN CARGO"], "880":["HU","HAINAN AIRLINES"],
+ "932":["VS","VIRGIN ATLANTIC CARGO"], "988":["OZ","ASIANA CARGO"], "999":["CA","AIR CHINA CARGO"]
+};
 /* airline logo library — one logo per AWB prefix, shared with every user (company_settings) */
 async function airlineLogos(){
   if(sb && sbUser){
@@ -3811,19 +3831,22 @@ async function buildAwbLabels(){
   ptCompute();
   const usePT = PT.length > 0;
   const n = Math.min(99, parseInt(v("bl_count")) || (usePT ? PT.length : (s.overpack === "Y" ? (parseInt(s.opcount) || 1) : 1)));
-  // airline name: editable field first; else auto from the AWB prefix
-  const al = (typeof AIRLINE_DB !== "undefined" && AIRLINE_DB[digits.slice(0,3)]) ? AIRLINE_DB[digits.slice(0,3)][1] : "";
-  const autoName = al ? al.split("/").pop().trim().toUpperCase() : "";
+  // airline name & logo: automatic from the AWB prefix (uploaded logo wins, then public logo service, then name text)
+  const pfx = digits.slice(0, 3);
+  const pa = PREFIX_AIRLINES[pfx];
+  const autoName = pa ? pa[1] : ((typeof AIRLINE_DB !== "undefined" && AIRLINE_DB[pfx]) ? AIRLINE_DB[pfx][1].split("/").pop().trim().toUpperCase() : "");
   if(!v("bl_airline").trim() && autoName) document.getElementById("bl_airline").value = autoName;
   const alName = v("bl_airline").trim().toUpperCase() || autoName;
-  const alLogo = (await airlineLogos())[digits.slice(0, 3)] || "";
+  const uploaded = (await airlineLogos())[pfx] || "";
+  const autoLogo = pa ? ("https://images.kiwi.com/airlines/128/" + pa[0] + ".png") : "";
+  const alLogo = uploaded || autoLogo;
   const CELL = "border:2px solid #000; padding:1.5mm 2.5mm;";
   let h = "";
   for(let i = 0; i < n; i++){
     const pw = usePT && PT[i] ? PT[i].w : "";
     const code = digits + String(i + 1).padStart(5, "0");     // AWB + piece serial, like the airline label
     h += `<div style="width:96mm; font-family:Arial; color:#000; background:#fff; padding:2mm; ${i < n - 1 ? "page-break-after:always;" : ""}">
-      <div style="text-align:center;">${alLogo ? `<img src="${alLogo}" style="height:13mm; max-width:62mm; object-fit:contain;">` : `<span style="font-size:15pt; font-weight:bold;">${esc(alName || "AIR CARGO")}</span>`}</div>
+      <div style="text-align:center;">${alLogo ? `<img src="${alLogo}" style="height:13mm; max-width:62mm; object-fit:contain; vertical-align:middle;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><span style="display:none; font-size:15pt; font-weight:bold;">${esc(alName || "AIR CARGO")}</span><span style="font-size:12pt; font-weight:bold; margin-left:3mm;">${esc(alName || "")}</span>` : `<span style="font-size:15pt; font-weight:bold;">${esc(alName || "AIR CARGO")}</span>`}</div>
       <div style="text-align:center; margin-top:1mm;"><svg class="blsvg" data-code="${esc(code)}" style="width:76mm; height:20mm;"></svg></div>
       <table style="width:100%; border-collapse:collapse; margin-top:1.5mm;">
         <tr><td colspan="2" style="${CELL} border-left:none; border-right:none;">
