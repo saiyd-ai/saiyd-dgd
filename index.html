@@ -274,7 +274,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-P</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-Q</span></span>
           </div>
         </div>
       </div>
@@ -2569,7 +2569,8 @@ function ptAverage(){
   adj = Math.round(adj * 100) / 100;
   if(adj > 50){
     PT.forEach(r => delete r._avgTmp);
-    alert("CANNOT AVERAGE — total adjustment needed is " + adj + " kg, above the 50 kg limit.\n\nWeights differ too much. Keep actual weights, or split the shipment.");
+    alert("CANNOT AVERAGE — total adjustment needed is " + adj + " kg, above the 50 kg limit.\n\nOpen the PACKING LIST tab and adjust the weights MANUALLY in the AVG WT column — SAVE ADJUST works only when the total stays exactly the same.");
+    if(typeof showTab === "function") showTab("pl");
     return;
   }
   PT.forEach(r => { r.aw = (r._avgTmp != null) ? r._avgTmp : null; delete r._avgTmp; });
@@ -3286,7 +3287,7 @@ function plvRender(){
     rows += `<tr>
       <td style="${TD}">${i+1}</td>
       <td style="${TD}"><input style="${IN} width:82px; text-align:center;" value="${r.w || ""}" oninput="PT[${i}].w=parseFloat(this.value)||0; PT[${i}].aw=null; plvCalc();"></td>
-      <td style="${TD} font-weight:bold; color:#1a5fb4;" id="plv_aw_${i}"></td>
+      <td style="${TD}"><input id="plv_awin_${i}" style="${IN} width:82px; text-align:center; font-weight:bold; color:#1a5fb4;" value="${(r.aw != null && r.aw > 0) ? r.aw : ""}" placeholder="${r.w || ""}" oninput="plvAdjTotals()"></td>
       <td style="${TD}"><input style="${IN} width:112px; text-align:center;" value="${esc(r.d || "")}" oninput="PT[${i}].d=this.value;"></td>
       <td style="${TD}"><input style="${IN} width:64px; text-align:center;" value="${r.q || ""}" oninput="PT[${i}].q=parseInt(this.value)||0; PT[${i}].aw=null; plvCalc();"></td>
       <td style="${TD} font-weight:bold;" id="plv_sc_${i}"></td>
@@ -3334,9 +3335,50 @@ function plvRender(){
           <td style="${TD} font-weight:bold;" id="plv_tq2"></td><td style="${TD} font-weight:bold;" id="plv_ts2"></td>
           <td style="${TD} font-weight:bold;">${PT.length} LABELS</td><td style="${TD}"></td></tr>
     </table>
-    ${PT.length ? "" : `<div style="color:#8a97a5; font-size:12.5px; margin-top:8px;">No pallets yet — accept a warehouse packing list from the INBOX, use the pallet calculator, or click + Add pallet.</div>`}
+    ${PT.length ? `<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; background:#f4f7fb; border:1px solid #d7dee8; border-radius:6px; padding:7px 10px;">
+      <b style="font-size:11.5px; color:#0f2b4c;">&#9998; MANUAL ADJUST (AVG WT column):</b>
+      <span id="plv_adjinfo" style="font-size:12px;"></span>
+      <button class="smallbtn sb-green" onclick="plvAdjSave()">&#128190; SAVE ADJUST</button>
+      <button class="smallbtn sb-blue" onclick="ptAvgReset()">&#8634; Reset to actual</button>
+    </div>` : `<div style="color:#8a97a5; font-size:12.5px; margin-top:8px;">No pallets yet — accept a warehouse packing list from the INBOX, use the pallet calculator, or click + Add pallet.</div>`}
   </div>`;
   plvCalc();
+  plvAdjTotals();
+}
+/* MANUAL ADJUST on the packing list — type adjusted weights in AVG WT; SAVE only when the TOTAL stays the same */
+function plvAdjTotals(){
+  const info = document.getElementById("plv_adjinfo");
+  if(!info || !PT.length) return 0;
+  const tw = PT.reduce((a, r) => a + (r.w || 0), 0);
+  let ta = 0, touched = false;
+  PT.forEach((r, i) => {
+    const el = document.getElementById("plv_awin_" + i);
+    const val = el ? parseFloat(el.value) : NaN;
+    if(el && el.value.trim() !== "" && !isNaN(val)){ ta += val; touched = true; }
+    else ta += (r.w || 0);
+  });
+  const diff = Math.round((ta - tw) * 100) / 100;
+  const ok = Math.abs(diff) <= 0.01;
+  info.innerHTML = touched
+    ? `Actual total <b>${ptR3(tw)}</b> kg &nbsp;&bull;&nbsp; Adjusted total <b>${ptR3(ta)}</b> kg &nbsp;&bull;&nbsp; Difference <b style="color:${ok ? "#1d6b34" : "#c00000"};">${diff} kg</b> ${ok ? "&#10003; totals match — SAVE allowed" : "&#10007; total must stay the SAME to save"}`
+    : `Type the adjusted weight per pallet in the AVG WT column — the TOTAL must stay exactly <b>${ptR3(tw)}</b> kg, otherwise SAVE is blocked.`;
+  return diff;
+}
+function plvAdjSave(){
+  if(!PT.length){ alert("No pallets yet."); return; }
+  const diff = plvAdjTotals();
+  if(Math.abs(diff) > 0.01){
+    alert("CANNOT SAVE — the adjusted total differs from the actual total by " + diff + " kg.\n\nTotal kg MUST stay the same. Fix the AVG WT values so the difference is 0, then save.");
+    return;
+  }
+  PT.forEach((r, i) => {
+    const el = document.getElementById("plv_awin_" + i);
+    const val = el ? parseFloat(el.value) : NaN;
+    r.aw = (el && el.value.trim() !== "" && !isNaN(val) && val > 0 && Math.abs(val - (r.w || 0)) > 0.0001) ? val : null;
+  });
+  ptSort(true);                                        // groups together, SC continuous, both views re-render
+  const m = document.getElementById("pt_summary");
+  if(m) m.textContent = "💾 MANUAL ADJUST SAVED — totals match. Actual weights kept as record. Now FILL DGD FROM PALLETS.";
 }
 function plvCalc(){
   ptCompute();
