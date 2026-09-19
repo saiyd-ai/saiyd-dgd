@@ -1683,6 +1683,9 @@ function buildPrintPages(){
   // try to fit EVERYTHING on ONE page — shrink the quantity font step by step (8.5 → 6.5pt) before
   // giving up and flowing to a second page (JFS rule: one page whenever possible)
   let fs = 8.5, arr, rowH, cap, totalH;
+  const mhBak = sheet.style.minHeight;
+  sheet.style.minHeight = "0";                           // measure REAL content height, not the A4 preview minimum
+  const done = ret => { sheet.style.minHeight = mhBak; return ret; };
   const measure = f => {
     arr = goodsRowsArr(8, f);
     tbody.innerHTML = arr.map(a => a.html).join("");     // render split rows to MEASURE them
@@ -1695,7 +1698,7 @@ function buildPrintPages(){
   if(totalH + Math.ceil(6 * pxMM) <= cap){
     document.getElementById("f_page").value = "1 of 1";
     refresh();                                           // header fields (page no etc.) up to date
-    if(fs >= 8.5) return 1;                              // fits at normal size → print the preview sheet as-is
+    if(fs >= 8.5) return done(1);                        // fits at normal size → print the preview sheet as-is
     // fits only with the smaller font → print a one-page clone carrying that font
     const pz = document.getElementById("printzone");
     pz.innerHTML = "";
@@ -1709,7 +1712,7 @@ function buildPrintPages(){
     clone.style.height = "294mm"; clone.style.overflow = "hidden";
     pz.appendChild(clone);
     document.body.classList.add("pm-alt");
-    return 1;
+    return done(1);
   }
   const pages = [];
   let cur = [], used = 0;
@@ -1736,7 +1739,7 @@ function buildPrintPages(){
     if(i < pages.length - 1) clone.style.pageBreakAfter = "always";
     pz.appendChild(clone);
   });
-  return pages.length;
+  return done(pages.length);
 }
 window.addEventListener("beforeprint", () => {
   // Ctrl+P from the browser gets the same multi-page DGD with repeated headers
