@@ -274,7 +274,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-I</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-J</span></span>
           </div>
         </div>
       </div>
@@ -1747,8 +1747,29 @@ async function aiCall(system, userText, maxTokens){
 }
 function aiJson(text){
   const m = text.match(/\{[\s\S]*\}/);
-  if(!m) throw new Error("AI returned no JSON");
-  return JSON.parse(m[0]);
+  let s = m ? m[0] : (text.match(/\{[\s\S]*/) || [null])[0];
+  if(!s) throw new Error("AI returned no JSON");
+  try{ return JSON.parse(s); }catch(e){}
+  // repair a truncated response: cut back to a complete value and close the open brackets
+  for(let end = s.length; end > 40; end--){
+    const cut = s.slice(0, end);
+    if(!/[}\]"0-9el]\s*$/.test(cut)) continue;
+    const opens = [];
+    let inStr = false, escp = false, ok = true;
+    for(const ch of cut){
+      if(escp){ escp = false; continue; }
+      if(ch === "\\"){ escp = true; continue; }
+      if(ch === '"'){ inStr = !inStr; continue; }
+      if(inStr) continue;
+      if(ch === "{" || ch === "[") opens.push(ch);
+      else if(ch === "}"){ if(opens.pop() !== "{"){ ok = false; break; } }
+      else if(ch === "]"){ if(opens.pop() !== "["){ ok = false; break; } }
+    }
+    if(!ok || inStr) continue;
+    const closed = cut.replace(/,\s*$/, "") + opens.reverse().map(c => c === "{" ? "}" : "]").join("");
+    try{ return JSON.parse(closed); }catch(e){}
+  }
+  throw new Error("AI reply was cut off — press the button again");
 }
 async function aiTest(){
   const st = document.getElementById("ai_status");
@@ -1861,10 +1882,10 @@ async function aiReview(){
 wrong class/PSN/PG combinations, missing technical names for n.o.s. entries, PAX/CAO conflicts (e.g. UN3480/UN3090 on PAX),
 missing packing instruction, quantity format problems, missing emergency phone (mandatory for USA), missing signatory,
 overpack wording, and anything an airline acceptance check would reject.
-Respond with ONLY JSON: {"ok":true/false,"issues":[{"level":"ERROR|WARNING","text":"..."}]}. Max 10 issues, be specific and short.
+Respond with ONLY JSON: {"ok":true/false,"issues":[{"level":"ERROR|WARNING","text":"..."}]}. Max 8 issues, each under 20 words.
 End every review knowing the final authority is the current IATA DGR; do not invent limits you are not sure of.`;
   try{
-    const raw = await aiCall(sys, JSON.stringify(s), 1500);
+    const raw = await aiCall(sys, JSON.stringify(s), 3000);
     const j = aiJson(raw);
     if(j.ok && (!j.issues || !j.issues.length)){
       box.innerHTML = "<b style='color:#1d6b34;'>🤖 AI REVIEW: ✓ No issues found.</b> <span style='font-size:11px;'>Still verify PI & limits in the DGR before signing.</span>";
