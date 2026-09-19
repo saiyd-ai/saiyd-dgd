@@ -274,7 +274,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-L</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-M</span></span>
           </div>
         </div>
       </div>
@@ -737,7 +737,6 @@
             </div>
             <span id="bl_logomsg" style="font-size:11px; color:#1d6b34; font-weight:bold;"></span></div>
           <div><label>No. of pieces (auto: pallets / overpacks)</label><input type="text" id="bl_count" placeholder="auto"></div>
-          <div><label>Total weight kg (auto from pallets)</label><input type="text" id="bl_weight" placeholder="auto"></div>
           <div><label>Dangerous goods line?</label>
             <div class="radios">
               <label><input type="radio" name="bl_dg" value="Y" checked> Yes</label>
@@ -1670,7 +1669,7 @@ function showTab(name){
   if(name === "docs") renderDocs();
   if(name === "checklist"){ buildIata(); buildChecklist(); }
   if(name === "labels") buildLabels();
-  if(name === "stickers"){ buildStickers(); buildOpStickers(); }
+  if(name === "stickers"){ buildStickers(); buildOpStickers(); blAutoFill(); }
 }
 
 /* ---------- alt print (checklist / stickers / labels) ---------- */
@@ -3907,6 +3906,23 @@ function printAwbLabels(){
   printAlt("awblblArea");
 }
 window.addEventListener("afterprint", () => { const s = document.getElementById("lblpagestyle"); if(s) s.remove(); });
+/* auto-fill airline name + show logo the moment the tab opens (from the DGD AWB prefix) */
+async function blAutoFill(){
+  const el = document.getElementById("bl_airline"), msg = document.getElementById("bl_logomsg");
+  if(!el || !msg) return;
+  const digits = v("f_awb").replace(/\D/g, "");
+  const pfx = digits.slice(0, 3);
+  if(pfx.length < 3){ msg.textContent = "Enter the AWB on the DGD tab — airline name & logo come automatically."; return; }
+  const pa = (typeof PREFIX_AIRLINES !== "undefined") ? PREFIX_AIRLINES[pfx] : null;
+  const autoName = pa ? pa[1] : ((typeof AIRLINE_DB !== "undefined" && AIRLINE_DB[pfx]) ? AIRLINE_DB[pfx][1].split("/").pop().trim().toUpperCase() : "");
+  if(autoName && (!el.value.trim() || el.dataset.auto === el.value)){ el.value = autoName; el.dataset.auto = autoName; }
+  let logo = "";
+  try{ logo = (await airlineLogos())[pfx] || ""; }catch(e){}
+  if(!logo && pa) logo = "https://images.kiwi.com/airlines/128/" + pa[0] + ".png";
+  msg.innerHTML = logo
+    ? `&#10003; AWB ${esc(pfx)} &rarr; <b>${esc(autoName || "")}</b> &mdash; logo automatic: <img src="${logo}" style="height:20px; vertical-align:middle; background:#fff; border:1px solid #ddd; border-radius:3px; padding:1px 3px;" onerror="this.outerHTML=' (no logo found — upload one above)'">`
+    : `AWB ${esc(pfx)}${autoName ? " &rarr; <b>" + esc(autoName) + "</b>" : ""} &mdash; no logo found, upload one (optional, prints name instead).`;
+}
 async function buildAwbLabels(){
   const s = snapshot();
   const out = document.getElementById("awblblArea");
@@ -3936,7 +3952,7 @@ async function buildAwbLabels(){
     const pw = usePT && PT[i] ? PT[i].w : "";
     const code = digits + String(i + 1).padStart(5, "0");     // AWB + piece serial, like the airline label
     h += `<div style="width:96mm; font-family:Arial; color:#000; background:#fff; padding:2mm; ${i < n - 1 ? "page-break-after:always;" : ""}">
-      <div style="text-align:center;">${alLogo ? `<img src="${alLogo}" style="height:13mm; max-width:62mm; object-fit:contain; vertical-align:middle;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><span style="display:none; font-size:15pt; font-weight:bold;">${esc(alName || "AIR CARGO")}</span><span style="font-size:12pt; font-weight:bold; margin-left:3mm;">${esc(alName || "")}</span>` : `<span style="font-size:15pt; font-weight:bold;">${esc(alName || "AIR CARGO")}</span>`}</div>
+      <div style="text-align:center;">${alLogo ? `<img src="${alLogo}" style="height:13mm; max-width:62mm; object-fit:contain; vertical-align:middle;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><span style="display:none; font-size:15pt; font-weight:bold;">${esc(alName || "AIR CARGO")}</span>` : `<span style="font-size:15pt; font-weight:bold;">${esc(alName || "AIR CARGO")}</span>`}</div>
       <div style="text-align:center; margin-top:1mm;"><svg class="blsvg" data-code="${esc(code)}" style="width:76mm; height:20mm;"></svg></div>
       <table style="width:100%; border-collapse:collapse; margin-top:1.5mm;">
         <tr><td colspan="2" style="${CELL} border-left:none; border-right:none;">
