@@ -193,6 +193,8 @@
 
   /* alt print zone */
   #printzone{display:none;}
+  #pgpreview .sheet{display:block !important; margin:0 auto 20px;}   /* clones keep their exact 294mm page height — true WYSIWYG */
+  @media print{ #pgpreview{display:none !important;} }
 
   /* ============ PRINT ============ */
   @media print{
@@ -274,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-Q</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-R</span></span>
           </div>
         </div>
       </div>
@@ -1000,6 +1002,7 @@
         </tr>
       </table>
     </div>
+    <div id="pgpreview"></div>
   </div>
 
   <!-- JOB GATE — shown on every app open -->
@@ -1317,6 +1320,7 @@ function refresh(){
   document.getElementById("p_goods").innerHTML = html;
   if(typeof updateAirline === "function") updateAirline();
   if(typeof autosaveCurrent === "function") autosaveCurrent();
+  if(typeof schedulePreview === "function") schedulePreview();   // WYSIWYG: preview re-paginates like the print
 }
 
 /* ---------- drafts (localStorage) ---------- */
@@ -1716,8 +1720,9 @@ function buildPrintPages(){
   // giving up and flowing to a second page (JFS rule: one page whenever possible)
   let fs = 8.5, arr, rowH, cap, totalH;
   const mhBak = sheet.style.minHeight;
+  sheet.style.display = "";                              // sheet must be visible to measure real heights
   sheet.style.minHeight = "0";                           // measure REAL content height, not the A4 preview minimum
-  const done = ret => { sheet.style.minHeight = mhBak; return ret; };
+  const done = ret => { sheet.style.minHeight = mhBak; _pvSync(); return ret; };
   const measure = f => {
     arr = goodsRowsArr(8, f);
     tbody.innerHTML = arr.map(a => a.html).join("");     // render split rows to MEASURE them
@@ -1730,7 +1735,11 @@ function buildPrintPages(){
   if(totalH + Math.ceil(6 * pxMM) <= cap){
     document.getElementById("f_page").value = "1 of 1";
     refresh();                                           // header fields (page no etc.) up to date
-    if(fs >= 8.5) return done(1);                        // fits at normal size → print the preview sheet as-is
+    if(fs >= 8.5){                                       // fits at normal size → print the preview sheet as-is
+      document.getElementById("printzone").innerHTML = "";
+      document.body.classList.remove("pm-alt");
+      return done(1);
+    }
     // fits only with the smaller font → print a one-page clone carrying that font
     const pz = document.getElementById("printzone");
     pz.innerHTML = "";
@@ -1759,7 +1768,7 @@ function buildPrintPages(){
   pages.forEach((pg, i) => {
     const clone = sheet.cloneNode(true);
     clone.removeAttribute("id");
-    let h = pg.map(r => r.html).join("");                 // ID/PSN ONE TIME only — never repeated on later pages
+    let h = pg.map((r, idx) => (idx === 0 && r.fullHtml) ? r.fullHtml : r.html).join("");   // ID/PSN repeat at the top of EVERY page
     const hUsed = pg.reduce((a, r) => a + r.h, 0);
     if(cap - hUsed > 8) h += `<tr style="height:${Math.floor(cap - hUsed)}px;"><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td><td style="border-top:none;"></td></tr>`;
     clone.querySelector("#p_goods").innerHTML = h;
@@ -1771,7 +1780,28 @@ function buildPrintPages(){
     if(i < pages.length - 1) clone.style.pageBreakAfter = "always";
     pz.appendChild(clone);
   });
+  document.body.classList.add("pm-alt");
   return done(pages.length);
+}
+/* WYSIWYG preview — the preview area shows the EXACT printed pages (1..N), not one long sheet */
+function _pvSync(){
+  const pv = document.getElementById("pgpreview"), sheet = document.getElementById("sheet"), pz = document.getElementById("printzone");
+  if(!pv || !sheet || !pz) return;
+  if(pz.children.length){ pv.innerHTML = pz.innerHTML; sheet.style.display = "none"; }
+  else { pv.innerHTML = ""; sheet.style.display = ""; }
+}
+let _pvTimer = null, _pvHash = "";
+function schedulePreview(){ clearTimeout(_pvTimer); _pvTimer = setTimeout(previewRefresh, 400); }
+function previewRefresh(){
+  try{
+    if(typeof PT === "undefined") return;
+    const tab = document.getElementById("tab-dgd");
+    if(!tab || !tab.classList.contains("on")) return;
+    const hash = JSON.stringify([snapshot(), PT, v("pt_tare")]);
+    if(hash === _pvHash) return;
+    buildPrintPages();
+    _pvHash = JSON.stringify([snapshot(), PT, v("pt_tare")]);   // after the page count was written
+  }catch(e){}
 }
 window.addEventListener("beforeprint", () => {
   // Ctrl+P from the browser gets the same multi-page DGD with repeated headers
