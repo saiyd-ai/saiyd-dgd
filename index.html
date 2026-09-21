@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v21.09-B</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v21.09-C</span></span>
           </div>
         </div>
       </div>
@@ -301,6 +301,7 @@
       <button id="nav-items" onclick="showTab('items')">&#128218; ITEM DATABASE</button>
       <button id="nav-wh" onclick="showTab('wh')">&#127981; WAREHOUSE</button>
       <button id="nav-docs" onclick="showTab('docs')">&#128193; DOCUMENTS</button>
+      <button id="nav-dnata" onclick="showTab('dnata')">&#9992; DNATA</button>
       <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
     </div>
 
@@ -819,6 +820,38 @@
     </div>
 
     <!-- ================= SETTINGS TAB ================= -->
+    <!-- ================= DNATA TAB ================= -->
+    <div class="tab" id="tab-dnata">
+      <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#9992; DNATA &mdash; Master AWB Acceptance Statement (US-bound)</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">DNATA-ykku kodukkunna form &mdash; AWB &amp; HAWB automatic from the DGD tab, staff select, JFS stamp, then PRINT / SAVE PDF.</div>
+        <div class="grid g4">
+          <div><label>Date</label><input type="text" id="dn_date"></div>
+          <div><label>AWB / MAWB Number (auto from DGD)</label><input type="text" id="dn_awb"></div>
+          <div><label>HAWB Number (auto from Shipper's Reference)</label><input type="text" id="dn_hawb" placeholder="leave empty if none"></div>
+          <div><label>Staff (name / title on the statement)</label>
+            <select id="dn_staff" onchange="dnataRender()"></select>
+            <div style="display:flex; gap:6px; margin-top:4px;">
+              <input type="text" id="dn_newstaff" placeholder="e.g. NOWRIN / Logistics Executive" style="flex:1; font-size:12px;">
+              <button class="smallbtn sb-green" onclick="dnataStaffAdd()">+ Add</button>
+              <button class="smallbtn sb-red" onclick="dnataStaffDel()">x</button>
+            </div>
+          </div>
+          <div><label>JFS Stamp (prints at Signature &amp; Stamp &mdash; all users)</label>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <input type="file" id="dn_stampfile" accept="image/*" style="font-size:11.5px; max-width:170px;">
+              <button class="smallbtn sb-green" onclick="dnataStampSave()">&#128190; Save</button>
+            </div>
+            <span id="dn_stampmsg" style="font-size:11px; color:#1d6b34; font-weight:bold;"></span>
+          </div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#0f2b4c;" onclick="dnataRender()">&#8635; GENERATE</button>
+            <button class="btn btn-print" onclick="dnataPrint()">&#128424; PRINT / SAVE PDF</button>
+          </div>
+        </div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="dn_doc"></div></div>
+      </div></div>
+    </div>
+
     <div class="tab" id="tab-settings">
       <div class="card"><h2>&#128444; DGD CORNER LOGO (top-right of the printed DGD)</h2><div class="body">
         <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">Upload the logo image that must appear on the DGD's top-right corner
@@ -1679,6 +1712,7 @@ function showTab(name){
   if(name === "checklist"){ buildIata(); buildChecklist(); }
   if(name === "labels") buildLabels();
   if(name === "stickers"){ buildStickers(); buildOpStickers(); blAutoFill(); }
+  if(name === "dnata") dnataFill();
 }
 
 /* ---------- alt print (checklist / stickers / labels) ---------- */
@@ -4187,7 +4221,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dnata_staff"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
@@ -4220,6 +4254,107 @@ async function dgdLogoPull(){
       dgdLogoApply();
     }
   }catch(e){}
+}
+/* ================= DNATA — Master AWB Acceptance Statement ================= */
+function dnataStaff(){ try{ return JSON.parse(localStorage.getItem("jfs_dnata_staff") || "null") || ["NOWRIN / Logistics Executive"]; }catch(e){ return ["NOWRIN / Logistics Executive"]; } }
+function dnataStaffFill(){
+  const sel = document.getElementById("dn_staff"); if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = dnataStaff().map(s => `<option${s === cur ? " selected" : ""}>${esc(s)}</option>`).join("");
+}
+function dnataStaffAdd(){
+  const t = (v("dn_newstaff") || "").trim().toUpperCase();
+  if(!t){ alert("Type the staff name / title first (e.g. NOWRIN / Logistics Executive)."); return; }
+  const list = dnataStaff();
+  if(!list.includes(t)) list.push(t);
+  setStore("jfs_dnata_staff", list);
+  document.getElementById("dn_newstaff").value = "";
+  dnataStaffFill();
+  document.getElementById("dn_staff").value = t;
+  dnataRender();
+}
+function dnataStaffDel(){
+  const sel = document.getElementById("dn_staff");
+  if(!sel.value || !confirm("Remove staff \"" + sel.value + "\" from the list?")) return;
+  setStore("jfs_dnata_staff", dnataStaff().filter(s => s !== sel.value));
+  dnataStaffFill(); dnataRender();
+}
+function dnataStamp(){ try{ return (JSON.parse(localStorage.getItem("jfs_dnata_stamp") || "null") || {}).img || ""; }catch(e){ return ""; } }
+async function dnataStampSave(){
+  const f = document.getElementById("dn_stampfile").files[0];
+  if(!f){ alert("Choose the stamp image first."); return; }
+  const b64 = await imgFileToB64(f, 700);
+  const rec = {img: "data:image/jpeg;base64," + b64};
+  localStorage.setItem("jfs_dnata_stamp", JSON.stringify(rec));
+  if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key: "dnata_stamp", value: rec, updated_by: sbUser.email}); }catch(e){} }
+  document.getElementById("dn_stampmsg").textContent = "✓ Stamp saved for the WHOLE company — prints on every DNATA statement, all users.";
+  dnataRender();
+}
+async function dnataStampPull(){
+  if(!sb || !sbUser || dnataStamp()) return;
+  try{
+    const { data } = await sb.from("company_settings").select("value").eq("key", "dnata_stamp").maybeSingle();
+    if(data && data.value && data.value.img){ localStorage.setItem("jfs_dnata_stamp", JSON.stringify(data.value)); dnataRender(); }
+  }catch(e){}
+}
+async function dnataFill(){
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear();
+  if(!v("dn_date")) document.getElementById("dn_date").value = dd;
+  if(!v("dn_awb") && v("f_awb")) document.getElementById("dn_awb").value = v("f_awb");
+  if(!v("dn_hawb") && v("f_ref")) document.getElementById("dn_hawb").value = v("f_ref");
+  dnataStaffFill();
+  dnataRender();
+  dnataStampPull();
+}
+function dnataRender(){
+  const out = document.getElementById("dn_doc"); if(!out) return;
+  const awb = v("dn_awb") || "", hawb = v("dn_hawb") || "", date = v("dn_date") || "", staff = v("dn_staff") || "";
+  const stamp = dnataStamp();
+  const CO = "JFS LOGISTICS FZCO";
+  const LN = "border-bottom:1px solid #000; min-height:5mm;";
+  const FLD = (label, val, extra) => `<div style="margin-top:6.5mm;">
+      <div style="font-size:10.5pt;">${label}</div>
+      <div style="${LN} font-size:11pt; font-weight:bold; padding:0 0 1mm 6mm;">${val || "&nbsp;"}${extra || ""}</div></div>`;
+  out.innerHTML = `<div class="sheet" id="dn_sheet" style="min-height:285mm; padding:14mm 16mm; font-family:Calibri, Arial, sans-serif; color:#000;">
+    <div style="border:1.2px solid #000; text-align:center; font-size:13.5pt; font-weight:bold; padding:1.5mm 0;">Master Air Waybill Acceptance Statement</div>
+    <div style="margin-top:9mm; font-size:10.5pt;">
+      <div style="padding-left:38mm; font-weight:bold; font-size:11pt;">${esc(awb)}</div>
+      Master Air waybill (MAWB) <span style="display:inline-block; width:95mm; border-bottom:1px solid #000;">&nbsp;</span>
+    </div>
+    <div style="margin-top:6mm; font-size:10.5pt; text-align:justify; line-height:1.55;">
+      All shipments tendered in this Master Air Waybill were received directly from a shipper, or other person with
+      an established relationship with <b><u>${CO}</u></b> (insert name of regulated agent or freight forwarder) for
+      at least 180 calendar days, which has an established shipping address, and a payment, credit, or invoice history
+      of at least 180 calendar days or a person originating or tendering a shipment where <b><u>${CO}</u></b>
+      (insert name of regulated agent or freight forwarder) has an established business relationship or
+      payment, credit, or invoice history with the consignee or bill - to party of at least 180 calendar days.
+    </div>
+    <div style="margin-top:10mm; text-align:center; font-size:11pt; font-weight:bold; text-decoration:underline;">Declaration For US-Bound Shipments</div>
+    <div style="margin-top:7mm; font-size:10.5pt; text-align:justify; line-height:1.55;">
+      <b><u>${CO}</u></b> has reviewed all available documentation and has determined that none of the cargo
+      being offered in this consignment or consolidation has originate in, transferred from, or transited
+      through any point in Somalia, Syria, Yemen, Libya or Egypt
+    </div>
+    <div style="margin-top:12mm;">
+      ${FLD("Date", esc(date))}
+      ${FLD("AWB or MAWB Number", esc(awb))}
+      ${FLD("HAWB Number", esc(hawb))}
+      ${FLD("Company Name", CO)}
+      ${FLD("Name and title of signatory", esc(staff))}
+      <div style="margin-top:6.5mm;">
+        <div style="font-size:10.5pt;">Signature &amp; Stamp</div>
+        <div style="border-bottom:1px solid #000; min-height:${stamp ? "34mm" : "14mm"}; padding:2mm 0 1mm 10mm;">
+          ${stamp ? `<img src="${stamp}" style="height:32mm; object-fit:contain;">` : ""}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function dnataPrint(){
+  dnataRender();
+  if(!v("dn_awb").trim() && !confirm("AWB number is empty.\n\nPrint the DNATA statement anyway?")) return;
+  printAlt("dn_doc");
 }
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
