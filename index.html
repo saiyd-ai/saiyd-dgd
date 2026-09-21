@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v21.09-E</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v21.09-F</span></span>
           </div>
         </div>
       </div>
@@ -4337,8 +4337,7 @@ function dnataRender(){
   out.innerHTML = `<div class="sheet" id="dn_sheet" style="min-height:285mm; padding:14mm 16mm; font-family:Calibri, Arial, sans-serif; color:#000;">
     <div style="border:1.2px solid #000; text-align:center; font-size:13.5pt; font-weight:bold; padding:1.5mm 0;">Master Air Waybill Acceptance Statement</div>
     <div style="margin-top:9mm; font-size:10.5pt;">
-      <div style="padding-left:38mm; font-weight:bold; font-size:11pt;">${esc(awb)}</div>
-      Master Air waybill (MAWB) <span style="display:inline-block; width:95mm; border-bottom:1px solid #000;">&nbsp;</span>
+      Master Air waybill (MAWB) <span style="display:inline-block; width:95mm; border-bottom:1px solid #000; text-align:center; font-weight:bold; font-size:11.5pt;">${esc(awb) || "&nbsp;"}</span>
     </div>
     <div style="margin-top:6mm; font-size:10.5pt; text-align:justify; line-height:1.55;">
       All shipments tendered in this Master Air Waybill were received directly from a shipper, or other person with
