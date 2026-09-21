@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v21.09-G</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v21.09-H</span></span>
           </div>
         </div>
       </div>
@@ -302,6 +302,7 @@
       <button id="nav-wh" onclick="showTab('wh')">&#127981; WAREHOUSE</button>
       <button id="nav-docs" onclick="showTab('docs')">&#128193; DOCUMENTS</button>
       <button id="nav-dnata" onclick="showTab('dnata')">&#9992; DNATA</button>
+      <button id="nav-alforms" onclick="showTab('alforms')">&#128745; AIRLINE FORMS</button>
       <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
     </div>
 
@@ -866,6 +867,25 @@
           </div>
         </div>
         <div style="margin-top:14px; overflow-x:auto;"><div id="dn_consol"></div></div>
+      </div></div>
+    </div>
+
+    <!-- ================= AIRLINE FORMS TAB ================= -->
+    <div class="tab" id="tab-alforms">
+      <div class="card" style="border-left:5px solid #a40000;"><h2>&#128745; AIRLINE FORMS &mdash; MAWB Acceptance Statement (per airline)</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">AWB prefix nokki airline automatic detect aakum &mdash; Turkish (235) aanel TK-yude format, mattullava-kku standard format with airline header. HAWB undel athum fill aakum. Staff &amp; stamp DNATA tab-ile same.</div>
+        <div class="grid g4">
+          <div><label>Date</label><input type="text" id="al_date"></div>
+          <div><label>AWB / MAWB (auto from DGD)</label><input type="text" id="al_awb" oninput="airlineFormRender()"></div>
+          <div><label>HAWB Number (auto from Shipper's Reference)</label><input type="text" id="al_hawb" placeholder="leave empty if none" oninput="airlineFormRender()"></div>
+          <div><label>Staff (name / title)</label><select id="al_staff" onchange="airlineFormRender()"></select>
+            <div id="al_airmsg" style="font-size:11.5px; font-weight:bold; color:#0f4f8c; margin-top:4px;"></div></div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#a40000;" onclick="airlineFormRender()">&#8635; GENERATE</button>
+            <button class="btn btn-print" onclick="airlineFormPrint()">&#128424; PRINT / SAVE PDF</button>
+          </div>
+        </div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="al_doc"></div></div>
       </div></div>
     </div>
 
@@ -1730,6 +1750,7 @@ function showTab(name){
   if(name === "labels") buildLabels();
   if(name === "stickers"){ buildStickers(); buildOpStickers(); blAutoFill(); }
   if(name === "dnata") dnataFill();
+  if(name === "alforms") airlineFormFill();
 }
 
 /* ---------- alt print (checklist / stickers / labels) ---------- */
@@ -4415,6 +4436,95 @@ function dnataPrint(){
   dnataRender();
   if(!v("dn_awb").trim() && !confirm("AWB number is empty.\n\nPrint the DNATA statement anyway?")) return;
   printAlt("dn_doc");
+}
+/* ================= AIRLINE FORMS — MAWB Acceptance Statement per airline ================= */
+async function airlineFormFill(){
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear();
+  if(!v("al_date")) document.getElementById("al_date").value = dd;
+  if(!v("al_awb") && v("f_awb")) document.getElementById("al_awb").value = v("f_awb");
+  if(!v("al_hawb") && v("f_ref")) document.getElementById("al_hawb").value = v("f_ref");
+  const sel = document.getElementById("al_staff");
+  const cur = sel.value;
+  sel.innerHTML = dnataStaff().map(s => `<option${s === cur ? " selected" : ""}>${esc(s)}</option>`).join("");
+  await airlineFormRender();
+  dnataStampPull();
+}
+async function airlineFormRender(){
+  const out = document.getElementById("al_doc"); if(!out) return;
+  const awb = v("al_awb") || "", hawb = v("al_hawb") || "", date = v("al_date") || "", staff = v("al_staff") || "";
+  const digits = awb.replace(/\D/g, "");
+  const pfx = digits.slice(0, 3);
+  const pa = (typeof PREFIX_AIRLINES !== "undefined") ? PREFIX_AIRLINES[pfx] : null;
+  const alName = pa ? pa[1] : "";
+  let logo = "";
+  try{ logo = (await airlineLogos())[pfx] || ""; }catch(e){}
+  if(!logo && pa) logo = "https://images.kiwi.com/airlines/128/" + pa[0] + ".png";
+  const isTK = pfx === "235";
+  const msg = document.getElementById("al_airmsg");
+  if(msg) msg.innerHTML = pfx.length === 3
+    ? (isTK ? "&#10003; TURKISH AIRLINES (235) — TK format" : (alName ? "&#10003; " + esc(alName) + " (" + esc(pfx) + ") — standard format" : "AWB " + esc(pfx) + " — airline not in list, standard format"))
+    : "Enter the AWB — the airline & format come automatically.";
+  const stamp = dnataStamp();
+  const CO = "JFS LOGISTICS FZCO";
+  const LN = "border-bottom:1px solid #000; min-height:5mm;";
+  const FLD = (label, val) => `<div style="margin-top:6.5mm;">
+      <div style="font-size:10.5pt;">${label}</div>
+      <div style="${LN} font-size:11pt; font-weight:bold; padding:0 0 1mm 6mm;">${val || "&nbsp;"}</div></div>`;
+  const para = isTK
+    ? `All shipments tendered in this Master Air Waybill were received directly from a shipper, or other person with
+      an established relationship with <b><u>${CO}</u></b> (insert name of regulated agent or freight forwarder) for at
+      least 180 calendar days, which has an established shipping address, and a payment, credit, or invoice history of at
+      least 180 calendar days or a person originating or tendering a shipment where <b><u>${CO}</u></b> (insert name of
+      regulated agent or freight forwarder) has an established business relationship or payment, credit, or invoice history
+      with the consignee or bill - to party of at least 180 calendar days. All shipments tendered in this MAWB were accepted
+      via a secure transport, either directly from the shipper, or picked up by <b><u>${CO}</u></b> (insert
+      name of regulated agent or freight forwarder) or agent.`
+    : `All shipments tendered in this Master Air Waybill were received directly from a shipper, or other person with
+      an established relationship with <b><u>${CO}</u></b> (insert name of regulated agent or freight forwarder) for
+      at least 180 calendar days, which has an established shipping address, and a payment, credit, or invoice history
+      of at least 180 calendar days or a person originating or tendering a shipment where <b><u>${CO}</u></b>
+      (insert name of regulated agent or freight forwarder) has an established business relationship or
+      payment, credit, or invoice history with the consignee or bill - to party of at least 180 calendar days.`;
+  const decl = isTK
+    ? `(<b><u>${CO}</u></b>) has reviewed all available documentation and has determined that the cargo being
+      offered in this consignment or consolidation did not originate in, transfer from, or transit through any point in
+      Somalia, Syria, or Yemen.`
+    : `<b><u>${CO}</u></b> has reviewed all available documentation and has determined that none of the cargo
+      being offered in this consignment or consolidation has originate in, transferred from, or transited
+      through any point in Somalia, Syria, Yemen, Libya or Egypt`;
+  out.innerHTML = `<div class="sheet" id="al_sheet" style="min-height:285mm; padding:12mm 16mm; font-family:Calibri, Arial, sans-serif; color:#000;">
+    <div style="text-align:center; margin-bottom:3mm; min-height:14mm;">
+      ${logo ? `<img src="${logo}" style="height:13mm; object-fit:contain; vertical-align:middle;" onerror="this.style.display='none'">` : ""}
+      <span style="font-size:17pt; font-weight:bold; letter-spacing:1px; vertical-align:middle; margin-left:3mm;">${esc(alName)}</span>
+    </div>
+    <div style="border:1.2px solid #000; text-align:center; font-size:13.5pt; font-weight:bold; padding:1.5mm 0;">Master Air Waybill Acceptance Statement</div>
+    <div style="margin-top:8mm; font-size:10.5pt;">
+      Master Air waybill (MAWB) <span style="display:inline-block; width:95mm; border-bottom:1px solid #000; text-align:center; font-weight:bold; font-size:11.5pt;">${esc(awb) || "&nbsp;"}</span>
+    </div>
+    <div style="margin-top:6mm; font-size:10.5pt; text-align:justify; line-height:1.55;">${para}</div>
+    <div style="margin-top:9mm; text-align:center; font-size:11pt; font-weight:bold; text-decoration:underline;">Declaration For US-Bound Shipments</div>
+    <div style="margin-top:6mm; font-size:10.5pt; text-align:justify; line-height:1.55;">${decl}</div>
+    <div style="margin-top:10mm;">
+      ${FLD("Date", esc(date))}
+      ${FLD("AWB or MAWB Number", esc(awb))}
+      ${FLD("HAWB Number", esc(hawb))}
+      ${FLD("Company Name", CO)}
+      ${FLD("Name and title of signatory", esc(staff))}
+      <div style="margin-top:6.5mm;">
+        <div style="font-size:10.5pt;">Signature &amp; Stamp</div>
+        <div style="border-bottom:1px solid #000; min-height:${stamp ? "34mm" : "14mm"}; padding:2mm 0 1mm 10mm;">
+          ${stamp ? `<img src="${stamp}" style="height:32mm; object-fit:contain;">` : ""}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function airlineFormPrint(){
+  airlineFormRender().then(() => {
+    if(!v("al_awb").trim() && !confirm("AWB number is empty.\n\nPrint the airline statement anyway?")) return;
+    printAlt("al_doc");
+  });
 }
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
