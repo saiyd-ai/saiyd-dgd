@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v21.09-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v21.09-D</span></span>
           </div>
         </div>
       </div>
@@ -849,6 +849,23 @@
           </div>
         </div>
         <div style="margin-top:14px; overflow-x:auto;"><div id="dn_doc"></div></div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #7a4b00;"><h2>&#128230; US COMPLIANCE FORM &mdash; CONSOL / HAWB SHIPMENTS</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">Console (HAWB) shipment US-lekku aanel ee form koodi fill cheythu kodukkanam &mdash; AWB, date &amp; stamp mukalilnnu automatic. Clean re-set version (old scan format alla).</div>
+        <div class="grid g4">
+          <div><label>Checklist (tick on the form)</label>
+            <label style="display:block; font-size:12px; font-weight:normal;"><input type="checkbox" id="cn_1" checked onchange="dnataConsolRender()"> Nature of Goods = "Consolidation"</label>
+            <label style="display:block; font-size:12px; font-weight:normal;"><input type="checkbox" id="cn_2" checked onchange="dnataConsolRender()"> Total actual pieces (SLACS) indicated</label>
+            <label style="display:block; font-size:12px; font-weight:normal;"><input type="checkbox" id="cn_3" checked onchange="dnataConsolRender()"> Consol manifest + HAWB attached to MAWB</label>
+            <label style="display:block; font-size:12px; font-weight:normal;"><input type="checkbox" id="cn_4" checked onchange="dnataConsolRender()"> One copy of HAWB &amp; manifest for Dnata</label>
+          </div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#7a4b00;" onclick="dnataConsolRender()">&#8635; GENERATE CONSOL FORM</button>
+            <button class="btn btn-print" onclick="dnataConsolPrint()">&#128424; PRINT / SAVE PDF</button>
+          </div>
+        </div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="dn_consol"></div></div>
       </div></div>
     </div>
 
@@ -4288,13 +4305,13 @@ async function dnataStampSave(){
   localStorage.setItem("jfs_dnata_stamp", JSON.stringify(rec));
   if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key: "dnata_stamp", value: rec, updated_by: sbUser.email}); }catch(e){} }
   document.getElementById("dn_stampmsg").textContent = "✓ Stamp saved for the WHOLE company — prints on every DNATA statement, all users.";
-  dnataRender();
+  dnataRender(); dnataConsolRender();
 }
 async function dnataStampPull(){
   if(!sb || !sbUser || dnataStamp()) return;
   try{
     const { data } = await sb.from("company_settings").select("value").eq("key", "dnata_stamp").maybeSingle();
-    if(data && data.value && data.value.img){ localStorage.setItem("jfs_dnata_stamp", JSON.stringify(data.value)); dnataRender(); }
+    if(data && data.value && data.value.img){ localStorage.setItem("jfs_dnata_stamp", JSON.stringify(data.value)); dnataRender(); dnataConsolRender(); }
   }catch(e){}
 }
 async function dnataFill(){
@@ -4305,6 +4322,7 @@ async function dnataFill(){
   if(!v("dn_hawb") && v("f_ref")) document.getElementById("dn_hawb").value = v("f_ref");
   dnataStaffFill();
   dnataRender();
+  dnataConsolRender();
   dnataStampPull();
 }
 function dnataRender(){
@@ -4350,6 +4368,49 @@ function dnataRender(){
       </div>
     </div>
   </div>`;
+}
+/* US COMPLIANCE FORM FOR CONSOL SHIPMENTS — clean re-set of the old scanned form */
+function dnataConsolRender(){
+  const out = document.getElementById("dn_consol"); if(!out) return;
+  const digits = (v("dn_awb") || "").replace(/\D/g, "");
+  const date = v("dn_date") || "";
+  const stamp = dnataStamp();
+  // AWB boxes: 3 prefix digits | separator | 8 digits
+  const cells = [];
+  for(let i = 0; i < 3; i++) cells.push(digits[i] || "");
+  cells.push("-");
+  for(let i = 3; i < 11; i++) cells.push(digits[i] || "");
+  const boxRow = cells.map(c => `<td style="border:1.4px solid #000; width:9mm; height:10mm; text-align:center; font-size:14pt; font-weight:bold;">${esc(c)}</td>`).join("");
+  const tick = on => `<td style="border:1.6px solid #000; width:11mm; height:9mm; text-align:center; font-size:14pt; font-weight:bold; vertical-align:middle;">${on ? "&#10003;" : "&nbsp;"}</td>`;
+  const item = (txt, on) => `<tr>
+      <td style="padding:5.5mm 6mm 5.5mm 0; font-size:11pt; vertical-align:middle;">&bull;&nbsp;&nbsp; ${txt}</td>
+      ${tick(on)}</tr>`;
+  const c = id => document.getElementById(id) && document.getElementById(id).checked;
+  out.innerHTML = `<div class="sheet" id="dn_consheet" style="min-height:285mm; padding:16mm 18mm; font-family:Calibri, Arial, sans-serif; color:#000;">
+    <div style="text-align:center; margin-top:14mm;">
+      <div style="font-size:14pt; font-weight:bold; text-decoration:underline; letter-spacing:.5px;">US COMPLIANCE FORM FOR CONSOL SHIPMENTS</div>
+      <div style="font-size:10.5pt; margin-top:1.5mm;">(as per U.S. customs regulations for consol shipments effective 1st July 2004)</div>
+    </div>
+    <div style="margin-top:11mm; font-size:10.5pt; line-height:1.5;">SHIPPER / AGENT SHOULD ENSURE TO CHECK THE BELOW REQUIREMENTS BEFORE HANDING OVER SHIPMENTS DESTINED TO U.S.</div>
+    <table style="border-collapse:collapse; margin-top:9mm;"><tr>
+      <td style="font-size:11pt; font-weight:bold; padding-right:4mm;">AWB:</td>${boxRow}</tr></table>
+    <div style="text-align:right; font-size:10pt; margin-top:9mm;">Please tick the<br>boxes below</div>
+    <table style="border-collapse:collapse; width:100%; margin-top:2mm;">
+      ${item(`Description on Nature of Goods column of MAWB to be reflected as "Consolidation"`, c("cn_1"))}
+      ${item(`Indicate the Total Actual Number of pieces (SLACS) not skids in nature and quantity of the master AWB below consolidation`, c("cn_2"))}
+      ${item(`Copies of consol manifest and HAWB to be attached to the MAWB (consol pouch)`, c("cn_3"))}
+      ${item(`One copy of HAWB and consol manifest for Dnata`, c("cn_4"))}
+    </table>
+    <div style="margin-top:22mm; width:120mm; margin-left:auto; margin-right:auto; text-align:center;">
+      <div style="min-height:${stamp ? "36mm" : "16mm"};">${stamp ? `<img src="${stamp}" style="height:34mm; object-fit:contain;">` : ""}</div>
+      <div style="border-top:1.4px solid #000; padding-top:1.5mm; font-size:10.5pt;">Shipper's / Agent Signature &amp; Date &nbsp; <b>${esc(date)}</b></div>
+    </div>
+  </div>`;
+}
+function dnataConsolPrint(){
+  dnataConsolRender();
+  if(!v("dn_awb").trim() && !confirm("AWB number is empty.\n\nPrint the US CONSOL form anyway?")) return;
+  printAlt("dn_consol");
 }
 function dnataPrint(){
   dnataRender();
