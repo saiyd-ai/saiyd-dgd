@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v19.09-T</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v21.09-A</span></span>
           </div>
         </div>
       </div>
@@ -2613,14 +2613,22 @@ function ptAvgReset(){ PT.forEach(r => r.aw = null); ptRender(); plvRender(); }
 function ptSort(silent){
   if(!PT.length){ if(!silent) alert("No pallets yet."); return; }
   ptCompute();
+  // JFS SC rule: BIGGEST overpack group FIRST (most pallets), then smaller groups, SINGLE pallets LAST.
+  // Same count → heavier group first. SC numbers run continuous inside each group.
   const keyOf = r => r.q + "@" + r.dgd;
-  const order = [];
-  PT.forEach(r => { const k = keyOf(r); if(order.indexOf(k) < 0) order.push(k); });
-  PT = PT.slice().sort((a, b) => order.indexOf(keyOf(a)) - order.indexOf(keyOf(b)));
+  const cnt = {}, wt = {};
+  PT.forEach(r => {
+    const k = keyOf(r);
+    cnt[k] = (cnt[k] || 0) + 1;
+    const gw = (r.aw != null && r.aw > 0) ? r.aw : (r.w || 0);
+    wt[k] = Math.max(wt[k] || 0, gw);
+  });
+  const keys = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || wt[b] - wt[a]);
+  PT = PT.slice().sort((a, b) => keys.indexOf(keyOf(a)) - keys.indexOf(keyOf(b)));
   ptRender(); plvRender();
   if(!silent){
     const m = document.getElementById("pt_summary");
-    if(m) m.textContent = "🔢 SORTED — same-group pallets together, SC numbers continuous (#SC ranges clean on the DGD & Excel).";
+    if(m) m.textContent = "🔢 SORTED — biggest overpack group first, singles last, SC numbers continuous (#SC ranges clean on the DGD & Excel).";
   }
 }
 function ptRender(){
