@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-E</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-F</span></span>
           </div>
         </div>
       </div>
@@ -940,6 +940,31 @@
         </div>
         <div style="margin-top:14px; overflow-x:auto;"><div id="cg_doc"></div></div>
       </div></div>
+
+      <div class="card" style="border-left:5px solid #c8102e;"><h2>&#128745; EMIRATES SKYCARGO (176) &mdash; USA Statement + Non-DG + Consignee Letter + IDG RFC</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">176 EK flight-inte 4 forms &mdash; ellaam AWB/route/pcs/weight/staff/stamp automatic. Venda form mathram print cheythal mathi.</div>
+        <div class="grid g4">
+          <div><label>Person tendering cargo (IDG)</label><input type="text" id="ek_tender" oninput="ekIdgRender()"></div>
+          <div><label>ID number / Nationality / Mobile</label>
+            <div style="display:flex; gap:5px;"><input type="text" id="ek_idno" placeholder="784..." style="flex:1;" oninput="ekIdgRender()"><input type="text" id="ek_nat" value="INDIAN" style="width:70px;" oninput="ekIdgRender()"><input type="text" id="ek_mob" placeholder="mobile" style="width:90px;" oninput="ekIdgRender()"></div></div>
+          <div><label>Commodity (Consignee letter)</label><input type="text" id="ek_comm" placeholder="auto: contents / CONSOLIDATION" oninput="ekConsRender()"></div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#c8102e;" onclick="ekUsaRender(); ekNonDgRender(); ekConsRender(); ekIdgRender();">&#8635; GENERATE ALL</button>
+          </div>
+          <div style="align-self:end;">
+            <button class="btn btn-print" onclick="ekUsaRender(); printAlt('ek_usa_doc');">&#128424; USA STATEMENT</button>
+            <button class="btn btn-print" onclick="ekNonDgRender(); printAlt('ek_ndg_doc');">&#128424; NON-DG DECL</button>
+            <button class="btn btn-print" onclick="ekConsRender(); printAlt('ek_cons_doc');">&#128424; CONSIGNEE LETTER</button>
+            <button class="btn btn-print" onclick="ekIdgRender(); printAlt('ek_idg_doc');">&#128424; IDG RFC</button>
+          </div>
+        </div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="ek_usa_doc"></div></div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="ek_ndg_doc"></div></div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="ek_cons_doc"></div></div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="ek_idg_doc"></div></div>
+      </div></div>
+    </div>
+
     </div>
 
     </div>
@@ -4514,6 +4539,7 @@ async function airlineFormFill(){
   csdRender(); nonhazRender();
   ramTsaRender(); ramCsdRender();
   cgRender();
+  ekUsaRender(); ekNonDgRender(); ekConsRender(); ekIdgRender();
   dnataStampPull();
 }
 async function airlineFormRender(){
@@ -4891,6 +4917,206 @@ function cgRender(){
   </div>`;
 }
 function cgPrint(){ cgRender(); printAlt("cg_doc"); }
+/* ================= EMIRATES SKYCARGO (176) forms ================= */
+async function ekLogo(){
+  let l = ""; try{ l = (await airlineLogos())["176"] || ""; }catch(e){}
+  return l || "https://images.kiwi.com/airlines/128/EK.png";
+}
+function ekVals(){
+  return {
+    awb: v("al_awb") || v("f_awb") || "",
+    hawb: v("al_hawb") || v("f_ref") || "",
+    dep: iata3(v("f_dep")) || "", dest: iata3(v("f_dest")) || "",
+    date: v("al_date") || "",
+    staff: v("al_staff") || v("dn_staff") || "",
+    goods: (v("cs_goods") || "").toUpperCase(),
+    pcs: PT.length || parseInt(v("f_opcount")) || "",
+    wt: PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) : "",
+    stamp: dnataStamp()
+  };
+}
+/* 1) Written Statement for Cargo to USA */
+function ekUsaRender(){
+  const out = document.getElementById("ek_usa_doc"); if(!out) return;
+  const e = ekVals();
+  const BAR = t => `<div style="border:1px solid #999; padding:2mm 3mm; font-size:11pt; margin-top:5mm;"><b>${t}</b></div>`;
+  out.innerHTML = `<div class="sheet" id="ek_usa_sheet" style="min-height:285mm; padding:16mm 18mm; font-family:Cambria, Georgia, serif; color:#000;">
+    <div style="text-align:center; font-size:16pt; margin-top:12mm;">Written Statement for Cargo to USA</div>
+    ${BAR("NOTE:<br><span style='font-weight:normal; font-size:10pt;'>1- &nbsp;All fields MUST be completed.</span>")}
+    ${BAR("AIR WAYBILL NUMBER: &nbsp; " + esc(e.awb))}
+    ${BAR("Destination: &nbsp; " + esc(e.dest))}
+    <div style="margin-top:12mm; font-size:11pt; text-align:justify; line-height:1.7;">
+      (Name of the entity) <span style="border-bottom:1px solid #000; font-weight:bold; padding:0 4mm;">JFS LOGISTICS FZCO</span> has reviewed all available
+      documentation and has determined that none of the cargo being offered in this
+      consignment or consolidation has originated in, transferred from, or transited through
+      any point in Egypt, Somalia, Syria, or Yemen&rdquo;
+    </div>
+    <div style="margin-top:16mm; font-size:11pt;">Authorized Representative : <span style="display:inline-block; min-width:60mm; border-bottom:1px solid #000; font-weight:bold; text-align:center;">${esc(e.staff)}</span></div>
+    <div style="margin-top:8mm; font-size:11pt;">Official Company Stamp: <span style="display:inline-block; min-width:60mm; border-bottom:1px solid #000; text-align:center; vertical-align:bottom;">${e.stamp ? `<img src="${e.stamp}" style="height:28mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></div>
+    <div style="margin-top:6mm; font-size:11pt;">Date &amp; Place: <span style="display:inline-block; min-width:60mm; border-bottom:1px solid #000; font-weight:bold; text-align:center;">${esc(e.date)}${e.date ? ", DUBAI" : ""}</span></div>
+    <div style="margin-top:18mm; font-size:10pt;">Distribution:<br>1- One Copy: Retain in Station File<br><span style="font-size:8.5pt;">(must be maintained for a minimum of 90 calendar days)</span></div>
+    <div style="margin-top:12mm; font-size:9.5pt;">Effective: 08 February 2016</div>
+  </div>`;
+}
+/* 2) Shipper's Declaration of Non-DG Contents (eChecklist #0030) */
+async function ekNonDgRender(){
+  const out = document.getElementById("ek_ndg_doc"); if(!out) return;
+  const e = ekVals();
+  const logo = await ekLogo();
+  const CB = `<span style="display:inline-block; border:1.2px solid #000; width:4.5mm; height:4.5mm; vertical-align:middle; margin-right:3mm;"></span>`;
+  const IT = (t, d) => `<div style="margin-top:2.6mm; font-size:10pt; line-height:1.45; padding-left:9mm; text-indent:-9mm;">${CB}<u><b>${t}</b></u>${d ? ": " + d : ""}</div>`;
+  const UL = t => `<span style="display:inline-block; min-width:34mm; border-bottom:1px solid #000; font-weight:bold; text-align:center;">${t || "&nbsp;"}</span>`;
+  out.innerHTML = `<div class="sheet" id="ek_ndg_sheet" style="min-height:285mm; padding:12mm 15mm; font-family:Arial, sans-serif; color:#000;">
+    <table style="width:100%;"><tr>
+      <td><div style="font-size:13.5pt; font-weight:bold;">SHIPPER&rsquo;S DECLARATION OF NON-DG CONTENTS</div>
+          <div style="font-size:10.5pt;">(Effective 01<sup>st</sup> January 2026)</div></td>
+      <td style="width:26mm; text-align:right;"><img src="${logo}" style="height:15mm; object-fit:contain;" onerror="this.style.display='none'"></td></tr></table>
+    <div style="margin-top:5mm; font-size:10.5pt; text-align:justify; line-height:1.5;">
+      I hereby declare that the contents of this consignment under MAWB ${UL(esc(e.awb))} HAWB
+      ${UL(esc(e.hawb))} (if applicable) for transportation from ${UL(esc(e.dep))} to ${UL(esc(e.dest))} does not
+      contain Dangerous Goods including any of the following items regulated by the latest IATA Dangerous
+      Good Regulations:
+    </div>
+    ${IT("Explosive","Ammunition, Fireworks, Smoke, Signals, etc.")}
+    ${IT("Flammables","Matches, Lighters, Paint, Varnishes, Petrol, Engines, Household Liquids (Cleaning, disinfecting), Perfumery / Consumer Products and Aerosols, Surgical Spirit, Alcohol, Gas Cylinders (e.g. Oxygen), Camping Stoves (Kerosene, Gas) etc.")}
+    ${IT("Compressed Gas","Flammable or Non-Flammable Gas Cylinders, Aerosols, Driving Equipment etc.")}
+    ${IT("Corrosive &amp; Oxidising Materials","Bleach, Wet Batteries, Mercury (in thermometers &amp; barometers), Sodium, Chemical Fertilizers, Toys and Appliances with batteries etc.")}
+    ${IT("Toxic","Pesticide, Insecticides, (e.g. Rat Poison, Pif Paf) etc.")}
+    ${IT("Radioactive Materials","Medical Equipment, Radioactivity Measuring Devices etc.")}
+    ${IT("Magnetized Materials","Electronic Equipment, Stereo System, Speakers, Magnetic, Generators etc.")}
+    ${IT("Lithium Batteries","Lithium ion or lithium polymer cells and batteries, lithium ion or lithium polymer cells and batteries contained in equipment, lithium ion or lithium polymer cells and batteries packed with equipment (including Mobile Phones, power-banks, smart watches, spare batteries and small vehicles powered by lithium batteries such as hoverboards, e-scooters etc).")}
+    ${IT("Other Undeclared Goods.","")}
+    <div style="margin-top:4mm; font-size:10.5pt; text-align:justify; line-height:1.5;">
+      I am aware that materials such as the above listed items must be declared and carried ONLY in accordance
+      with the IATA Dangerous Goods Regulations, including when part of a consolidation or personal effects
+      shipment. I accept that Emirates is not responsible for checking the contents of my shipment and that I will
+      be solely liable for any adverse consequences arising directly or indirectly from an inaccurate declaration
+      of contents or from the contents themselves.
+    </div>
+    <div style="margin-top:5mm; font-size:10.5pt;">Name of Signatory (Shipper/Agent): <span style="display:inline-block; min-width:70mm; border-bottom:1px solid #000; font-weight:bold; padding-left:3mm;">JFS LOGISTICS FZCO</span></div>
+    <div style="margin-top:3.5mm; font-size:10.5pt;">Date: <span style="display:inline-block; min-width:50mm; border-bottom:1px solid #000; font-weight:bold; padding-left:3mm;">${esc(e.date)}</span></div>
+    <div style="margin-top:3.5mm; font-size:10.5pt;">Signature: <span style="display:inline-block; min-width:55mm; border-bottom:1px solid #000; vertical-align:bottom; text-align:center;">${e.stamp ? `<img src="${e.stamp}" style="height:22mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></div>
+    <div style="font-size:9pt; margin-top:3mm;">${"*".repeat(110)}</div>
+    <div style="margin-top:2mm; font-size:10.5pt;">Accepted By: &nbsp;Emirates ${CB} &nbsp; GHA ${CB}</div>
+    <div style="margin-top:3mm; font-size:10.5pt;">Name of Signatory: ______________________________</div>
+    <div style="margin-top:2.5mm; font-size:10.5pt;">Title: ________________________ &nbsp;&nbsp; Date: ________________________</div>
+    <div style="margin-top:2.5mm; font-size:10.5pt;">Signature: ____________________</div>
+    <table style="width:100%; margin-top:6mm;"><tr>
+      <td style="font-size:8pt; color:#555;">Distribution: Upload this checklist in &ldquo;SkyPouch&rdquo; and retain original copy at Origin Station</td>
+      <td style="font-size:8pt; color:#555; text-align:right;">eChecklist #0030</td></tr></table>
+  </div>`;
+}
+/* 3) Consignee Certification Letter */
+async function ekConsRender(){
+  const out = document.getElementById("ek_cons_doc"); if(!out) return;
+  const e = ekVals();
+  const logo = await ekLogo();
+  const cons = (v("f_consignee") || "").split("\n").map(s => s.trim()).filter(Boolean);
+  const comm = (v("ek_comm") || e.goods || "CONSOLIDATION").toUpperCase();
+  const st = (e.staff || "").split("/");
+  const V = t => `<b>${t || "&nbsp;"}</b>`;
+  out.innerHTML = `<div class="sheet" id="ek_cons_sheet" style="min-height:285mm; padding:12mm 16mm; font-family:Cambria, Georgia, serif; color:#000; font-size:10.5pt;">
+    <img src="${logo}" style="height:15mm; object-fit:contain;" onerror="this.style.display='none'">
+    <div style="text-align:center; font-size:11.5pt; font-weight:bold; text-decoration:underline; margin-top:2mm;">Consignee Certification Letter</div>
+    <div style="margin-top:6mm;">Company Name / Address:</div>
+    <div style="font-size:11.5pt; font-weight:bold; margin-top:1.5mm; line-height:1.45;">${cons.map(esc).join("<br>")}</div>
+    <div style="margin-top:4mm;">To: EMIRATES SKYCARGO</div>
+    <div style="margin-top:2.5mm;">Subject: &nbsp;Consignee Certification Letter</div>
+    <table style="width:100%; margin-top:4mm; font-size:10.5pt;">
+      <tr><td style="width:18%; padding:1.2mm 0;">MAWB</td><td style="width:32%;">: &nbsp;${V(esc(e.awb))}</td>
+          <td style="width:22%;">Routing</td><td>: &nbsp;${V(esc(e.dep) + " - " + esc(e.dest))}</td></tr>
+      <tr><td style="padding:1.2mm 0;">Date</td><td>: &nbsp;${V(esc(e.date))}</td>
+          <td>Commodity Description(s)</td><td>: &nbsp;${V(esc(comm))}</td></tr>
+      <tr><td style="padding:1.2mm 0;">Number of Pieces</td><td>: &nbsp;${V(e.pcs)}</td>
+          <td>Weight</td><td>: &nbsp;${V(e.wt)}</td></tr>
+    </table>
+    <div style="margin-top:6mm;">To whom it may concern,</div>
+    <div style="margin-top:3mm; text-align:justify; line-height:1.6;">This letter is to certify that the consignee on the Master Airwaybill (MAWB) listed above is the importer of record for this consignment, and that no House Airwaybill (HAWB) is associated with this consignment.</div>
+    <div style="margin-top:2.5mm;">Consignor also undertakes as follows:</div>
+    <div style="margin-top:2.5mm; padding-left:8mm; text-align:justify; line-height:1.55;">
+      <div>i. &nbsp;It has appropriate procedures in place to manage shipments in accordance with export control laws and sanctions of other countries.</div>
+      <div style="margin-top:2mm;">ii. &nbsp;To the best of its knowledge, no items in this consignment are intended to be exported or re-exported to Belarus, Cuba, Iran, North Korea, the Russian Federation, Somalia, South Sudan, Syria and Venezuela or any other sanctions target country or individual or entity as amended from time to time.</div>
+      <div style="margin-top:2mm;">iii. &nbsp;This shipment complies with all applicable national and international laws and regulations (including, but not limited to, all applicable sanction, customs and export control laws and regulations).</div>
+      <div style="margin-top:2mm;">iv. &nbsp;To hold harmless and indemnify Emirates, its officers, employees, directors and agents against any loss, damage, fines, penalties, investigation costs (including legal and professional fees) and any other consequences arising from the Consignor&rsquo;s violation or breach of any sanctions, export control or trade laws and regulations enacted by the United States of America, the European Union or a national government authority.</div>
+      <div style="margin-top:2mm;">v. &nbsp;The individual executing this confirmation letter has full legal authority to bind the Consignor to the terms of this letter.</div>
+    </div>
+    <div style="margin-top:6mm;">Yours sincerely,</div>
+    <table style="width:100%; margin-top:4mm;">
+      <tr><td style="width:15%; padding:1.5mm 0;">Name</td><td style="width:40%;">: &nbsp;${V(esc((st[0]||"").trim().toUpperCase()))}</td>
+          <td style="width:12%;">Title</td><td>: &nbsp;${V(esc((st[1]||"").trim().toUpperCase()))}</td></tr>
+      <tr><td style="padding:1.5mm 0;">Company</td><td>: &nbsp;${V("JFS LOGISTICS FZCO")}</td>
+          <td>Date</td><td>: &nbsp;${V(esc(e.date))}</td></tr>
+      <tr><td style="padding:1.5mm 0; vertical-align:bottom;">Signature</td><td colspan="3">: &nbsp;${e.stamp ? `<img src="${e.stamp}" style="height:26mm; object-fit:contain; vertical-align:bottom;">` : ""}</td></tr>
+    </table>
+    <div style="font-size:7.5pt; color:#777; margin-top:6mm;">BUSINESS DOCUMENT &nbsp;This document is intended for business use and should be distributed to intended recipients only.</div>
+  </div>`;
+}
+/* 4) IDG & Shipper's Declaration (RFC Agent) V2.1 */
+async function ekIdgRender(){
+  const out = document.getElementById("ek_idg_doc"); if(!out) return;
+  const e = ekVals();
+  const logo = await ekLogo();
+  const CB = on => `<span style="display:inline-block; border:1.2px solid #000; width:4.2mm; height:4.2mm; text-align:center; font-size:9pt; line-height:4.2mm; vertical-align:middle;">${on ? "&#10003;" : "&nbsp;"}</span>`;
+  const TD = "border:1px solid #000; padding:1.2mm 2mm; font-size:9pt;";
+  let rows = "";
+  for(let i = 0; i < 5; i++){
+    const h = i === 0 && e.hawb ? e.hawb : "";
+    rows += `<tr><td style="${TD} text-align:center;">${i+1}.</td><td style="${TD}">${esc(h)}&nbsp;</td>
+      <td style="${TD} text-align:center;">${i===0&&h?e.pcs:""}</td><td style="${TD} text-align:center;">${i===0&&h?esc(e.dep):""}</td><td style="${TD} text-align:center;">${i===0&&h?esc(e.dest):""}</td>
+      <td style="${TD} text-align:center;">${CB(false)}</td><td style="${TD} text-align:center;">${CB(false)}</td></tr>`;
+  }
+  out.innerHTML = `<div class="sheet" id="ek_idg_sheet" style="min-height:285mm; padding:9mm 12mm; font-family:Arial, sans-serif; color:#000; font-size:9.5pt;">
+    <table style="width:100%;"><tr>
+      <td><div style="font-size:12pt; font-weight:bold;">INSTRUCTIONS FOR DISPATCH OF GOODS - IDG AND SHIPPER&rsquo;S DECLARATION</div>
+          <div style="font-size:11pt; font-weight:bold;">(RFC Agent)</div>
+          <div style="font-size:10pt; font-weight:bold;">(Effective 17 Aug 2026) <span style="float:right; margin-right:10mm;">Version: 2.1</span></div></td>
+      <td style="width:24mm; text-align:right;"><img src="${logo}" style="height:14mm; object-fit:contain;" onerror="this.style.display='none'"></td></tr></table>
+    <div style="font-size:11pt; font-weight:bold; margin-top:3mm;">1. DECLARATION OF GOODS</div>
+    <div style="margin-top:1.5mm;">I hereby declare that the shipments under: AWB Number: &nbsp;<b style="font-size:11pt;">${esc(e.awb)}</b></div>
+    <div style="margin-top:1.5mm;">Contents of shipment : &nbsp;<b style="font-size:11pt;">${esc(e.goods)}</b></div>
+    <div style="margin-top:1.5mm;">Origin / Destination : &nbsp;<b style="font-size:11pt;">${esc(e.dep)} / ${esc(e.dest)}</b></div>
+    <div style="margin-top:1.5mm;">For consolidation shipments, a Consol Manifest and complete HAWB details must be provided.</div>
+    <table style="border-collapse:collapse; width:100%; margin-top:2mm;">
+      <tr><td style="${TD} background:#e8e8e8; text-align:center; font-weight:bold;" colspan="5">To be completed by Shipper / Shipper's Agent<br><span style="font-weight:normal;">(if more than 5 HAWBs, please use additional form)</span></td>
+          <td style="${TD} background:#e8e8e8; text-align:center; font-weight:bold;" colspan="2">To be completed by Emirates Staff<br>High Risk Country</td></tr>
+      <tr><td style="${TD} text-align:center; font-weight:bold; width:6%;">No</td><td style="${TD} text-align:center; font-weight:bold;">HAWB Number</td>
+          <td style="${TD} text-align:center; font-weight:bold; width:14%;">Number of Pieces</td><td style="${TD} text-align:center; font-weight:bold; width:11%;">Origin</td><td style="${TD} text-align:center; font-weight:bold; width:12%;">Destination</td>
+          <td style="${TD} text-align:center; font-weight:bold; width:8%;">Yes</td><td style="${TD} text-align:center; font-weight:bold; width:8%;">No</td></tr>
+      ${rows}
+    </table>
+    <div style="border:1px solid #000; padding:1.5mm 2mm; margin-top:2mm;">
+      <b>(Tick as appropriate for shipments to EU and the U.K)</b><br>
+      ${CB(false)} Do not contain any shipment (Master and/or House) originated from / transited through any of below High Risk countries.<br>
+      ${CB(false)} Contain any shipment (Master and/or House) originated from / transited through any of below High Risk countries.<br>
+      <b>Afghanistan, Bangladesh, Chad, Djibouti, Iraq, Kuwait, Lebanon, Libya*, Mali, Mauritania, Niger, Nigeria, Pakistan, Somalia*, Sudan, Syria &amp; Yemen*</b> (* Embargo/ Sanction exist for these countries)
+    </div>
+    <div style="border:1px solid #000; padding:1.5mm 2mm; margin-top:1.5mm;">
+      <b>(Tick as appropriate for shipments to Canada (YYZ)</b><br>
+      ${CB(false)} Do not contain any shipment (Master and/or House) originated from / transited through any of below High Risk countries.<br>
+      ${CB(false)} Contain any shipment (Master and/or House) originated from / transited through any of below High Risk countries.<br>
+      <b>Afghanistan, Iran, Iraq, Lebanon, Libya*, Nigeria, Sudan, Syria* &amp; Mali</b> (* Embargo/ Sanction exist for these countries)
+    </div>
+    <div style="border:1px solid #000; padding:1.5mm 2mm; margin-top:1.5mm;">
+      ${CB(false)} <b><u>NON-DANGEROUS</u></b> <b>(Not applicable if shipment contains Dangerous goods, provided supporting documents are attached)</b><br>
+      <span style="font-size:8.5pt;">I hereby declare that the shipment does not contain any undeclared or misdeclared Dangerous Goods as per current IATA Dangerous Goods Regulations and is safe for carriage by air. I accept full responsibility and liability for any penalties, delays, shipment holds, regulatory actions, damages or losses arising from inaccurate, incomplete or non-compliant shipment information, packing or declaration provided for the cargo tendered.</span><br>
+      ${CB(true)} <b><u>INSPECTION AUTHORIZATION</u></b><br>
+      <span style="font-size:8.5pt;">I hereby declare that I have no objection to Emirates SkyCargo conducting an open inspection of the shipment in accordance with <b>Clause 3.6 of the Conditions of Carriage</b>.</span><br>
+      Shipper&rsquo;s / Agent&rsquo;s name: <b style="font-size:11pt;">JFS LOGISTICS FZCO</b><br>
+      Name of person tendering the Cargo: <b>${esc((v("ek_tender") || "").toUpperCase())}</b> &nbsp; ID Number: <b>${esc(v("ek_idno"))}</b> &nbsp; ID Type: <b>EID</b><br>
+      Nationality: <b>${esc((v("ek_nat") || "").toUpperCase())}</b> &nbsp; Mobile no.: <b>${esc(v("ek_mob"))}</b> &nbsp; Signature: ____________ &nbsp; Date: <b>${esc(e.date)}</b>
+    </div>
+    <div style="font-weight:bold; margin-top:2mm;">Following checks to be completed by Acceptance staff <span style="float:right;">Yes &nbsp; No &nbsp; NA</span></div>
+    <div style="border:1px solid #000; padding:1.5mm 2mm; margin-top:1mm; font-size:8.5pt; line-height:1.6;">
+      1. If the shipment is originated from / transited through High Risk Country and destined to EU/U.K &amp; Canada, ensure dual screening is completed.<br>
+      2. Airline embargo list &nbsp; 3. AWB label affixed on all packages &nbsp; 4. Airworthiness of packages<br>
+      5. The number of pieces specified is not the number of skids tendered, unless the skid only contains 1 piece of cargo. The customer has been engaged with to confirm the same in the event of a suspicion or lack of clarity<br>
+      6. For DG, 'Shipper's declaration' signed by Shipper/Agent &nbsp; 7. For Non-DG, Customer briefed about any 'hidden DG'<br>
+      <b>Remarks:</b><br>
+      Checked and verified by: &nbsp; Staff Name/ ID: ____________________ &nbsp; Signature : ____________ &nbsp; Date : ____________
+    </div>
+    <div style="font-size:7.5pt; color:#777; margin-top:3mm;">BUSINESS DOCUMENT &nbsp;This document is intended for business use and should be distributed to intended recipients only. <span style="float:right;">Page 1/1</span></div>
+  </div>`;
+}
 function airlineFormPrint(){
   airlineFormRender().then(() => {
     if(!v("al_awb").trim() && !confirm("AWB number is empty.\n\nPrint the airline statement anyway?")) return;
