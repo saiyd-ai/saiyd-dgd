@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-D</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-E</span></span>
           </div>
         </div>
       </div>
@@ -926,6 +926,22 @@
         <div style="margin-top:14px; overflow-x:auto;"><div id="ram_tsa_doc"></div></div>
         <div style="margin-top:14px; overflow-x:auto;"><div id="ram_csd_doc"></div></div>
       </div></div>
+
+      <div class="card" style="border-left:5px solid #333;"><h2>&#9888; CHALLENGE AIRLINES (752) &mdash; DG / Hidden DG Declaration &amp; Indemnity</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">752 (Challenge / GSA Global Cargo LLC) flight-inu ee indemnity form &mdash; shipper details DGD tab-il ninnu automatic, flight/date type cheyyu, stamp DNATA-yile same.</div>
+        <div class="grid g4">
+          <div><label>Flight / Date</label><input type="text" id="cg_flight" placeholder="e.g. 5C-102 08-AUG-2026" oninput="cgRender()"></div>
+          <div><label>Contact person (email / name)</label><input type="text" id="cg_contact" placeholder="auto from shipper" oninput="cgRender()"></div>
+          <div><label>Telephone</label><input type="text" id="cg_tel" placeholder="auto from shipper TEL" oninput="cgRender()"></div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#333;" onclick="cgRender()">&#8635; GENERATE</button>
+            <button class="btn btn-print" onclick="cgPrint()">&#128424; PRINT / SAVE PDF</button>
+          </div>
+        </div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="cg_doc"></div></div>
+      </div></div>
+    </div>
+
     </div>
 
     </div>
@@ -4089,7 +4105,7 @@ const PREFIX_AIRLINES = {
  "125":["BA","IAG CARGO"], "126":["GA","GARUDA INDONESIA"], "131":["JL","JAL CARGO"], "139":["AM","AEROMEXICO CARGO"],
  "141":["FZ","FLYDUBAI CARGO"], "147":["AT","ROYAL AIR MAROC"], "155":["ES","DHL AVIATION"], "157":["QR","QATAR AIRWAYS CARGO"],
  "205":["NH","ANA CARGO"], "288":["K4","KALITTA AIR"], "312":["6E","INDIGO CARGO"], "369":["5Y","ATLAS AIR"],
- "403":["PO","POLAR AIR CARGO"], "514":["G9","AIR ARABIA"],
+ "403":["PO","POLAR AIR CARGO"], "514":["G9","AIR ARABIA"], "752":["X7","CHALLENGE AIRLINES"],
  "160":["CX","CATHAY CARGO"], "172":["CV","CARGOLUX"], "176":["EK","EMIRATES SKYCARGO"], "180":["KE","KOREAN AIR CARGO"],
  "217":["TG","THAI CARGO"], "229":["KU","KUWAIT AIRWAYS"], "232":["MH","MASKARGO"], "235":["TK","TURKISH CARGO"],
  "239":["MK","AIR MAURITIUS"], "297":["CI","CHINA AIRLINES"], "406":["5X","UPS AIRLINES"], "465":["KC","AIR ASTANA"],
@@ -4497,6 +4513,7 @@ async function airlineFormFill(){
   await airlineFormRender();
   csdRender(); nonhazRender();
   ramTsaRender(); ramCsdRender();
+  cgRender();
   dnataStampPull();
 }
 async function airlineFormRender(){
@@ -4821,6 +4838,59 @@ async function ramCsdRender(){
   </div>`;
 }
 function ramCsdPrint(){ ramCsdRender().then(() => printAlt("ram_csd_doc")); }
+/* CHALLENGE AIRLINES (752) — DG / HIDDEN DG DECLARATION & INDEMNITY (GSA Global Cargo LLC) */
+function cgRender(){
+  const out = document.getElementById("cg_doc"); if(!out) return;
+  const awb = v("al_awb") || v("f_awb") || "";
+  const dep = iata3(v("f_dep")) || "", dest = iata3(v("f_dest")) || "";
+  const date = v("al_date") || "";
+  const ship = (v("f_shipper") || "").split("\n").map(s => s.trim()).filter(Boolean);
+  const shName = ship[0] || "";
+  const telLn = ship.find(l => /TE?L/i.test(l)) || "";
+  const tel = v("cg_tel") || telLn.replace(/^TE?L[:\s]*/i, "");
+  const addr = ship.slice(1).filter(l => l !== telLn).join(", ");
+  const contact = v("cg_contact") || "";
+  const flight = (v("cg_flight") || "").toUpperCase();
+  const stamp = dnataStamp();
+  const LN = (label, val, w) => `<div style="margin-top:4.5mm; font-size:10.5pt;"><b>${label}</b>
+    <span style="display:inline-block; min-width:${w || "70mm"}; border-bottom:1px solid #000; font-weight:bold; padding:0 3mm;">${val || "&nbsp;"}</span></div>`;
+  out.innerHTML = `<div class="sheet" id="cg_sheet" style="min-height:285mm; padding:14mm 17mm; font-family:Calibri, Arial, sans-serif; color:#000;">
+    <div style="text-align:center; font-size:12pt; font-weight:bold; text-decoration:underline; margin-top:2mm;">DANGEROUS GOODS / HIDDEN DANGEROUS GOODS DECLARATION &amp; INDEMNITY</div>
+    <div style="margin-top:7mm;">
+      ${LN("Shipper / Company Name:", esc(shName), "85mm")}
+      ${LN("Address:", esc(addr), "95mm")}
+      ${LN("Contact Person:", esc(contact), "70mm")}
+      ${LN("Telephone / Email:", esc(tel), "60mm")}
+      <div style="margin-top:4.5mm; font-size:10.5pt;"><b>Air Waybill (AWB) No.: &nbsp;${esc(awb)}</b></div>
+      ${LN("Flight / Date:", esc(flight), "55mm")}
+      <div style="margin-top:4.5mm; font-size:10.5pt;"><b>Origin:</b>
+        <span style="display:inline-block; min-width:34mm; border-bottom:1px solid #000; font-weight:bold; text-align:center;">${esc(dep) || "&nbsp;"}</span>
+        &nbsp;&nbsp;<b>Destination:</b>
+        <span style="display:inline-block; min-width:34mm; border-bottom:1px solid #000; font-weight:bold; text-align:center;">${esc(dest) || "&nbsp;"}</span></div>
+    </div>
+    <div style="margin-top:8mm; font-size:11pt; font-weight:bold;">SHIPPER'S DECLARATION</div>
+    <div style="margin-top:2.5mm; font-size:10.5pt;">We hereby declare and certify that:</div>
+    <ol style="font-size:10.5pt; line-height:1.55; margin-top:2.5mm; padding-left:9mm;">
+      <li style="margin-top:1.5mm;">We have fully examined the contents of the above shipment.</li>
+      <li style="margin-top:1.5mm;">The shipment has been correctly identified, classified, packed, marked, labelled and documented in accordance with the latest applicable IATA Dangerous Goods Regulations (DGR), ICAO Technical Instructions, and all applicable national regulations.</li>
+      <li style="margin-top:1.5mm;">Where Dangerous Goods are present, they have been fully declared and documented.</li>
+      <li style="margin-top:1.5mm;">Where the shipment is declared as <b>Non-Dangerous Goods (Non-DG)</b>, we confirm that it does not contain any Dangerous Goods, Hidden Dangerous Goods, lithium batteries (unless properly declared), radioactive materials, explosives, flammable substances, corrosives, toxic substances or any other restricted articles requiring declaration under applicable regulations.</li>
+      <li style="margin-top:1.5mm;">We acknowledge that any undeclared or mis-declared Dangerous Goods may result in rejection of the shipment, delays, penalties, fines, legal action and recovery of all associated costs.</li>
+      <li style="margin-top:1.5mm;">We accept full responsibility for the accuracy of the information provided and agree to indemnify and hold harmless <b>GSA Global Cargo LLC</b>, the operating carrier, its employees, agents and representatives against any claims, losses, damages, penalties, liabilities, costs or expenses arising from any incorrect, false or incomplete declaration made by us.</li>
+      <li style="margin-top:1.5mm;">We understand that the carrier and/or GSA Global Cargo LLC reserves the right to inspect, reject or require additional documentation for any shipment at its sole discretion.</li>
+    </ol>
+    <div style="margin-top:6mm; font-size:11pt; font-weight:bold;">DECLARATION</div>
+    <div style="margin-top:2.5mm; font-size:10.5pt; line-height:1.55;">I certify that I am an authorized representative of the shipper and that the information provided above is true, complete and accurate.</div>
+    <div style="margin-top:7mm;">
+      ${LN("Company Name:", "JFS LOGISTICS FZCO", "60mm")}
+      ${LN("Authorized Signatory:", "", "60mm")}
+      <div style="margin-top:4.5mm; font-size:10.5pt;"><b>Company Stamp:</b>
+        <span style="display:inline-block; min-width:60mm; border-bottom:1px solid #000; text-align:center; vertical-align:bottom;">${stamp ? `<img src="${stamp}" style="height:30mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></div>
+      ${LN("Date:", esc(date), "40mm")}
+    </div>
+  </div>`;
+}
+function cgPrint(){ cgRender(); printAlt("cg_doc"); }
 function airlineFormPrint(){
   airlineFormRender().then(() => {
     if(!v("al_awb").trim() && !confirm("AWB number is empty.\n\nPrint the airline statement anyway?")) return;
