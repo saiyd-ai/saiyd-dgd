@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-F</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-G</span></span>
           </div>
         </div>
       </div>
@@ -292,6 +292,7 @@
 
     <div class="nav">
       <button id="nav-dash" onclick="showTab('dash')">&#128202; DASHBOARD</button>
+      <button id="nav-gc" style="display:none;" onclick="showTab('gc')">&#128230; GENERAL CARGO</button>
       <button id="nav-dgd" class="on" onclick="showTab('dgd')">&#128203; DGD PREPARE</button>
       <button id="nav-pl" onclick="showTab('pl')">&#128196; PACKING LIST</button>
       <button id="nav-checklist" onclick="showTab('checklist')">&#9989; CHECKLIST</button>
@@ -331,6 +332,40 @@
     </div>
 
     <!-- ============ JFS PACKING LIST TAB (editable document) ============ -->
+    <!-- ================= GENERAL CARGO TAB ================= -->
+    <div class="tab" id="tab-gc">
+      <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#128230; GENERAL CARGO JOB &mdash; <span id="gc_jobno"></span></h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">AWB type cheyyu / paste cheyyu / PDF upload cheyyu &mdash; airline automatic detect aakum. Ennitt thaazhe ninnu LABELS, AIRLINE DOCUMENTS, DNATA edukkaam. DGD venda.</div>
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <label style="margin:0;">AWB PDF upload:</label>
+          <input type="file" id="gc_awbfile" accept=".pdf" style="font-size:12.5px;">
+          <button class="btn btn-save" style="background:#7b2d8b;" onclick="readAwbPdf('gc_awbfile','gc_pdfmsg').then(()=>gcSyncFromMain())">&#129302; AI EXTRACT FROM PDF</button>
+          <span id="gc_pdfmsg" style="font-size:12px; color:#7a4b00;"></span>
+        </div>
+        <textarea id="gc_auto" style="min-height:70px;" placeholder="...athava AWB copy text / booking email paste cheythu AI EXTRACT adikku"></textarea>
+        <div style="display:flex; gap:12px; align-items:center; margin:8px 0; flex-wrap:wrap;">
+          <button class="btn btn-save" style="background:#7b2d8b;" onclick="gcAiExtract()">&#129302; AI EXTRACT (paste)</button>
+          <span id="gc_msg" style="font-size:12.5px; color:#1d6b34; font-weight:bold;"></span>
+        </div>
+        <div class="grid g4">
+          <div><label>AWB / MAWB Number</label><input type="text" id="gc_awb" placeholder="e.g. 176-12345675" oninput="gcSet('f_awb', this.value); gcAirline();">
+            <div id="gc_air" style="font-size:12px; font-weight:bold; color:#0f4f8c; margin-top:3px;"></div></div>
+          <div><label>HAWB (undel)</label><input type="text" id="gc_hawb" oninput="gcSet('f_ref', this.value)"></div>
+          <div><label>Origin / Destination (codes)</label>
+            <div style="display:flex; gap:6px;"><input type="text" id="gc_dep" placeholder="DXB" style="width:80px;" oninput="gcSet('f_dep', this.value)"><input type="text" id="gc_dest" placeholder="JFK" style="width:80px;" oninput="gcSet('f_dest', this.value)"></div></div>
+          <div><label>Pieces / Weight kg / Contents</label>
+            <div style="display:flex; gap:6px;"><input type="text" id="gc_pcs" placeholder="pcs" style="width:60px;" oninput="gcSet('f_opcount', this.value)"><input type="text" id="gc_wt" placeholder="kg" style="width:80px;"><input type="text" id="gc_goods" placeholder="PERFUMES" style="flex:1;" oninput="gcSet('cs_goods', this.value)"></div></div>
+          <div><label>Shipper</label><textarea id="gc_shipper" style="min-height:70px;" oninput="gcSet('f_shipper', this.value)"></textarea></div>
+          <div><label>Consignee</label><textarea id="gc_consignee" style="min-height:70px;" oninput="gcSet('f_consignee', this.value)"></textarea></div>
+        </div>
+        <div style="display:flex; gap:12px; margin-top:14px; flex-wrap:wrap;">
+          <button class="btn btn-save" style="background:#0f2b4c; font-size:15px; padding:14px 22px;" onclick="showTab('stickers')">&#9992; AIRLINE LABELS (barcode 4&times;6)</button>
+          <button class="btn btn-save" style="background:#a40000; font-size:15px; padding:14px 22px;" onclick="showTab('alforms')">&#128196; AIRLINE DOCUMENTS</button>
+          <button class="btn btn-save" style="background:#7a4b00; font-size:15px; padding:14px 22px;" onclick="showTab('dnata')">&#128203; DNATA DOCUMENTS</button>
+        </div>
+      </div></div>
+    </div>
+
     <div class="tab" id="tab-pl">
       <div class="card" style="border-left:5px solid #1a5fb4;"><h2 style="background:#e3ecf7; color:#1a5fb4;">&#128196; JFS PACKING LIST &mdash; editable (your Excel style, linked to the DGD)</h2><div class="body">
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
@@ -965,14 +1000,6 @@
       </div></div>
     </div>
 
-    </div>
-
-    </div>
-
-    </div>
-
-    </div>
-
     <div class="tab" id="tab-settings">
       <div class="card"><h2>&#128444; DGD CORNER LOGO (top-right of the printed DGD)</h2><div class="body">
         <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">Upload the logo image that must appear on the DGD's top-right corner
@@ -1163,11 +1190,12 @@
   <div id="jobgate" style="display:none; position:fixed; inset:0; background:rgba(10,25,47,.78); z-index:9000; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:14px; padding:28px 30px; width:min(430px, 92vw); box-shadow:0 20px 60px rgba(0,0,0,.4); text-align:center;">
       <div class="dgwm" style="font-size:30px; font-weight:800;"><span class="b1">dg</span><span class="b2">doc</span></div>
-      <div style="font-weight:bold; color:#0f2b4c; font-size:16px; margin:10px 0 2px;">START NEW DGD</div>
-      <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:12px;">Enter the JFS Job Number to begin &mdash; every DGD is counted on the dashboard.</div>
+      <div style="font-weight:bold; color:#0f2b4c; font-size:16px; margin:10px 0 2px;">START NEW JOB</div>
+      <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:12px;">Enter the JFS Job Number, then pick the job type &mdash; every job is counted on the dashboard.</div>
       <div id="jg_note" style="font-size:12px; color:#b45309; font-weight:bold; margin-bottom:8px;"></div>
-      <input type="text" id="jg_job" placeholder="JFS JOB NUMBER — e.g. JFS-2026-0451" style="width:100%; text-align:center; font-weight:bold; font-size:15px; padding:10px;" onkeydown="if(event.key==='Enter') jobStart()">
-      <button class="btn btn-save" style="background:#0f2b4c; width:100%; margin-top:12px;" onclick="jobStart()">&#9654; START</button>
+      <input type="text" id="jg_job" placeholder="JFS JOB NUMBER — e.g. JFS-2026-0451" style="width:100%; text-align:center; font-weight:bold; font-size:15px; padding:10px;" onkeydown="if(event.key==='Enter') jobStart('DG')">
+      <button class="btn btn-save" style="background:#a40000; width:100%; margin-top:12px;" onclick="jobStart('DG')">&#129513; START DG SHIPMENT</button>
+      <button class="btn btn-save" style="background:#1d6b34; width:100%; margin-top:8px;" onclick="jobStart('GC')">&#128230; START GENERAL CARGO</button>
       <button class="btn btn-load" id="jg_cont" style="width:100%; margin-top:8px;" onclick="jobContinue()">&#8617; CONTINUE LAST WORK</button>
       <button class="smallbtn sb-blue" style="margin-top:10px;" onclick="_acceptRow=null; document.getElementById('jobgate').style.display='none'; showTab('dash');">&#128202; Open dashboard</button>
       <div style="font-size:11px; color:#8a97a5; margin-top:10px;">Powered by <b>s<span style="color:#3ec9a7;">Ai</span>yd.ai</b></div>
@@ -1484,7 +1512,8 @@ function snapshot(){
     handling:v("f_handling"), emergency:v("f_emergency"), signname:v("f_signname"),
     place:v("f_place"), date:v("f_date"), items:getItems(),
     overpack:rv("f_overpack"), opcount:v("f_opcount"), opqty:v("f_opqty"), pl:PL,
-    pt:PT, ptTare:v("pt_tare"), ptBox:v("pt_boxtype") };
+    pt:PT, ptTare:v("pt_tare"), ptBox:v("pt_boxtype"),
+    jobtype: (typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG"), gcwt: v("gc_wt") };
 }
 function applySnapshot(s){
   document.getElementById("f_job").value = s.job||"";
@@ -1516,6 +1545,8 @@ function applySnapshot(s){
   } else plClear();
   document.getElementById("items").innerHTML = "";
   (s.items && s.items.length ? s.items : [null]).forEach(it => addItem(it));
+  if(s.gcwt !== undefined){ const ge = document.getElementById("gc_wt"); if(ge) ge.value = s.gcwt || ""; }
+  if(s.jobtype && typeof setJobType === "function") setJobType(s.jobtype);   // only when the snapshot carries a type
   refresh();
 }
 function draftsAll(){ try{ return JSON.parse(localStorage.getItem("jfs_dgd_drafts")||"{}"); }catch(e){ return {}; } }
@@ -1835,6 +1866,7 @@ function showTab(name){
   if(name === "stickers"){ buildStickers(); buildOpStickers(); blAutoFill(); }
   if(name === "dnata") dnataFill();
   if(name === "alforms") airlineFormFill();
+  if(name === "gc") gcSyncFromMain();
 }
 
 /* ---------- alt print (checklist / stickers / labels) ---------- */
@@ -2518,9 +2550,9 @@ function loadPdfjs(){
   });
   return pdfjsReady;
 }
-async function readAwbPdf(){
-  const f = document.getElementById("awbfile").files[0];
-  const msg = document.getElementById("awbpdfmsg");
+async function readAwbPdf(fileId, msgId){
+  const f = document.getElementById(fileId || "awbfile").files[0];
+  const msg = document.getElementById(msgId || "awbpdfmsg");
   if(!f){ alert("Choose the AWB PDF file first."); return; }
   msg.textContent = "Reading PDF...";
   try{
@@ -2952,6 +2984,51 @@ function autosaveCurrent(){
   clearTimeout(_curT);
   _curT = setTimeout(() => { try{ localStorage.setItem("jfs_dgd_current", JSON.stringify(snapshot())); }catch(e){} }, 800);
 }
+/* ================= JOB TYPE — DG SHIPMENT / GENERAL CARGO ================= */
+let JOBTYPE = localStorage.getItem("jfs_jobtype") || "DG";
+function setJobType(t){
+  JOBTYPE = (t === "GC") ? "GC" : "DG";
+  localStorage.setItem("jfs_jobtype", JOBTYPE);
+  applyJobType();
+}
+function applyJobType(){
+  const gc = JOBTYPE === "GC";
+  const hideForGC = ["nav-dgd","nav-pl","nav-checklist","nav-labels","nav-items","nav-wh"];
+  hideForGC.forEach(id => { const e = document.getElementById(id); if(e) e.style.display = gc ? "none" : ""; });
+  const g = document.getElementById("nav-gc"); if(g) g.style.display = gc ? "" : "none";
+}
+function gcSet(id, val){
+  const e = document.getElementById(id);
+  if(e) e.value = val;
+  if(id === "f_shipper" || id === "f_consignee" || id === "f_awb" || id === "f_dep" || id === "f_dest") refresh();
+  if(typeof autosaveCurrent === "function") autosaveCurrent();
+}
+function gcAirline(){
+  const el = document.getElementById("gc_air"); if(!el) return;
+  const pfx = (v("gc_awb") || "").replace(/\D/g, "").slice(0, 3);
+  const pa = (typeof PREFIX_AIRLINES !== "undefined") ? PREFIX_AIRLINES[pfx] : null;
+  el.textContent = pfx.length === 3 ? (pa ? "✈ " + pa[1] + " (" + pfx + ")" : "✈ AWB " + pfx + " — airline not in list") : "";
+}
+function gcSyncFromMain(){
+  const M = {gc_awb:"f_awb", gc_hawb:"f_ref", gc_dep:"f_dep", gc_dest:"f_dest", gc_pcs:"f_opcount",
+    gc_goods:"cs_goods", gc_shipper:"f_shipper", gc_consignee:"f_consignee"};
+  Object.entries(M).forEach(([g, f]) => {
+    const ge = document.getElementById(g), fe = document.getElementById(f);
+    if(ge && fe && fe.value) ge.value = fe.value;
+  });
+  const jn = document.getElementById("gc_jobno"); if(jn) jn.textContent = v("f_job") || "—";
+  gcAirline();
+}
+function gcAiExtract(){
+  const raw = v("gc_auto");
+  if(!raw.trim()){ alert("Paste the AWB / shipment text first."); return; }
+  document.getElementById("f_auto").value = raw;
+  const m = document.getElementById("gc_msg"); if(m) m.textContent = "🤖 AI extracting...";
+  Promise.resolve(aiAutoFill()).then(() => {
+    gcSyncFromMain();
+    if(m) m.textContent = document.getElementById("autoresult").textContent || "Done — check the fields.";
+  });
+}
 function jobGateShow(){
   const g = document.getElementById("jobgate");
   const note = document.getElementById("jg_note"); if(note) note.textContent = "";
@@ -2961,9 +3038,19 @@ function jobGateShow(){
   g.style.display = "flex";
   setTimeout(() => { const el = document.getElementById("jg_job"); if(el) el.focus(); }, 250);
 }
-function jobStart(){
+function jobStart(type){
   const j = document.getElementById("jg_job").value.trim().toUpperCase();
   if(!j){ alert("Enter the JFS Job Number to start."); return; }
+  setJobType(type || "DG");
+  // log the job on the dashboard immediately (with its type)
+  try{
+    const list = store("jfs_joblog");
+    let e = list.find(x => x.job === j);
+    if(!e){ e = {job:j, first: Date.now(), prints: 0, months:{}}; list.unshift(e); }
+    e.type = JOBTYPE; e.last = e.last || Date.now();
+    setStore("jfs_joblog", list);
+  }catch(e){}
+  if(JOBTYPE === "GC" && !_acceptRow) _afterStartTab = "gc";
   applySnapshot({items:[null]});                       // fresh form (no confirm)
   if(typeof loadDefaults === "function") loadDefaults();
   document.getElementById("f_date").value = dgdDate();
@@ -3035,7 +3122,7 @@ function jobLogPrint(){
   e.awb = s.awb; e.shipper = (s.shipper||"").split("\n")[0]; e.consignee = (s.consignee||"").split("\n")[0];
   e.route = [s.dep, s.dest].filter(Boolean).join(" - ");
   e.un = (s.items||[]).map(r => r.un).filter(Boolean).join(", ");
-  e.prints = (e.prints||0) + 1; e.last = Date.now();
+  e.prints = (e.prints||0) + 1; e.last = Date.now(); e.type = e.type || JOBTYPE || "DG";
   e.months = e.months || {};
   const mk = new Date().toISOString().slice(0,7);
   e.months[mk] = (e.months[mk]||0) + 1;
@@ -3054,10 +3141,13 @@ function renderDash(){
   const mon = log.reduce((a,e) => a + ((e.months||{})[mk]||0), 0);
   const today = new Date().toDateString();
   const todayN = log.filter(e => e.last && new Date(e.last).toDateString() === today).length;
+  const gcN = log.filter(e => e.type === "GC").length;
+  const dgN = log.length - gcN;
   document.getElementById("dashkpi").innerHTML =
     kpiChip(tot, "DGD PRINTED (TOTAL)", "#0f2b4c") +
     kpiChip(mon, "THIS MONTH", "#1d6b34") +
-    kpiChip(log.length, "JOBS", "#7a4b00") +
+    kpiChip(dgN, "DG SHIPMENT JOBS", "#a40000") +
+    kpiChip(gcN, "GENERAL CARGO JOBS", "#1d6b34") +
     kpiChip(todayN, "JOBS PRINTED TODAY", "#7b2d8b") +
     kpiChip(docs.length, "SAVED DOCUMENTS", "#5b6b7d");
   // month-wise bars (last 8 months)
@@ -3082,7 +3172,7 @@ function renderDash(){
   log.slice().sort((a,b) => (b.last||0) - (a.last||0)).forEach(e => {
     if(q && !((e.job||"")+" "+(e.awb||"")+" "+(e.shipper||"")+" "+(e.consignee||"")).toLowerCase().includes(q)) return;
     const di = docs.findIndex(d => (d.job||"") === e.job);
-    h += `<tr><td style="${TD} font-weight:bold;">${esc(e.job)}</td>
+    h += `<tr><td style="${TD} font-weight:bold;">${e.type === "GC" ? "&#128230; " : "&#129513; "}${esc(e.job)}</td>
       <td style="${TD}">${e.last ? new Date(e.last).toLocaleString("en-GB") : ""}</td>
       <td style="${TD}">${esc(e.awb||"")}</td><td style="${TD}">${esc(e.shipper||"")}</td>
       <td style="${TD}">${esc(e.consignee||"")}</td><td style="${TD}">${esc(e.route||"")}</td>
@@ -4666,7 +4756,7 @@ function csdRender(){
   const date = v("al_date") || "", loc = v("cs_loc") || "DUBAI", goods = (v("cs_goods") || "").toUpperCase();
   const dep = iata3(v("f_dep")) || "", dest = iata3(v("f_dest")) || "";
   const pcs = PT.length || parseInt(v("f_opcount")) || "";
-  const wt = PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) + " KG" : "";
+  const wt = PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) + " KG" : (v("gc_wt") ? v("gc_wt") + " KG" : "");
   const stamp = dnataStamp();
   const TD = "border:1px solid #000; padding:1.5mm 2mm; font-size:10pt;";
   const TH = TD + " font-weight:bold; text-align:center;";
@@ -4820,7 +4910,7 @@ async function ramCsdRender(){
   const via = (v("ram_via") || "").toUpperCase();
   const goods = (v("cs_goods") || "PERFUMES").toUpperCase();
   const pcs = PT.length || parseInt(v("f_opcount")) || "";
-  const wt = PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) : "";
+  const wt = PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) : (v("gc_wt") || "");
   const scr = v("ram_scr") || "EDD";
   const d = new Date();
   const dtime = String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear() + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0") + "HRS";
@@ -4931,7 +5021,7 @@ function ekVals(){
     staff: v("al_staff") || v("dn_staff") || "",
     goods: (v("cs_goods") || "").toUpperCase(),
     pcs: PT.length || parseInt(v("f_opcount")) || "",
-    wt: PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) : "",
+    wt: PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) : (v("gc_wt") || ""),
     stamp: dnataStamp()
   };
 }
@@ -5284,6 +5374,7 @@ fillPickers();
 document.getElementById("ai_key").value = aiKey();
 document.getElementById("ai_model").value = aiModel();
 if(aiKey()) document.getElementById("ai_status").textContent = "Key saved — AI is ON.";
+applyJobType();   // show/hide tabs as per the current job type (DG / GENERAL CARGO)
 document.querySelectorAll("img.jfslogo").forEach(i => { i.src = window.JFS_LOGO || ""; });
 addItem();
 refreshDraftList();
