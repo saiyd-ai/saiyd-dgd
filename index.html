@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-B</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-C</span></span>
           </div>
         </div>
       </div>
@@ -4483,13 +4483,60 @@ async function airlineFormRender(){
   let logo = "";
   try{ logo = (await airlineLogos())[pfx] || ""; }catch(e){}
   if(!logo && pa) logo = "https://images.kiwi.com/airlines/128/" + pa[0] + ".png";
-  const isTK = pfx === "235";
+  const isTK = pfx === "235", isQR = pfx === "157";
   const msg = document.getElementById("al_airmsg");
   if(msg) msg.innerHTML = pfx.length === 3
-    ? (isTK ? "&#10003; TURKISH AIRLINES (235) — TK format" : (alName ? "&#10003; " + esc(alName) + " (" + esc(pfx) + ") — standard format" : "AWB " + esc(pfx) + " — airline not in list, standard format"))
+    ? (isTK ? "&#10003; TURKISH AIRLINES (235) — TK format"
+      : isQR ? "&#10003; QATAR AIRWAYS (157) — QR TSA format"
+      : (alName ? "&#10003; " + esc(alName) + " (" + esc(pfx) + ") — standard format" : "AWB " + esc(pfx) + " — airline not in list, standard format"))
     : "Enter the AWB — the airline & format come automatically.";
   const stamp = dnataStamp();
   const CO = "JFS LOGISTICS FZCO";
+  if(isQR){
+    const dep = airportPlace(iata3(v("f_dep")) || "") || iata3(v("f_dep")) || "";
+    const dest = airportPlace(iata3(v("f_dest")) || "") || iata3(v("f_dest")) || "";
+    const BLANK = t => `<span style="display:inline-block; min-width:60mm; border-bottom:1px solid #000; text-align:center; font-weight:bold;">${t || "&nbsp;"}</span>`;
+    out.innerHTML = `<div class="sheet" id="al_sheet" style="min-height:285mm; padding:12mm 16mm; font-family:Arial, sans-serif; color:#000; position:relative;">
+      <div style="font-size:8.5pt;">Sensitivity: Internal</div>
+      <div style="text-align:center; margin-top:14mm;">
+        ${logo ? `<img src="${logo}" style="height:12mm; object-fit:contain; vertical-align:middle;" onerror="this.style.display='none'">` : ""}
+        <div style="font-size:16pt; font-weight:bold; margin-top:4mm;">Master Air waybill (MAWB) Statement</div>
+      </div>
+      <div style="margin-top:9mm; font-size:10.5pt; text-align:justify; line-height:1.6;">
+        All shipments tendered in this MAWB were received directly from a shipper, or other person with
+        an established relationship with <b><u>${CO}</u></b> ( insert name of
+        regulated agent or freight forwarder) for at least 180-calendar days, which has an established
+        shipping address, and a payment, credit or invoice history for at least 180-calendar days OR a
+        person originating or tendering a shipment where <b><u>${CO}</u></b> (insert name of
+        regulated agent or freight forwarder) has an established business relationship* or payment credit,
+        or invoice history with the consignee or bill-to party of at least 180-calendar days. All shipments
+        tendered in this MAWB were accepted via a secure transport, either directly from the shipper, or
+        picked up by <b><u>${CO}</u></b> (insert name of regulated agent of freight forwarder) or agent.
+      </div>
+      <div style="margin-top:7mm; font-size:10.5pt; text-align:justify; line-height:1.6;">
+        *An established business relationship is an association between persons (&ldquo;Persons&rdquo; includes
+        individuals and entities) that may also include a documented history of sales contract or activities,
+        other documented correspondence, or business record.
+      </div>
+      <div style="text-align:center; font-size:15pt; font-weight:bold; margin-top:11mm;">Statement of Declaration</div>
+      <div style="margin-top:5mm; font-size:10.5pt; text-align:justify; line-height:1.6;">
+        I confirm this consignment does not contain cargo that has either originated, transferred from, or
+        transited through any points in Yemen, Syria and Somalia.
+      </div>
+      <div style="margin-top:11mm; font-size:11pt; font-weight:bold;">Air waybill Number ${BLANK(esc(awb))}</div>
+      <div style="margin-top:5mm; font-size:11pt; font-weight:bold;">Origin <span style="display:inline-block; min-width:45mm; border-bottom:1px solid #000; text-align:center;">${esc(dep) || "&nbsp;"}</span>
+        &nbsp; Destination <span style="display:inline-block; min-width:52mm; border-bottom:1px solid #000; text-align:center;">${esc(dest) || "&nbsp;"}</span></div>
+      <div style="margin-top:7mm; font-size:11pt; font-weight:bold;">Name of the company agent, forwarder, consolidator or air carrier tendering the shipment:</div>
+      <div style="border-bottom:1px solid #000; font-size:11pt; font-weight:bold; padding:1mm 0 1mm 6mm;">${CO}</div>
+      <div style="margin-top:7mm; font-size:11pt; font-weight:bold; display:flex; align-items:flex-end; gap:4mm; flex-wrap:wrap;">
+        <span>Date: <span style="display:inline-block; min-width:30mm; border-bottom:1px solid #000; text-align:center;">${esc(date)}</span></span>
+        <span>Name: <span style="display:inline-block; min-width:40mm; border-bottom:1px solid #000; text-align:center; font-size:10pt;">${esc(staff)}</span></span>
+        <span>Signature <span style="display:inline-block; min-width:38mm; border-bottom:1px solid #000; text-align:center;">${stamp ? `<img src="${stamp}" style="height:26mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></span>
+      </div>
+      <div style="position:absolute; bottom:10mm; right:16mm; font-size:9pt;">QTR/CGO/SEC/FORMS/TSA/2023/001</div>
+    </div>`;
+    return;
+  }
   const LN = "border-bottom:1px solid #000; min-height:5mm;";
   const FLD = (label, val) => `<div style="margin-top:6.5mm;">
       <div style="font-size:10.5pt;">${label}</div>
