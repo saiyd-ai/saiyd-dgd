@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v21.09-H</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-A</span></span>
           </div>
         </div>
       </div>
@@ -2646,7 +2646,11 @@ function custAfterFill(role){
 let PT = [];
 function ptTrunc3(x){ return Math.floor((x + 1e-9) * 1000) / 1000; }
 function ptR3(x){ return Math.round(x * 1000) / 1000; }
-function fmtDot(x){ const s = String(x); return s.includes(".") ? s.replace(".", " . ") : s; }
+function fmtDot(x){
+  // JFS rule: weights on the DGD always show EXACTLY 3 decimals — 399 → "399 . 000", 23.42 → "23 . 420"
+  const n = typeof x === "number" ? x : (parseFloat(x) || 0);
+  return n.toFixed(3).replace(".", " . ");
+}
 function ptCompute(){
   const tare = parseFloat(v("pt_tare")) || 0;
   PT.forEach((r, i) => {
