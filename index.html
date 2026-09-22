@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-D</span></span>
           </div>
         </div>
       </div>
@@ -903,6 +903,31 @@
         <div style="margin-top:14px; overflow-x:auto;"><div id="cs_doc"></div></div>
         <div style="margin-top:14px; overflow-x:auto;"><div id="nh_doc"></div></div>
       </div></div>
+
+      <div class="card" style="border-left:5px solid #7a1020;"><h2>&#128958; ROYAL AIR MAROC (147) &mdash; TSA Acceptance + Consignment Security Declaration</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">147 RAM flight-inu ee 2 forms &mdash; TSA Cargo Acceptance Form + CSD. AWB/route/pcs/weight automatic; contents mukalile "Contents / description" box-il ninnu.</div>
+        <div class="grid g4">
+          <div><label>Name of individual tendering cargo</label><input type="text" id="ram_tender" oninput="ramTsaRender()"></div>
+          <div><label>ID type + number (EID)</label>
+            <div style="display:flex; gap:6px;"><input type="text" id="ram_idtype" value="EID" style="width:70px;" oninput="ramTsaRender()"><input type="text" id="ram_idno" placeholder="784XXXXXXXXXXXX" style="flex:1;" oninput="ramTsaRender()"></div></div>
+          <div><label>Check conducted by (name)</label><input type="text" id="ram_checkby" oninput="ramTsaRender()"></div>
+          <div><label>IATA number / Screening / Via</label>
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="ram_iata" value="8645305" style="width:90px;" oninput="ramTsaRender()">
+              <select id="ram_scr" onchange="ramCsdRender()"><option>EDD</option><option>XRY</option><option>PHS</option><option>EDS</option><option>ETD</option></select>
+              <input type="text" id="ram_via" placeholder="via e.g. CMN" style="width:90px;" oninput="ramCsdRender()">
+            </div></div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#7a1020;" onclick="ramTsaRender(); ramCsdRender();">&#8635; GENERATE BOTH</button>
+            <button class="btn btn-print" onclick="ramTsaPrint()">&#128424; PRINT TSA FORM</button>
+            <button class="btn btn-print" onclick="ramCsdPrint()">&#128424; PRINT CSD</button>
+          </div>
+        </div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="ram_tsa_doc"></div></div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="ram_csd_doc"></div></div>
+      </div></div>
+    </div>
+
     </div>
 
     </div>
@@ -4471,6 +4496,7 @@ async function airlineFormFill(){
   sel.innerHTML = dnataStaff().map(s => `<option${s === cur ? " selected" : ""}>${esc(s)}</option>`).join("");
   await airlineFormRender();
   csdRender(); nonhazRender();
+  ramTsaRender(); ramCsdRender();
   dnataStampPull();
 }
 async function airlineFormRender(){
@@ -4683,6 +4709,118 @@ function nonhazRender(){
   </div>`;
 }
 function nonhazPrint(){ nonhazRender(); printAlt("nh_doc"); }
+/* ROYAL AIR MAROC (147) — TSA Cargo Acceptance Form */
+async function ramLogo(){
+  let l = ""; try{ l = (await airlineLogos())["147"] || ""; }catch(e){}
+  return l || "https://images.kiwi.com/airlines/128/AT.png";
+}
+async function ramTsaRender(){
+  const out = document.getElementById("ram_tsa_doc"); if(!out) return;
+  const awb = v("al_awb") || v("f_awb") || "";
+  const dep = iata3(v("f_dep")) || "", dest = iata3(v("f_dest")) || "";
+  const logo = await ramLogo();
+  const BX = t => `<span style="display:inline-block; border:1.2px solid #000; min-width:34mm; padding:1mm 3mm; text-align:center; font-weight:bold;">${t || "&nbsp;"}</span>`;
+  const CK = on => `<span style="display:inline-block; border:1.2px solid #000; width:6mm; height:5mm; text-align:center; font-weight:bold; vertical-align:middle;">${on ? "&#10003;" : "&nbsp;"}</span>`;
+  out.innerHTML = `<div class="sheet" id="ram_tsa_sheet" style="min-height:285mm; padding:10mm 13mm; font-family:Calibri, Arial, sans-serif; color:#000; font-size:10pt;">
+    <table style="border-collapse:collapse; width:100%;"><tr>
+      <td style="width:26%; text-align:center;"><img src="${logo}" style="height:16mm; object-fit:contain;" onerror="this.outerHTML='<b>ROYAL AIR MAROC CARGO</b>'"><div style="font-size:8pt; letter-spacing:2px;">CARGO</div></td>
+      <td style="border:1.4px solid #000; text-align:center; font-size:12pt; font-weight:bold; text-decoration:underline; padding:5mm 0;">TSA Cargo Acceptance Form</td>
+      <td style="width:22%; padding-left:4mm; font-size:9.5pt;">Edition: 04<br>Revision: 01<br><u>Ref : COM2024AN</u></td>
+    </tr></table>
+    <div style="margin-top:4mm; font-size:9.5pt; line-height:1.5;">
+      <div>&#9642; This form is not applicable for medical shipments comprising of human organ by-products, human blood, human blood by-products, diagnostic and emergency lifesaving drugs.</div>
+      <div>&#9642; Shippers or Agents do not need to fill or sign this form. Only Royal Air Maroc employees, handlers or authorized representatives must complete it. Retain the original copy at station for a minimum of 90 days. The duplicate copy must be attached to Air Waybill.</div>
+      <div>&#9642; Prior to acceptance of freight examine all documentation (for example air waybills or house air waybills, HAWB manifest) to determine the name and physical address of shipper represented in the cargo shipment.</div>
+    </div>
+    <table style="border-collapse:collapse; width:100%; margin-top:4mm; font-size:9.5pt;">
+      <tr><td style="border:1.2px solid #000; width:26%; text-align:center; font-weight:bold; padding:2mm;">Shipment is from<br><span style="font-weight:normal; font-size:8.5pt;">(Check the corresponding box)</span></td>
+          <td style="border:1.2px solid #000; text-align:center; font-weight:bold;" colspan="3">Process</td></tr>
+      <tr><td style="border:1.2px solid #000; padding:2mm;">Regulated Agent &nbsp;${CK(true)}</td>
+          <td style="border:1.2px solid #000; padding:2mm;">Shipment must be accepted in accordance to regulated agent</td>
+          <td style="border:1.2px solid #000; padding:2mm; width:20%;" rowspan="2">Master Air Waybill statement must accompany each shipment</td>
+          <td style="border:1.2px solid #000; padding:2mm; width:30%;" rowspan="2">The shipment is to be transported on a freighter aircraft to the US (for example Casablanca to Chigaco) &lsquo;General Cargo Security Declaration&rsquo; must be provided by shipper or agent and must be printed on their company's business letterhead</td></tr>
+      <tr><td style="border:1.2px solid #000; padding:2mm;">Unregulated Agent &nbsp;${CK(false)}</td>
+          <td style="border:1.2px solid #000; padding:2mm;">Shipment must be accepted in accordance to unregulated agent</td></tr>
+    </table>
+    <div style="margin-top:4mm; font-size:10pt;">Air waybill Number : ${BX(esc(awb))} &nbsp; Origin : ${BX(esc(dep))} &nbsp; Destination : ${BX(esc(dest))}</div>
+    <div style="margin-top:3mm; font-size:10pt;">Agents Name : ${BX("JFS LOGISTICS FZCO")} &nbsp; IATA Number : ${BX(esc(v("ram_iata")))}</div>
+    <div style="margin-top:3mm; font-size:10pt;">Name of individual tendering cargo : ${BX(esc((v("ram_tender") || "").toUpperCase()))}</div>
+    <div style="margin-top:5mm; font-size:10pt; font-weight:bold; text-decoration:underline;">Shippers must provide a valid ID of which at least one should be government issued photo ID.</div>
+    <div style="margin-top:3mm; font-size:9.5pt; line-height:2.1;">
+      &#9642; First ID reviewed (issued by the government authority) : ${BX(esc(v("ram_idtype")))}<br>
+      &#9642; Photo on ID matches the person tendering cargo ? indicate (Yes/No) : ${BX("YES")}<br>
+      &#9642; Insert number appearing on ID : ${BX(esc(v("ram_idno")))}<br>
+      &#9642; Second ID reviewed : ${BX("N/A")}<br>
+      <span style="font-size:8.5pt;">(if first was not a photo ID issued by a government authority)</span><br>
+      &#9642; Photo on ID matches the person tendering cargo ? indicate (Yes/no) : ${BX("N/A")}<br>
+      &#9642; Insert number appearing on ID : ${BX("N/A")}
+    </div>
+    <div style="margin-top:3mm; font-size:10pt; font-weight:bold;">Check conducted by :</div>
+    <div style="margin-top:2mm; font-size:10pt;">Name : ${BX(esc((v("ram_checkby") || "").toUpperCase()))} &nbsp; Signature : <span style="display:inline-block; border:1.2px solid #000; min-width:60mm; height:9mm; vertical-align:middle;"></span></div>
+    <div style="border:1.8px solid #000; margin-top:4mm; padding:2.5mm; font-size:9.5pt;">
+      <div style="text-align:center; font-weight:bold; text-decoration:underline;">SCREENING INFORMATION</div>
+      <div style="margin-top:1.5mm; text-align:justify; line-height:1.5;">The undersigned confirms that the freight referenced in this document has been securely processed, employing
+        the method indicated below, in compliance with the security requirements of the national authority as per ICAO
+        Annex 17 standards 4.6. This ensures its safe carriage on ROYAL AIR MAROC, whether on passenger or all-cargo aircraft.</div>
+      <div style="margin-top:2.5mm;">${CK(false)} 100% X-Ray Screening &nbsp;&nbsp; ${CK(false)} Explosive Trace Detection &nbsp;&nbsp; ${CK(false)} Other means (specify)______</div>
+      <div style="margin-top:2mm; font-weight:bold;">This is screened cargo. Without below name and signature, no cargo will be loaded on passenger or all-cargo aircraft.</div>
+      <div style="margin-top:2.5mm;">Screening date : __________________ &nbsp;&nbsp;&nbsp; Signature : ___________________________________</div>
+    </div>
+  </div>`;
+}
+function ramTsaPrint(){ ramTsaRender().then(() => printAlt("ram_tsa_doc")); }
+/* ROYAL AIR MAROC — CONSIGNMENT SECURITY DECLARATION */
+async function ramCsdRender(){
+  const out = document.getElementById("ram_csd_doc"); if(!out) return;
+  const awb = v("al_awb") || v("f_awb") || "";
+  const dep = iata3(v("f_dep")) || "", dest = iata3(v("f_dest")) || "";
+  const via = (v("ram_via") || "").toUpperCase();
+  const goods = (v("cs_goods") || "PERFUMES").toUpperCase();
+  const pcs = PT.length || parseInt(v("f_opcount")) || "";
+  const wt = PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) : "";
+  const scr = v("ram_scr") || "EDD";
+  const d = new Date();
+  const dtime = String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear() + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0") + "HRS";
+  const logo = await ramLogo();
+  const CK = on => `<span style="display:inline-block; border:1px solid #555; width:4.5mm; height:4mm; text-align:center; font-size:9pt; vertical-align:middle;">${on ? "&#10003;" : "&nbsp;"}</span>`;
+  const TD = "border:1.6px solid #000; padding:2mm 2.5mm; font-size:10.5pt; vertical-align:top;";
+  out.innerHTML = `<div class="sheet" id="ram_csd_sheet" style="min-height:285mm; padding:14mm 18mm; font-family:Georgia, 'Times New Roman', serif; color:#000;">
+    <div style="text-align:center;"><img src="${logo}" style="height:18mm; object-fit:contain;" onerror="this.outerHTML='<b>ROYAL AIR MAROC</b>'"><div style="font-size:9pt; letter-spacing:3px; color:#777;">CARGO</div></div>
+    <div style="text-align:center; font-size:13.5pt; margin-top:4mm; letter-spacing:.5px;"><u>CONSIGNEMENT SECURITY DECLARATION</u></div>
+    <table style="border-collapse:collapse; width:100%; margin-top:2mm;">
+      <tr><td style="${TD} width:47%; background:#eee;">Regulated Entity Category &amp; Identifier :</td>
+          <td style="${TD}"><b>Unique Consignement Identifier :</b><div style="background:#eee; margin-top:1mm;">${esc(awb)}&nbsp;</div></td></tr>
+      <tr><td style="${TD}"><b>Contents of Consignement :</b><div style="margin-top:1mm;">${esc(goods)}</div></td>
+          <td style="${TD} padding:0;"><table style="border-collapse:collapse; width:100%;">
+            <tr><td style="padding:1.5mm 2.5mm; font-weight:bold; background:#eee;">Pcs :</td><td style="padding:1.5mm 2.5mm; background:#eee; text-align:center;">${pcs}</td></tr>
+            <tr><td style="padding:1.5mm 2.5mm; font-weight:bold;">Weight (kg) :</td><td style="padding:1.5mm 2.5mm; text-align:center;">${wt}</td></tr></table></td></tr>
+      <tr><td style="${TD} padding:0;" colspan="2"><table style="border-collapse:collapse; width:100%;"><tr>
+            <td style="padding:1.5mm 2.5mm; font-weight:bold; width:20%;">Origin :</td>
+            <td style="padding:1.5mm 2.5mm; font-weight:bold; width:20%;">${esc(dep)}</td>
+            <td style="padding:1.5mm 2.5mm; background:#eee; width:20%; text-align:center;">${esc(via)}</td>
+            <td style="padding:1.5mm 2.5mm; background:#eee; text-align:center;">${esc(dest)}</td></tr></table></td></tr>
+      <tr><td style="${TD} width:24%;">Security Status</td><td style="${TD} padding:0;">
+        <div style="padding:1.5mm 2.5mm; border-bottom:1.6px solid #000;">Reasons for Issuing the Security Status</div>
+        <table style="border-collapse:collapse; width:100%;"><tr>
+          <td style="padding:1.5mm 2.5mm; width:33%; vertical-align:top;">Received from</td>
+          <td style="padding:1.5mm 2.5mm; width:33%; vertical-align:top; background:#eee;"><b>Screening Methods</b><br>
+            XRY ${CK(scr==="XRY")}<br>PHS ${CK(scr==="PHS")}<br>EDS ${CK(scr==="EDS")}<br>EDD ${CK(scr==="EDD")}<br>ETD ${CK(scr==="ETD")}</td>
+          <td style="padding:1.5mm 2.5mm; vertical-align:top;">Grounds for Exemption</td></tr></table></td></tr>
+      <tr><td style="${TD}" colspan="2">Other Screening Method(s) - if applicable<div style="min-height:7mm;"></div></td></tr>
+      <tr><td style="${TD}">Security Status Issued by :<div style="text-align:center; font-weight:bold; margin-top:1mm;">RAM CARGO</div></td>
+          <td style="${TD}">Security Status Issued on :<div style="margin-top:1mm;"><b>Date - Time :</b> &nbsp; <b>${dtime}</b></div></td></tr>
+      <tr><td style="${TD}" colspan="2">Regulated Entity Category (RA,KC or AO) and identifier
+        <div style="font-size:8.5pt;">(of any regulated party who has accepted the security status given to consignement by another regulated party)</div>
+        <div style="min-height:9mm;"></div></td></tr>
+      <tr><td style="${TD}" colspan="2">Additional Security Information :<div style="min-height:14mm;"></div></td></tr>
+    </table>
+    <div style="margin-top:5mm; font-size:10pt;">Note :<br>
+      -This form must be completed by direct employees and/or carrier representatives only<br>
+      -One copy must be retained at the origin station for 36 months<br>
+      -One copy must accompany the shipment</div>
+  </div>`;
+}
+function ramCsdPrint(){ ramCsdRender().then(() => printAlt("ram_csd_doc")); }
 function airlineFormPrint(){
   airlineFormRender().then(() => {
     if(!v("al_awb").trim() && !confirm("AWB number is empty.\n\nPrint the airline statement anyway?")) return;
