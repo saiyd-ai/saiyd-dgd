@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-G</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-H</span></span>
           </div>
         </div>
       </div>
@@ -689,7 +689,8 @@
           <input type="text" id="f_emergency" placeholder="+971 5X XXX XXXX"></div>
       </div>
       <div class="grid g3" style="margin-top:10px;">
-        <div><label>Name / Title of Signatory</label><input type="text" id="f_signname" placeholder="Name, Designation"></div>
+        <div><label>Name / Title of Signatory</label><input type="text" id="f_signname" placeholder="Name, Designation">
+          <label style="display:block; font-size:12px; font-weight:normal; margin-top:5px;"><input type="checkbox" id="f_stampsign" checked onchange="refresh()"> Print with company <b>STAMP + SIGN</b> (from Settings)</label></div>
         <div><label>Place</label><input type="text" id="f_place" placeholder="Dubai"></div>
         <div><label>Date</label><input type="text" id="f_date"></div>
       </div>
@@ -1012,6 +1013,16 @@
         </div>
       </div></div>
 
+      <div class="card"><h2>&#9997; DGD SIGNATURE (prints in the Signature box, with the company stamp)</h2><div class="body">
+        <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">Signature image upload cheyyu (white background photo/scan) &mdash; DGD-yude Signature box-il STAMP + SIGN randum automatic print aakum (whole company, all users). Stamp DNATA tab-il upload cheythathu thanne.</div>
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <input type="file" id="dgdsignfile" accept="image/*" style="font-size:12.5px;">
+          <button class="btn btn-save" onclick="dgdSignSave()">&#128190; SAVE SIGNATURE</button>
+          <button class="smallbtn sb-red" onclick="dgdSignClear()">Remove</button>
+          <span id="dgdsignmsg" style="font-size:12.5px; font-weight:bold; color:#1d6b34;"></span>
+        </div>
+      </div></div>
+
       <div class="card"><h2>&#9881; BACKUP &mdash; export / import all data</h2><div class="body">
         <p style="font-size:13px; margin-bottom:10px;">Customers, custom items, saved documents, drafts and defaults are all stored in this browser. Take a regular backup and keep it safe:</p>
         <div class="actions" style="margin:0;">
@@ -1175,7 +1186,7 @@
                 <div style="font-size:9.5pt; font-weight:bold;">Name of Signatory</div><div class="val" id="p_signname" style="font-weight:bold;"></div>
                 <div style="font-size:9.5pt; font-weight:bold; margin-top:1.5mm;">Date</div><div class="val" id="p_placedate" style="font-weight:bold;"></div>
                 <div style="font-size:9.5pt; font-weight:bold; margin-top:1.5mm;">Signature</div>
-                <div style="height:9mm;"></div>
+                <div id="p_signbox" style="min-height:9mm;"></div>
                 <div style="font-size:7pt; font-style:italic;">(see warning above)</div>
               </td>
             </tr></table>
@@ -1486,6 +1497,17 @@ function refresh(){
   if(handTxt) lines.push(handTxt);
   document.getElementById("p_handling").textContent = lines.join("\n");
   document.getElementById("p_signname").textContent = v("f_signname");
+  // Signature box: company STAMP + SIGN (from Settings/DNATA), when the checkbox is on
+  const sbx = document.getElementById("p_signbox");
+  if(sbx){
+    const on = document.getElementById("f_stampsign") ? document.getElementById("f_stampsign").checked : false;
+    const stp = (typeof dnataStamp === "function") ? dnataStamp() : "";
+    const sgn = (typeof dgdSign === "function") ? dgdSign() : "";
+    sbx.innerHTML = (on && (stp || sgn))
+      ? (stp ? `<img src="${stp}" style="height:16mm; object-fit:contain; margin-right:5mm; vertical-align:middle;">` : "") +
+        (sgn ? `<img src="${sgn}" style="height:13mm; object-fit:contain; vertical-align:middle;">` : "")
+      : "";
+  }
   document.getElementById("p_placedate").textContent = [v("f_place"), v("f_date")].filter(Boolean).join(", ");
 
   const pax = rv("f_pax");
@@ -1513,7 +1535,8 @@ function snapshot(){
     place:v("f_place"), date:v("f_date"), items:getItems(),
     overpack:rv("f_overpack"), opcount:v("f_opcount"), opqty:v("f_opqty"), pl:PL,
     pt:PT, ptTare:v("pt_tare"), ptBox:v("pt_boxtype"),
-    jobtype: (typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG"), gcwt: v("gc_wt") };
+    jobtype: (typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG"), gcwt: v("gc_wt"),
+    stampsign: (document.getElementById("f_stampsign") ? document.getElementById("f_stampsign").checked : true) };
 }
 function applySnapshot(s){
   document.getElementById("f_job").value = s.job||"";
@@ -1546,6 +1569,7 @@ function applySnapshot(s){
   document.getElementById("items").innerHTML = "";
   (s.items && s.items.length ? s.items : [null]).forEach(it => addItem(it));
   if(s.gcwt !== undefined){ const ge = document.getElementById("gc_wt"); if(ge) ge.value = s.gcwt || ""; }
+  const ss = document.getElementById("f_stampsign"); if(ss) ss.checked = (s.stampsign !== false);
   if(s.jobtype && typeof setJobType === "function") setJobType(s.jobtype);   // only when the snapshot carries a type
   refresh();
 }
@@ -3915,9 +3939,16 @@ function saveDocument(tellUser){
   const s = snapshot();
   if(!s.awb && !s.consignee){ if(tellUser) alert("Form is empty."); return; }
   const list = store("jfs_documents");
-  const id = (s.awb || "NOAWB") + "|" + new Date().toISOString();
-  list.unshift({ id, ts: Date.now(), job: s.job || "", when: new Date().toLocaleString("en-GB"), awb: s.awb,
-    shipper: (s.shipper||"").split("\n")[0], consignee: (s.consignee||"").split("\n")[0], snap: s });
+  // one record per JOB — updated on every print (signed/AWB uploads stay attached)
+  let d = s.job ? list.find(x => (x.job||"") === s.job) : null;
+  if(d){
+    d.ts = Date.now(); d.when = new Date().toLocaleString("en-GB"); d.awb = s.awb;
+    d.shipper = (s.shipper||"").split("\n")[0]; d.consignee = (s.consignee||"").split("\n")[0]; d.snap = s;
+  } else {
+    const id = (s.awb || "NOAWB") + "|" + new Date().toISOString();
+    list.unshift({ id, ts: Date.now(), job: s.job || "", when: new Date().toLocaleString("en-GB"), awb: s.awb,
+      shipper: (s.shipper||"").split("\n")[0], consignee: (s.consignee||"").split("\n")[0], snap: s });
+  }
   if(list.length > 300) list.pop();
   setStore("jfs_documents", list);
   if(tellUser){ alert("Document saved."); renderDocs(); }
@@ -3925,12 +3956,26 @@ function saveDocument(tellUser){
 function renderDocs(){
   const q = (document.getElementById("doc_search").value||"").toLowerCase();
   const list = store("jfs_documents");
-  let h = "<tr><th>DATE</th><th>AWB</th><th>SHIPPER</th><th>CONSIGNEE</th><th></th></tr>";
+  let h = "<tr><th>DATE</th><th>JOB</th><th>AWB</th><th>SHIPPER</th><th>CONSIGNEE</th><th>VIEW</th><th>SIGNED DGD (stamp+sign scan)</th><th></th></tr>";
   list.forEach((d,i) => {
-    if(q && !(d.awb+" "+d.shipper+" "+d.consignee).toLowerCase().includes(q)) return;
-    h += `<tr><td>${esc(d.when)}</td><td><b>${esc(d.awb||"—")}</b></td><td>${esc(d.shipper||"")}</td><td>${esc(d.consignee||"")}</td>
-      <td><button class="smallbtn sb-green" onclick="loadDoc(${i})">Open</button>
-      <button class="smallbtn sb-red" onclick="delDoc(${i})">Del</button></td></tr>`;
+    if(q && !((d.job||"")+" "+d.awb+" "+d.shipper+" "+d.consignee).toLowerCase().includes(q)) return;
+    const signed = !!d.signed;
+    h += `<tr><td>${esc(d.when)}</td><td><b>${esc(d.job||"—")}</b></td><td><b>${esc(d.awb||"—")}</b></td>
+      <td>${esc(d.shipper||"")}</td><td>${esc(d.consignee||"")}</td>
+      <td style="white-space:nowrap;">
+        <button class="smallbtn sb-green" onclick="docOpenTab(${i},'dgd')">&#128065; DGD</button>
+        <button class="smallbtn sb-blue" onclick="docOpenTab(${i},'checklist')">&#128065; CHECKLIST</button>
+        <button class="smallbtn sb-blue" onclick="docView(${i},'awbcopy')">&#128065; AWB</button>
+        <button class="smallbtn" style="background:#efe6d6;" onclick="docUpload(${i},'awbcopy')">&#11014; AWB</button>
+      </td>
+      <td style="white-space:nowrap;">
+        ${signed
+          ? `<span style="background:#d9f2e0; color:#1d6b34; font-weight:bold; font-size:11px; padding:3px 8px; border-radius:10px;">&#10004; SIGNED</span>
+             <button class="smallbtn sb-green" onclick="docView(${i},'signed')">&#128065; View</button>`
+          : `<span style="background:#fdeccf; color:#b45309; font-weight:bold; font-size:11px; padding:3px 8px; border-radius:10px;">&#9203; PENDING</span>`}
+        <button class="smallbtn sb-blue" onclick="docUpload(${i},'signed')">&#11014; Upload signed</button>
+      </td>
+      <td><button class="smallbtn sb-red" onclick="delDoc(${i})">Del</button></td></tr>`;
   });
   document.getElementById("doc_table").innerHTML = h;
 }
@@ -4437,7 +4482,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dnata_staff"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
@@ -5213,6 +5258,66 @@ function airlineFormPrint(){
     printAlt("al_doc");
   });
 }
+/* company-wide DGD SIGNATURE image (prints with the stamp in the Signature box) */
+function dgdSign(){ try{ return (JSON.parse(localStorage.getItem("jfs_dgd_sign") || "null") || {}).img || ""; }catch(e){ return ""; } }
+async function dgdSignSave(){
+  const f = document.getElementById("dgdsignfile").files[0];
+  if(!f){ alert("Choose the signature image first."); return; }
+  const b64 = await imgFileToB64(f, 600);
+  const rec = {img: "data:image/jpeg;base64," + b64};
+  setStore("jfs_dgd_sign", rec);
+  if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key: "dgd_sign", value: rec, updated_by: sbUser.email}); }catch(e){} }
+  document.getElementById("dgdsignmsg").textContent = "✓ Signature saved (whole company) — prints in the DGD Signature box with the stamp.";
+  refresh();
+}
+function dgdSignClear(){
+  setStore("jfs_dgd_sign", {});
+  if(sb && sbUser){ try{ sb.from("company_settings").upsert({key: "dgd_sign", value: {}, updated_by: sbUser.email}); }catch(e){} }
+  document.getElementById("dgdsignmsg").textContent = "Removed (all users).";
+  refresh();
+}
+async function dgdSignPull(){
+  if(!sb || !sbUser || dgdSign()) return;
+  try{
+    const { data } = await sb.from("company_settings").select("value").eq("key", "dgd_sign").maybeSingle();
+    if(data && data.value && data.value.img){ localStorage.setItem("jfs_dgd_sign", JSON.stringify(data.value)); refresh(); }
+  }catch(e){}
+}
+/* signed-copy uploads → Supabase Storage bucket 'dgdocs' */
+let _upDoc = null;
+function docUpload(i, kind){
+  if(!sb || !sbUser){ alert("Login required for uploads."); return; }
+  _upDoc = {i, kind};
+  document.getElementById("doc_upfile").click();
+}
+async function docUploadGo(){
+  const f = document.getElementById("doc_upfile").files[0];
+  if(!f || !_upDoc) return;
+  const list = store("jfs_documents");
+  const d = list[_upDoc.i]; if(!d) return;
+  const ext = (f.name.split(".").pop() || "pdf").toLowerCase();
+  const path = ((d.job || d.awb || "doc").replace(/[^A-Za-z0-9_-]/g, "_")) + "/" + _upDoc.kind + "_" + Date.now() + "." + ext;
+  try{
+    const { error } = await sb.storage.from("dgdocs").upload(path, f, {upsert: true});
+    if(error) throw error;
+    d[_upDoc.kind] = path;
+    setStore("jfs_documents", list);
+    renderDocs();
+    alert("✓ Uploaded — " + (_upDoc.kind === "signed" ? "signed DGD attached to job " : "AWB copy attached to job ") + (d.job || d.awb || ""));
+  }catch(e){ alert("Upload failed: " + (e.message || e)); }
+  document.getElementById("doc_upfile").value = "";
+  _upDoc = null;
+}
+async function docView(i, kind){
+  const d = store("jfs_documents")[i];
+  if(!d || !d[kind]){ alert(kind === "signed" ? "Signed copy not uploaded yet — PENDING." : "AWB copy not uploaded yet."); return; }
+  try{
+    const { data, error } = await sb.storage.from("dgdocs").createSignedUrl(d[kind], 3600);
+    if(error) throw error;
+    window.open(data.signedUrl, "_blank");
+  }catch(e){ alert("Could not open: " + (e.message || e)); }
+}
+function docOpenTab(i, tab){ applySnapshot(store("jfs_documents")[i].snap); showTab(tab); }
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
   const blob = new Blob([JSON.stringify({when: new Date().toISOString(), data}, null, 1)], {type:"application/json"});
@@ -5374,6 +5479,7 @@ fillPickers();
 document.getElementById("ai_key").value = aiKey();
 document.getElementById("ai_model").value = aiModel();
 if(aiKey()) document.getElementById("ai_status").textContent = "Key saved — AI is ON.";
+dgdSignPull();
 applyJobType();   // show/hide tabs as per the current job type (DG / GENERAL CARGO)
 document.querySelectorAll("img.jfslogo").forEach(i => { i.src = window.JFS_LOGO || ""; });
 addItem();
