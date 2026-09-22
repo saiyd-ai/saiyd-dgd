@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-A</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-B</span></span>
           </div>
         </div>
       </div>
@@ -887,6 +887,24 @@
         </div>
         <div style="margin-top:14px; overflow-x:auto;"><div id="al_doc"></div></div>
       </div></div>
+
+      <div class="card" style="border-left:5px solid #b45309;"><h2>&#128737; CSD + NON-HAZARD CERTIFICATE &mdash; Air India (098) &amp; co.</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">098 AIR INDIA flight-inu ee 2 forms koodi venam &mdash; Cargo Security Declaration (Annexure-II) + Certification for Non-Hazardous Cargo. AWB/route/pieces/weight ellaam automatic; stamp DNATA-yile same.</div>
+        <div class="grid g4">
+          <div><label>Acceptance location (CSD)</label><input type="text" id="cs_loc" value="DUBAI" oninput="csdRender()"></div>
+          <div><label>Contents / description of goods</label><input type="text" id="cs_goods" value="PERFUMES" oninput="csdRender(); nonhazRender();"></div>
+          <div><label>Net qty per package (Non-Haz, auto from pallets)</label><input type="text" id="cs_netqty" placeholder="auto e.g. 11,12,9,9" oninput="nonhazRender()"></div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#b45309;" onclick="csdRender(); nonhazRender();">&#8635; GENERATE BOTH</button>
+            <button class="btn btn-print" onclick="csdPrint()">&#128424; PRINT CSD</button>
+            <button class="btn btn-print" onclick="nonhazPrint()">&#128424; PRINT NON-HAZARD</button>
+          </div>
+        </div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="cs_doc"></div></div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="nh_doc"></div></div>
+      </div></div>
+    </div>
+
     </div>
 
     <div class="tab" id="tab-settings">
@@ -4452,6 +4470,7 @@ async function airlineFormFill(){
   const cur = sel.value;
   sel.innerHTML = dnataStaff().map(s => `<option${s === cur ? " selected" : ""}>${esc(s)}</option>`).join("");
   await airlineFormRender();
+  csdRender(); nonhazRender();
   dnataStampPull();
 }
 async function airlineFormRender(){
@@ -4524,6 +4543,99 @@ async function airlineFormRender(){
     </div>
   </div>`;
 }
+/* CSD — Cargo Security Declaration (ANNEXURE-II) — auto from DGD + pallets */
+function csdRender(){
+  const out = document.getElementById("cs_doc"); if(!out) return;
+  const awb = v("al_awb") || v("f_awb") || "", hawb = v("al_hawb") || v("f_ref") || "";
+  const date = v("al_date") || "", loc = v("cs_loc") || "DUBAI", goods = (v("cs_goods") || "").toUpperCase();
+  const dep = iata3(v("f_dep")) || "", dest = iata3(v("f_dest")) || "";
+  const pcs = PT.length || parseInt(v("f_opcount")) || "";
+  const wt = PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) + " KG" : "";
+  const stamp = dnataStamp();
+  const TD = "border:1px solid #000; padding:1.5mm 2mm; font-size:10pt;";
+  const TH = TD + " font-weight:bold; text-align:center;";
+  let rows = `<tr><td style="${TD} text-align:center;">1</td><td style="${TD}">${esc(hawb) || "&nbsp;"}</td>
+    <td style="${TD}">${esc(goods)}</td><td style="${TD} text-align:center;">${pcs}</td>
+    <td style="${TD} text-align:center;">${wt}</td><td style="${TD} text-align:center;">${esc(dep)}</td><td style="${TD} text-align:center;">${esc(dest)}</td></tr>`;
+  for(let i = 0; i < 6; i++) rows += `<tr>${'<td style="' + TD + '">&nbsp;</td>'.repeat(7)}</tr>`;
+  out.innerHTML = `<div class="sheet" id="cs_sheet" style="min-height:285mm; padding:16mm 18mm; font-family:Calibri, Arial, sans-serif; color:#000;">
+    <div style="text-align:center; margin-top:6mm;">
+      <div style="font-size:13pt; font-weight:bold;">ANNEXURE-II</div>
+      <div style="font-size:13.5pt; font-weight:bold; text-decoration:underline; margin-top:1mm;">CARGO SECURITY DECLARATION</div>
+    </div>
+    <div style="margin-top:9mm; font-size:10.5pt; text-align:justify; line-height:1.6;">
+      The cargo as per details given below dispatched by <b><u>JFS LOGISTICS FZCO</u></b>
+      (Mention name of agent or forwarder) comes from customers whose reliability we do not doubt. The
+      cargo has been protected from the time it was tendered to and accepted by us at our acceptance
+      location: <b><u>${esc(loc)}</u></b>
+    </div>
+    <div style="margin-top:5mm; font-size:10.5pt; text-align:justify; line-height:1.6;">
+      Personal effects and household goods accounted for on an air waybill and cargo from unknown
+      customers and/or customers whose reliability is doubtful are delivered separately and identified to the
+      aircraft operator for security measures.
+    </div>
+    <div style="margin-top:5mm; font-size:10.5pt; text-align:justify; line-height:1.6;">
+      Our customers have been informed that cargo can be subject to measures for the purpose of ensuring
+      the security of air traffic.
+    </div>
+    <div style="margin-top:9mm; font-size:12pt; font-weight:bold;">Master Air Way Bill No: <span style="display:inline-block; min-width:70mm; border-bottom:1px dotted #000; text-align:center;">${esc(awb) || "&nbsp;"}</span></div>
+    <div style="margin-top:5mm; font-size:12pt; font-weight:bold;">No of pieces: <span style="display:inline-block; min-width:24mm;">${pcs}</span> Weight: <span>${wt}</span></div>
+    <table style="border-collapse:collapse; width:100%; margin-top:6mm;">
+      <tr><th style="${TH} width:9%;">SL NO:</th><th style="${TH} width:16%;">HAWB</th><th style="${TH}">Contents</th>
+          <th style="${TH} width:10%;">No of pieces</th><th style="${TH} width:12%;">Weight</th><th style="${TH} width:10%;">From</th><th style="${TH} width:10%;">To</th></tr>
+      ${rows}
+    </table>
+    <div style="margin-top:14mm;">
+      <div style="min-height:${stamp ? "34mm" : "14mm"};">${stamp ? `<img src="${stamp}" style="height:32mm; object-fit:contain;">` : ""}</div>
+      <div style="font-size:10.5pt; font-weight:bold;">Authorized Signatory</div>
+      <div style="font-size:10.5pt; margin-top:4mm;">JFS LOGISTICS FZCO, P.O.Box: 54782, DAFZA - DUBAI, U.A.E.</div>
+    </div>
+  </div>`;
+}
+function csdPrint(){ csdRender(); printAlt("cs_doc"); }
+/* CERTIFICATION FOR NON-HAZARDOUS CARGO */
+function nonhazRender(){
+  const out = document.getElementById("nh_doc"); if(!out) return;
+  const awb = v("al_awb") || v("f_awb") || "", date = v("al_date") || "";
+  const dep = iata3(v("f_dep")) || "", dest = iata3(v("f_dest")) || "";
+  const goods = (v("cs_goods") || "").toUpperCase();
+  const pcs = PT.length || parseInt(v("f_opcount")) || "";
+  const netAuto = PT.length ? PT.map(r => r.q || "").join(",") : "";
+  const net = v("cs_netqty") || netAuto;
+  const stamp = dnataStamp();
+  const TD = "border:1px solid #000; padding:2.5mm 3mm; font-size:11pt; text-align:center;";
+  const TH = TD + " font-weight:bold;";
+  out.innerHTML = `<div class="sheet" id="nh_sheet" style="min-height:285mm; padding:18mm 20mm; font-family:Georgia, 'Times New Roman', serif; color:#000;">
+    <div style="text-align:center; margin-top:16mm; font-size:14pt; font-weight:bold; letter-spacing:.5px;">CERTIFICATION FOR NON-HAZARDOUS CARGO</div>
+    <table style="border-collapse:collapse; width:100%; margin-top:14mm;">
+      <tr><th style="${TH} width:33%;">AIR WAYBILL NUMBER</th><th style="${TH} width:33%;">AIRPORT OF DEPARTURE</th><th style="${TH}">AIRPORT OF DESTINATION</th></tr>
+      <tr><td style="${TD} height:12mm;">${esc(awb)}</td><td style="${TD}">${esc(dep)}</td><td style="${TD}">${esc(dest)}</td></tr>
+    </table>
+    <div style="margin-top:10mm; font-size:11.5pt; text-align:justify; line-height:1.75;">
+      This is to certify that the articles, / substances of this shipment are properly described by
+      name that they are not listed in the current edition of IATA Dangerous Goods nor do
+      they correspond to any of the Hazardous classes appearing in the DGR, section 3,
+      classification of dangerous Goods and that they are not known to be dangerous i.e. Not
+      Restricted. Furthermore we confirm that the goods are in proper condition for
+      transportation on passenger carrying aircraft (DGR, para 8.1.2.3)
+    </div>
+    <table style="border-collapse:collapse; width:100%; margin-top:10mm;">
+      <tr><th style="${TH} width:33%;">MARKS AND NUMBER OF PACKAGES</th><th style="${TH} width:33%;">PROPER DESCRIPTION OF GOODS</th><th style="${TH}">NET QUANTITY PER PACKAGE</th></tr>
+      <tr><td style="${TD} height:11mm;">${pcs ? "0" + pcs + " PLTS" : ""}</td><td style="${TD}">${esc(goods)}</td><td style="${TD}">${esc(net)}</td></tr>
+      <tr><td style="${TD} height:11mm;">&nbsp;</td><td style="${TD}">&nbsp;</td><td style="${TD}">&nbsp;</td></tr>
+      <tr><td style="${TD} height:11mm;">&nbsp;</td><td style="${TD}">&nbsp;</td><td style="${TD}">&nbsp;</td></tr>
+    </table>
+    <table style="border-collapse:collapse; margin-top:16mm;">
+      <tr><td style="font-size:12pt; font-weight:bold; padding-right:6mm; vertical-align:bottom;">SIGNATURE<br><span style="font-size:9pt; font-weight:normal;">(AUTHORIZED)</span></td>
+          <td style="font-size:12pt; font-weight:bold; padding-right:4mm; vertical-align:bottom;">:</td>
+          <td style="border-bottom:1px solid #000; width:75mm; text-align:center; vertical-align:bottom;">${stamp ? `<img src="${stamp}" style="height:30mm; object-fit:contain;">` : "&nbsp;"}</td></tr>
+      <tr><td style="font-size:12pt; font-weight:bold; padding:5mm 6mm 0 0;">DATE</td>
+          <td style="font-size:12pt; font-weight:bold; padding-top:5mm;">:</td>
+          <td style="border-bottom:1px solid #000; font-size:11.5pt; font-weight:bold; text-align:left; padding:5mm 0 1mm 4mm;">${esc(date)}</td></tr>
+    </table>
+  </div>`;
+}
+function nonhazPrint(){ nonhazRender(); printAlt("nh_doc"); }
 function airlineFormPrint(){
   airlineFormRender().then(() => {
     if(!v("al_awb").trim() && !confirm("AWB number is empty.\n\nPrint the airline statement anyway?")) return;
