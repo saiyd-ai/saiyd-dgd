@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-J</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-K</span></span>
           </div>
         </div>
       </div>
@@ -335,14 +335,14 @@
     <!-- ================= GENERAL CARGO TAB ================= -->
     <div class="tab" id="tab-gc">
       <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#128230; GENERAL CARGO JOB &mdash; <span id="gc_jobno"></span></h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">AWB type cheyyu / paste cheyyu / PDF upload cheyyu &mdash; airline automatic detect aakum. Ennitt thaazhe ninnu LABELS, AIRLINE DOCUMENTS, DNATA edukkaam. DGD venda.</div>
+        <div class="warnbar" style="margin-top:0;">Type the AWB, paste the AWB text, or upload the AWB PDF &mdash; the airline is detected automatically. Then use the buttons below for LABELS, AIRLINE DOCUMENTS and DNATA. No DGD needed.</div>
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
           <label style="margin:0;">AWB PDF upload:</label>
           <input type="file" id="gc_awbfile" accept=".pdf" style="font-size:12.5px;">
           <button class="btn btn-save" style="background:#7b2d8b;" onclick="readAwbPdf('gc_awbfile','gc_pdfmsg').then(()=>gcSyncFromMain())">&#129302; AI EXTRACT FROM PDF</button>
           <span id="gc_pdfmsg" style="font-size:12px; color:#7a4b00;"></span>
         </div>
-        <textarea id="gc_auto" style="min-height:70px;" placeholder="...athava AWB copy text / booking email paste cheythu AI EXTRACT adikku"></textarea>
+        <textarea id="gc_auto" style="min-height:70px;" placeholder="...or paste the AWB copy text / booking e-mail here and click AI EXTRACT"></textarea>
         <div style="display:flex; gap:12px; align-items:center; margin:8px 0; flex-wrap:wrap;">
           <button class="btn btn-save" style="background:#7b2d8b;" onclick="gcAiExtract()">&#129302; AI EXTRACT (paste)</button>
           <span id="gc_msg" style="font-size:12.5px; color:#1d6b34; font-weight:bold;"></span>
@@ -350,7 +350,7 @@
         <div class="grid g4">
           <div><label>AWB / MAWB Number</label><input type="text" id="gc_awb" placeholder="e.g. 176-12345675" oninput="gcSet('f_awb', this.value); gcAirline();">
             <div id="gc_air" style="font-size:12px; font-weight:bold; color:#0f4f8c; margin-top:3px;"></div></div>
-          <div><label>HAWB (undel)</label><input type="text" id="gc_hawb" oninput="gcSet('f_ref', this.value)"></div>
+          <div><label>HAWB (if any)</label><input type="text" id="gc_hawb" oninput="gcSet('f_ref', this.value)"></div>
           <div><label>Origin / Destination (codes)</label>
             <div style="display:flex; gap:6px;"><input type="text" id="gc_dep" placeholder="DXB" style="width:80px;" oninput="gcSet('f_dep', this.value)"><input type="text" id="gc_dest" placeholder="JFK" style="width:80px;" oninput="gcSet('f_dest', this.value)"></div></div>
           <div><label>Pieces / Weight kg / Contents</label>
@@ -404,7 +404,7 @@
         </div>
         <div id="wh_paste_zone" tabindex="0" style="border:2px dashed #b45309; border-radius:8px; padding:10px 12px; margin-bottom:12px; background:#fffdf8; cursor:text; font-size:12.5px; color:#7a4b00;"
           onclick="this.focus();">
-          &#128203; <b>PASTE PHOTO HERE (Ctrl+V)</b> — click ivide, ennitt WhatsApp/screenshot photo paste cheyyu. Paste kazhinjaal mukalile READ ADDRESS / READ PACKING LIST click cheyyu.
+          &#128203; <b>PASTE PHOTO HERE (Ctrl+V)</b> — click here, then paste the WhatsApp/screenshot photo. After pasting, click READ ADDRESS / READ PACKING LIST above.
           <span id="wh_pastedthumbs" style="margin-left:8px;"></span>
         </div>
         <div class="grid g2">
@@ -861,7 +861,7 @@
     <!-- ================= DNATA TAB ================= -->
     <div class="tab" id="tab-dnata">
       <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#9992; DNATA &mdash; Master AWB Acceptance Statement (US-bound)</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">DNATA-ykku kodukkunna form &mdash; AWB &amp; HAWB automatic from the DGD tab, staff select, JFS stamp, then PRINT / SAVE PDF.</div>
+        <div class="warnbar" style="margin-top:0;">The form handed to DNATA &mdash; AWB &amp; HAWB come automatically from the DGD tab; select the staff, add the JFS stamp, then PRINT / SAVE PDF.</div>
         <div class="grid g4">
           <div><label>Date</label><input type="text" id="dn_date"></div>
           <div><label>AWB / MAWB Number (auto from DGD)</label><input type="text" id="dn_awb"></div>
@@ -890,7 +890,7 @@
       </div></div>
 
       <div class="card" style="border-left:5px solid #7a4b00;"><h2>&#128230; US COMPLIANCE FORM &mdash; CONSOL / HAWB SHIPMENTS</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">Console (HAWB) shipment US-lekku aanel ee form koodi fill cheythu kodukkanam &mdash; AWB, date &amp; stamp mukalilnnu automatic. Clean re-set version (old scan format alla).</div>
+        <div class="warnbar" style="margin-top:0;">For US-bound console (HAWB) shipments this form must also be submitted &mdash; AWB, date &amp; stamp fill automatically from above. Clean re-set version of the old scanned form.</div>
         <div class="grid g4">
           <div><label>Checklist (tick on the form)</label>
             <label style="display:block; font-size:12px; font-weight:normal;"><input type="checkbox" id="cn_1" checked onchange="dnataConsolRender()"> Nature of Goods = "Consolidation"</label>
@@ -910,7 +910,7 @@
     <!-- ================= AIRLINE FORMS TAB ================= -->
     <div class="tab" id="tab-alforms">
       <div class="card" style="border-left:5px solid #a40000;"><h2>&#128745; AIRLINE FORMS &mdash; MAWB Acceptance Statement (per airline)</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">AWB prefix nokki airline automatic detect aakum &mdash; Turkish (235) aanel TK-yude format, mattullava-kku standard format with airline header. HAWB undel athum fill aakum. Staff &amp; stamp DNATA tab-ile same.</div>
+        <div class="warnbar" style="margin-top:0;">The airline is detected automatically from the AWB prefix &mdash; Turkish (235) gets the TK format, all others the standard format with the airline header. HAWB fills automatically when present. Staff &amp; stamp are shared with the DNATA tab.</div>
         <div class="grid g4">
           <div><label>Date</label><input type="text" id="al_date"></div>
           <div><label>AWB / MAWB (auto from DGD)</label><input type="text" id="al_awb" oninput="airlineFormRender()"></div>
@@ -926,7 +926,7 @@
       </div></div>
 
       <div class="card" style="border-left:5px solid #b45309;"><h2>&#128737; CSD + NON-HAZARD CERTIFICATE &mdash; Air India (098) &amp; co.</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">098 AIR INDIA flight-inu ee 2 forms koodi venam &mdash; Cargo Security Declaration (Annexure-II) + Certification for Non-Hazardous Cargo. AWB/route/pieces/weight ellaam automatic; stamp DNATA-yile same.</div>
+        <div class="warnbar" style="margin-top:0;">098 AIR INDIA flights need these 2 extra forms &mdash; Cargo Security Declaration (Annexure-II) + Certification for Non-Hazardous Cargo. AWB/route/pieces/weight all fill automatically; stamp shared with DNATA.</div>
         <div class="grid g4">
           <div><label>Acceptance location (CSD)</label><input type="text" id="cs_loc" value="DUBAI" oninput="csdRender()"></div>
           <div><label>Contents / description of goods</label><input type="text" id="cs_goods" value="PERFUMES" oninput="csdRender(); nonhazRender();"></div>
@@ -942,7 +942,7 @@
       </div></div>
 
       <div class="card" style="border-left:5px solid #7a1020;"><h2>&#128958; ROYAL AIR MAROC (147) &mdash; TSA Acceptance + Consignment Security Declaration</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">147 RAM flight-inu ee 2 forms &mdash; TSA Cargo Acceptance Form + CSD. AWB/route/pcs/weight automatic; contents mukalile "Contents / description" box-il ninnu.</div>
+        <div class="warnbar" style="margin-top:0;">147 RAM flights need these 2 forms &mdash; TSA Cargo Acceptance Form + CSD. AWB/route/pcs/weight fill automatically; contents come from the "Contents / description" box above.</div>
         <div class="grid g4">
           <div><label>Name of individual tendering cargo</label><input type="text" id="ram_tender" oninput="ramTsaRender()"></div>
           <div><label>ID type + number (EID)</label>
@@ -965,7 +965,7 @@
       </div></div>
 
       <div class="card" style="border-left:5px solid #333;"><h2>&#9888; CHALLENGE AIRLINES (752) &mdash; DG / Hidden DG Declaration &amp; Indemnity</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">752 (Challenge / GSA Global Cargo LLC) flight-inu ee indemnity form &mdash; shipper details DGD tab-il ninnu automatic, flight/date type cheyyu, stamp DNATA-yile same.</div>
+        <div class="warnbar" style="margin-top:0;">752 (Challenge / GSA Global Cargo LLC) flights need this indemnity form &mdash; shipper details fill automatically from the DGD tab; type the flight/date; stamp shared with DNATA.</div>
         <div class="grid g4">
           <div><label>Flight / Date</label><input type="text" id="cg_flight" placeholder="e.g. 5C-102 08-AUG-2026" oninput="cgRender()"></div>
           <div><label>Contact person (email / name)</label><input type="text" id="cg_contact" placeholder="auto from shipper" oninput="cgRender()"></div>
@@ -979,7 +979,7 @@
       </div></div>
 
       <div class="card" style="border-left:5px solid #c8102e;"><h2>&#128745; EMIRATES SKYCARGO (176) &mdash; USA Statement + Non-DG + Consignee Letter + IDG RFC</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">176 EK flight-inte 4 forms &mdash; ellaam AWB/route/pcs/weight/staff/stamp automatic. Venda form mathram print cheythal mathi.</div>
+        <div class="warnbar" style="margin-top:0;">The 4 Emirates (176) forms &mdash; AWB/route/pcs/weight/staff/stamp all fill automatically. Print only the form you need.</div>
         <div class="grid g4">
           <div><label>Person tendering cargo (IDG)</label><input type="text" id="ek_tender" oninput="ekIdgRender()"></div>
           <div><label>ID number / Nationality / Mobile</label>
@@ -1015,7 +1015,7 @@
       </div></div>
 
       <div class="card"><h2>&#9997; DGD SIGNATURE (prints in the Signature box, with the company stamp)</h2><div class="body">
-        <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">Signature image upload cheyyu (white background photo/scan) &mdash; DGD-yude Signature box-il STAMP + SIGN randum automatic print aakum (whole company, all users). Stamp DNATA tab-il upload cheythathu thanne.</div>
+        <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">Upload the signature image (white-background photo/scan) &mdash; the STAMP + SIGNATURE both print automatically in the DGD Signature box (whole company, all users). The stamp is the one uploaded on the DNATA tab.</div>
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
           <input type="file" id="dgdsignfile" accept="image/*" style="font-size:12.5px;">
           <button class="btn btn-save" onclick="dgdSignSave()">&#128190; SAVE SIGNATURE</button>
@@ -5368,7 +5368,7 @@ async function dvShow(kind){
   // awbcopy / signed — uploaded files from cloud storage
   if(!d[kind]){
     body.innerHTML = `<div style="background:#fff; border-radius:10px; padding:30px; text-align:center;">
-      <div style="font-size:15px; font-weight:bold; color:#b45309;">&#9203; ${kind === "signed" ? "Signed DGD (stamp+sign scan) upload cheythittilla — PENDING" : "AWB copy upload cheythittilla"}</div>
+      <div style="font-size:15px; font-weight:bold; color:#b45309;">&#9203; ${kind === "signed" ? "Signed DGD (stamp+sign scan) not uploaded yet — PENDING" : "AWB copy not uploaded yet"}</div>
       <button class="btn btn-save" style="background:#0f2b4c; margin-top:14px;" onclick="docUpload(${_dv.i}, '${kind}')">&#11014; UPLOAD ${kind === "signed" ? "SIGNED DGD" : "AWB COPY"}</button>
     </div>`;
     return;
