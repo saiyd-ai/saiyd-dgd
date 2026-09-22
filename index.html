@@ -194,7 +194,7 @@
   /* alt print zone */
   #printzone{display:none;}
   #pgpreview .sheet{display:block !important; margin:0 auto 20px;}   /* clones keep their exact 294mm page height — true WYSIWYG */
-  @media print{ #pgpreview{display:none !important;} }
+  @media print{ #pgpreview{display:none !important;} #docviewer{display:none !important;} }
 
   /* ============ PRINT ============ */
   @media print{
@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-I</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-J</span></span>
           </div>
         </div>
       </div>
@@ -1213,6 +1213,24 @@
       <div style="font-size:11px; color:#8a97a5; margin-top:10px;">Powered by <b>s<span style="color:#3ec9a7;">Ai</span>yd.ai</b></div>
     </div>
   </div>
+
+  <!-- DOCUMENT VIEWER — one place to see & print the job's DGD / CHECKLIST / AWB / SIGNED copy -->
+  <div id="docviewer" style="display:none; position:fixed; inset:0; background:rgba(10,25,47,.86); z-index:9500; overflow:auto; padding:18px;">
+    <div style="max-width:236mm; margin:0 auto; background:#eef2f7; border-radius:12px; padding:14px 16px 18px;">
+      <div style="display:flex; gap:7px; align-items:center; flex-wrap:wrap;">
+        <b id="dv_title" style="color:#0f2b4c; font-size:14px;"></b>
+        <span style="flex:1;"></span>
+        <button class="smallbtn sb-green" onclick="dvShow('dgd')">&#128196; DGD</button>
+        <button class="smallbtn sb-blue" onclick="dvShow('chk')">&#9989; CHECKLIST</button>
+        <button class="smallbtn sb-blue" onclick="dvShow('awbcopy')">&#9992; AWB</button>
+        <button class="smallbtn sb-blue" onclick="dvShow('signed')">&#10004; SIGNED DGD</button>
+        <button class="btn btn-print" style="padding:8px 16px; margin:0;" onclick="dvPrint()">&#128424; PRINT</button>
+        <button class="smallbtn sb-red" onclick="document.getElementById('docviewer').style.display='none'">&#10005; Close</button>
+      </div>
+      <div id="dv_body" style="margin-top:12px;"></div>
+    </div>
+  </div>
+  <div id="dv_stash" style="display:none;"></div>
 
   <div id="printzone"></div>
 </div>
@@ -3964,10 +3982,7 @@ function renderDocs(){
     h += `<tr><td>${esc(d.when)}</td><td><b>${esc(d.job||"—")}</b></td><td><b>${esc(d.awb||"—")}</b></td>
       <td>${esc(d.shipper||"")}</td><td>${esc(d.consignee||"")}</td>
       <td style="white-space:nowrap;">
-        <button class="smallbtn sb-green" onclick="docOpenTab(${i},'dgd')">&#128065; DGD</button>
-        <button class="smallbtn sb-blue" onclick="docOpenTab(${i},'checklist')">&#128065; CHECKLIST</button>
-        <button class="smallbtn sb-blue" onclick="docView(${i},'awbcopy')">&#128065; AWB</button>
-        <button class="smallbtn" style="background:#efe6d6;" onclick="docUpload(${i},'awbcopy')">&#11014; AWB</button>
+        <button class="btn btn-save" style="background:#0f2b4c; padding:8px 18px; margin:0;" onclick="docViewer(${i})">&#128065; VIEW</button>
       </td>
       <td style="white-space:nowrap;">
         ${signed
@@ -5304,7 +5319,9 @@ async function docUploadGo(){
     d[_upDoc.kind] = path;
     setStore("jfs_documents", list);
     renderDocs();
-    alert("✓ Uploaded — " + (_upDoc.kind === "signed" ? "signed DGD attached to job " : "AWB copy attached to job ") + (d.job || d.awb || ""));
+    const k = _upDoc.kind;
+    alert("✓ Uploaded — " + (k === "signed" ? "signed DGD attached to job " : "AWB copy attached to job ") + (d.job || d.awb || ""));
+    if(document.getElementById("docviewer").style.display === "block"){ _dv.i = _upDoc.i; dvShow(k); }
   }catch(e){ alert("Upload failed: " + (e.message || e)); }
   document.getElementById("doc_upfile").value = "";
   _upDoc = null;
@@ -5319,6 +5336,61 @@ async function docView(i, kind){
   }catch(e){ alert("Could not open: " + (e.message || e)); }
 }
 function docOpenTab(i, tab){ applySnapshot(store("jfs_documents")[i].snap); showTab(tab); }
+/* DOCUMENT VIEWER — VIEW button opens one window with DGD / CHECKLIST / AWB / SIGNED + PRINT */
+let _dv = {i: -1, dgd: "", chk: "", cur: "dgd"};
+function _stripIds(html){ return html.replace(/\sid="(?!dv_)[^"]*"/g, ""); }
+async function docViewer(i){
+  const d = store("jfs_documents")[i]; if(!d) return;
+  const bak = snapshot();
+  try{
+    applySnapshot(d.snap);
+    try{ buildPrintPages(); }catch(e){}
+    const pz = document.getElementById("printzone");
+    _dv.dgd = _stripIds(pz.children.length ? pz.innerHTML : document.getElementById("sheet").outerHTML);
+    try{ buildIata(); }catch(e){}
+    _dv.chk = `<div class="sheet" style="padding:10mm 12mm; min-height:auto;">` + _stripIds((document.getElementById("iataArea")||{innerHTML:""}).innerHTML) + `</div>`;
+  } finally {
+    applySnapshot(bak);                                   // user's current work untouched
+    document.getElementById("printzone").innerHTML = "";
+    document.body.classList.remove("pm-alt");
+  }
+  _dv.i = i;
+  document.getElementById("dv_title").textContent = "JOB " + (d.job || "—") + "  •  AWB " + (d.awb || "—");
+  document.getElementById("docviewer").style.display = "block";
+  dvShow("dgd");
+}
+async function dvShow(kind){
+  _dv.cur = kind;
+  const body = document.getElementById("dv_body");
+  const d = store("jfs_documents")[_dv.i] || {};
+  if(kind === "dgd"){ body.innerHTML = _dv.dgd; return; }
+  if(kind === "chk"){ body.innerHTML = _dv.chk; return; }
+  // awbcopy / signed — uploaded files from cloud storage
+  if(!d[kind]){
+    body.innerHTML = `<div style="background:#fff; border-radius:10px; padding:30px; text-align:center;">
+      <div style="font-size:15px; font-weight:bold; color:#b45309;">&#9203; ${kind === "signed" ? "Signed DGD (stamp+sign scan) upload cheythittilla — PENDING" : "AWB copy upload cheythittilla"}</div>
+      <button class="btn btn-save" style="background:#0f2b4c; margin-top:14px;" onclick="docUpload(${_dv.i}, '${kind}')">&#11014; UPLOAD ${kind === "signed" ? "SIGNED DGD" : "AWB COPY"}</button>
+    </div>`;
+    return;
+  }
+  body.innerHTML = `<div style="color:#fff;">Loading...</div>`;
+  try{
+    const { data, error } = await sb.storage.from("dgdocs").createSignedUrl(d[kind], 3600);
+    if(error) throw error;
+    _dv.url = data.signedUrl;
+    body.innerHTML = `<iframe src="${data.signedUrl}" style="width:100%; height:76vh; background:#fff; border:0; border-radius:8px;"></iframe>
+      <div style="margin-top:6px;"><button class="smallbtn sb-blue" onclick="window.open(_dv.url,'_blank')">&#8599; Open in new tab</button>
+      <button class="smallbtn" style="background:#efe6d6;" onclick="docUpload(${_dv.i}, '${kind}')">&#11014; Replace</button></div>`;
+  }catch(e){ body.innerHTML = `<div style="color:#fff;">Could not open: ${esc(e.message || String(e))}</div>`; }
+}
+function dvPrint(){
+  if(_dv.cur === "dgd" || _dv.cur === "chk"){
+    document.getElementById("dv_stash").innerHTML = _dv.cur === "dgd" ? _dv.dgd : _dv.chk;
+    printAlt("dv_stash");
+  } else if(_dv.url){
+    window.open(_dv.url, "_blank");                        // print the uploaded PDF from the new tab
+  } else alert("Upload the file first.");
+}
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
   const blob = new Blob([JSON.stringify({when: new Date().toISOString(), data}, null, 1)], {type:"application/json"});
