@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-K</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-L</span></span>
           </div>
         </div>
       </div>
@@ -866,13 +866,17 @@
           <div><label>Date</label><input type="text" id="dn_date"></div>
           <div><label>AWB / MAWB Number (auto from DGD)</label><input type="text" id="dn_awb"></div>
           <div><label>HAWB Number (auto from Shipper's Reference)</label><input type="text" id="dn_hawb" placeholder="leave empty if none"></div>
-          <div><label>Staff (name / title on the statement)</label>
-            <select id="dn_staff" onchange="dnataRender()"></select>
-            <div style="display:flex; gap:6px; margin-top:4px;">
-              <input type="text" id="dn_newstaff" placeholder="e.g. NOWRIN / Logistics Executive" style="flex:1; font-size:12px;">
-              <button class="smallbtn sb-green" onclick="dnataStaffAdd()">+ Add</button>
-              <button class="smallbtn sb-red" onclick="dnataStaffDel()">x</button>
+          <div><label>Staff (signs the DNATA &amp; airline forms)</label>
+            <select id="dn_staff" onchange="dnataRender(); dnataConsolRender();"></select>
+            <div style="display:flex; gap:5px; margin-top:5px; flex-wrap:wrap;">
+              <input type="text" id="st_name" placeholder="NAME" style="width:100px; font-size:12px;">
+              <input type="text" id="st_title" placeholder="Designation" style="width:130px; font-size:12px;">
+              <input type="text" id="st_email" placeholder="login email (auto-select)" style="width:160px; font-size:12px;">
+              <input type="file" id="st_sign" accept="image/*" style="font-size:11px; max-width:150px;" title="Signature image">
+              <button class="smallbtn sb-green" onclick="staffSaveNew()">&#128190; Save staff</button>
+              <button class="smallbtn sb-red" onclick="staffDelSel()">x</button>
             </div>
+            <span id="st_msg" style="font-size:11px; color:#1d6b34; font-weight:bold;"></span>
           </div>
           <div><label>JFS Stamp (prints at Signature &amp; Stamp &mdash; all users)</label>
             <div style="display:flex; gap:6px; align-items:center;">
@@ -4498,7 +4502,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
@@ -4533,29 +4537,84 @@ async function dgdLogoPull(){
   }catch(e){}
 }
 /* ================= DNATA — Master AWB Acceptance Statement ================= */
-function dnataStaff(){ try{ return JSON.parse(localStorage.getItem("jfs_dnata_staff") || "null") || ["NOWRIN / Logistics Executive"]; }catch(e){ return ["NOWRIN / Logistics Executive"]; } }
-function dnataStaffFill(){
-  const sel = document.getElementById("dn_staff"); if(!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = dnataStaff().map(s => `<option${s === cur ? " selected" : ""}>${esc(s)}</option>`).join("");
+/* ===== STAFF PROFILES — name / designation / SIGNATURE (shared with the whole company) =====
+   Each staff signs the DNATA & airline forms with their own signature image.
+   Add the staff's login email → when they log in, their profile is auto-selected. */
+function staffAll(){
+  try{
+    const p = JSON.parse(localStorage.getItem("jfs_staff_profiles") || "null");
+    if(Array.isArray(p) && p.length) return p;
+  }catch(e){}
+  try{
+    const old = JSON.parse(localStorage.getItem("jfs_dnata_staff") || "null") || [];
+    if(old.length) return old.map(s => { const t = String(s).split("/"); return {name:(t[0]||"").trim(), title:(t[1]||"").trim(), email:"", sign:""}; });
+  }catch(e){}
+  return [{name:"NOWRIN", title:"LOGISTICS EXECUTIVE", email:"", sign:""}];
 }
-function dnataStaffAdd(){
-  const t = (v("dn_newstaff") || "").trim().toUpperCase();
-  if(!t){ alert("Type the staff name / title first (e.g. NOWRIN / Logistics Executive)."); return; }
-  const list = dnataStaff();
-  if(!list.includes(t)) list.push(t);
-  setStore("jfs_dnata_staff", list);
-  document.getElementById("dn_newstaff").value = "";
-  dnataStaffFill();
-  document.getElementById("dn_staff").value = t;
-  dnataRender();
+function staffLabel(p){ return p.name + (p.title ? " / " + p.title : ""); }
+function staffByLabel(l){ return staffAll().find(p => staffLabel(p) === l) || null; }
+function staffSignTag(l, h){
+  const p = staffByLabel(l || "");
+  return (p && p.sign) ? `<img src="${p.sign}" style="height:${h || 14}mm; object-fit:contain; vertical-align:bottom; margin-right:4mm;">` : "";
 }
-function dnataStaffDel(){
-  const sel = document.getElementById("dn_staff");
-  if(!sel.value || !confirm("Remove staff \"" + sel.value + "\" from the list?")) return;
-  setStore("jfs_dnata_staff", dnataStaff().filter(s => s !== sel.value));
-  dnataStaffFill(); dnataRender();
+async function staffStore(list){
+  localStorage.setItem("jfs_staff_profiles", JSON.stringify(list));
+  if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key:"staff_profiles", value:{list}, updated_by:sbUser.email}); }catch(e){} }
 }
+async function staffPull(){
+  if(!sb || !sbUser) return;
+  try{
+    const { data } = await sb.from("company_settings").select("value").eq("key","staff_profiles").maybeSingle();
+    if(data && data.value && Array.isArray(data.value.list) && data.value.list.length){
+      localStorage.setItem("jfs_staff_profiles", JSON.stringify(data.value.list));
+      staffFill(); staffAutoSelect();
+    }
+  }catch(e){}
+}
+function staffFill(){
+  ["dn_staff","al_staff"].forEach(id => {
+    const sel = document.getElementById(id); if(!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = staffAll().map(p => `<option${staffLabel(p) === cur ? " selected" : ""}>${esc(staffLabel(p))}</option>`).join("");
+  });
+}
+function staffAutoSelect(){
+  if(!sbUser || !sbUser.email) return;
+  const me = staffAll().find(p => (p.email || "").toLowerCase() === sbUser.email.toLowerCase());
+  if(!me) return;
+  ["dn_staff","al_staff"].forEach(id => { const sel = document.getElementById(id); if(sel) sel.value = staffLabel(me); });
+}
+async function staffSaveNew(){
+  const name = (v("st_name") || "").trim().toUpperCase();
+  const title = (v("st_title") || "").trim().toUpperCase();
+  const email = (v("st_email") || "").trim().toLowerCase();
+  if(!name){ alert("Enter the staff name."); return; }
+  let sign = "";
+  const f = document.getElementById("st_sign").files[0];
+  if(f) sign = "data:image/jpeg;base64," + await imgFileToB64(f, 600);
+  const list = staffAll();
+  let p = list.find(x => x.name === name);
+  if(p){ if(title) p.title = title; if(email) p.email = email; if(sign) p.sign = sign; }
+  else list.push({name, title, email, sign});
+  await staffStore(list);
+  staffFill();
+  const lbl = name + (title ? " / " + title : (p && p.title ? " / " + p.title : ""));
+  ["dn_staff","al_staff"].forEach(id => { const sel = document.getElementById(id); if(sel) sel.value = lbl; });
+  ["st_name","st_title","st_email"].forEach(id => { const e = document.getElementById(id); if(e) e.value = ""; });
+  document.getElementById("st_sign").value = "";
+  document.getElementById("st_msg").textContent = "✓ Staff saved (whole company) — their signature prints on the DNATA & airline forms.";
+  dnataRender(); dnataConsolRender();
+  if(typeof airlineFormRender === "function") airlineFormRender();
+}
+async function staffDelSel(){
+  const cur = v("dn_staff") || v("al_staff");
+  if(!cur || !confirm("Remove staff \"" + cur + "\"?")) return;
+  await staffStore(staffAll().filter(p => staffLabel(p) !== cur));
+  staffFill();
+}
+/* legacy aliases */
+function dnataStaff(){ return staffAll().map(staffLabel); }
+function dnataStaffFill(){ staffFill(); }
 function dnataStamp(){ try{ return (JSON.parse(localStorage.getItem("jfs_dnata_stamp") || "null") || {}).img || ""; }catch(e){ return ""; } }
 async function dnataStampSave(){
   const f = document.getElementById("dn_stampfile").files[0];
@@ -4580,10 +4639,11 @@ async function dnataFill(){
   if(!v("dn_date")) document.getElementById("dn_date").value = dd;
   if(!v("dn_awb") && v("f_awb")) document.getElementById("dn_awb").value = v("f_awb");
   if(!v("dn_hawb") && v("f_ref")) document.getElementById("dn_hawb").value = v("f_ref");
-  dnataStaffFill();
+  staffFill();
   dnataRender();
   dnataConsolRender();
   dnataStampPull();
+  staffPull();
 }
 function dnataRender(){
   const out = document.getElementById("dn_doc"); if(!out) return;
@@ -4621,7 +4681,7 @@ function dnataRender(){
       ${FLD("Name and title of signatory", esc(staff))}
       <div style="margin-top:6.5mm;">
         <div style="font-size:10.5pt;">Signature &amp; Stamp</div>
-        <div style="border-bottom:1px solid #000; min-height:${stamp ? "34mm" : "14mm"}; padding:2mm 0 1mm 10mm;">
+        <div style="border-bottom:1px solid #000; min-height:${staffSignTag(v("dn_staff"),15)}${stamp ? "34mm" : "14mm"}; padding:2mm 0 1mm 10mm;">
           ${stamp ? `<img src="${stamp}" style="height:32mm; object-fit:contain;">` : ""}
         </div>
       </div>
@@ -4683,15 +4743,14 @@ async function airlineFormFill(){
   if(!v("al_date")) document.getElementById("al_date").value = dd;
   if(!v("al_awb") && v("f_awb")) document.getElementById("al_awb").value = v("f_awb");
   if(!v("al_hawb") && v("f_ref")) document.getElementById("al_hawb").value = v("f_ref");
-  const sel = document.getElementById("al_staff");
-  const cur = sel.value;
-  sel.innerHTML = dnataStaff().map(s => `<option${s === cur ? " selected" : ""}>${esc(s)}</option>`).join("");
+  staffFill();
   await airlineFormRender();
   csdRender(); nonhazRender();
   ramTsaRender(); ramCsdRender();
   cgRender();
   ekUsaRender(); ekNonDgRender(); ekConsRender(); ekIdgRender();
   dnataStampPull();
+  staffPull();
 }
 async function airlineFormRender(){
   const out = document.getElementById("al_doc"); if(!out) return;
@@ -4751,7 +4810,7 @@ async function airlineFormRender(){
       <div style="margin-top:7mm; font-size:11pt; font-weight:bold; display:flex; align-items:flex-end; gap:4mm; flex-wrap:wrap;">
         <span>Date: <span style="display:inline-block; min-width:30mm; border-bottom:1px solid #000; text-align:center;">${esc(date)}</span></span>
         <span>Name: <span style="display:inline-block; min-width:40mm; border-bottom:1px solid #000; text-align:center; font-size:10pt;">${esc(staff)}</span></span>
-        <span>Signature <span style="display:inline-block; min-width:38mm; border-bottom:1px solid #000; text-align:center;">${stamp ? `<img src="${stamp}" style="height:26mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></span>
+        <span>Signature <span style="display:inline-block; min-width:38mm; border-bottom:1px solid #000; text-align:center;">${staffSignTag(v("al_staff"),12)}${stamp ? `<img src="${stamp}" style="height:26mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></span>
       </div>
       <div style="position:absolute; bottom:10mm; right:16mm; font-size:9pt;">QTR/CGO/SEC/FORMS/TSA/2023/001</div>
     </div>`;
@@ -4803,7 +4862,7 @@ async function airlineFormRender(){
       ${FLD("Name and title of signatory", esc(staff))}
       <div style="margin-top:6.5mm;">
         <div style="font-size:10.5pt;">Signature &amp; Stamp</div>
-        <div style="border-bottom:1px solid #000; min-height:${stamp ? "34mm" : "14mm"}; padding:2mm 0 1mm 10mm;">
+        <div style="border-bottom:1px solid #000; min-height:${staffSignTag(v("al_staff"),15)}${stamp ? "34mm" : "14mm"}; padding:2mm 0 1mm 10mm;">
           ${stamp ? `<img src="${stamp}" style="height:32mm; object-fit:contain;">` : ""}
         </div>
       </div>
@@ -4853,7 +4912,7 @@ function csdRender(){
       ${rows}
     </table>
     <div style="margin-top:14mm;">
-      <div style="min-height:${stamp ? "34mm" : "14mm"};">${stamp ? `<img src="${stamp}" style="height:32mm; object-fit:contain;">` : ""}</div>
+      <div style="min-height:${stamp ? "34mm" : "14mm"};">${staffSignTag(v("al_staff") || v("dn_staff"),15)}${stamp ? `<img src="${stamp}" style="height:32mm; object-fit:contain;">` : ""}</div>
       <div style="font-size:10.5pt; font-weight:bold;">Authorized Signatory</div>
       <div style="font-size:10.5pt; margin-top:4mm;">JFS LOGISTICS FZCO, P.O.Box: 54782, DAFZA - DUBAI, U.A.E.</div>
     </div>
@@ -4895,7 +4954,7 @@ function nonhazRender(){
     <table style="border-collapse:collapse; margin-top:16mm;">
       <tr><td style="font-size:12pt; font-weight:bold; padding-right:6mm; vertical-align:bottom;">SIGNATURE<br><span style="font-size:9pt; font-weight:normal;">(AUTHORIZED)</span></td>
           <td style="font-size:12pt; font-weight:bold; padding-right:4mm; vertical-align:bottom;">:</td>
-          <td style="border-bottom:1px solid #000; width:75mm; text-align:center; vertical-align:bottom;">${stamp ? `<img src="${stamp}" style="height:30mm; object-fit:contain;">` : "&nbsp;"}</td></tr>
+          <td style="border-bottom:1px solid #000; width:75mm; text-align:center; vertical-align:bottom;">${staffSignTag(v("al_staff") || v("dn_staff"),13)}${stamp ? `<img src="${stamp}" style="height:30mm; object-fit:contain;">` : "&nbsp;"}</td></tr>
       <tr><td style="font-size:12pt; font-weight:bold; padding:5mm 6mm 0 0;">DATE</td>
           <td style="font-size:12pt; font-weight:bold; padding-top:5mm;">:</td>
           <td style="border-bottom:1px solid #000; font-size:11.5pt; font-weight:bold; text-align:left; padding:5mm 0 1mm 4mm;">${esc(date)}</td></tr>
@@ -5060,7 +5119,7 @@ function cgRender(){
     <div style="margin-top:2.5mm; font-size:10.5pt; line-height:1.55;">I certify that I am an authorized representative of the shipper and that the information provided above is true, complete and accurate.</div>
     <div style="margin-top:7mm;">
       ${LN("Company Name:", "JFS LOGISTICS FZCO", "60mm")}
-      ${LN("Authorized Signatory:", "", "60mm")}
+      ${LN("Authorized Signatory:", staffSignTag(v("al_staff") || v("dn_staff"),12), "60mm")}
       <div style="margin-top:4.5mm; font-size:10.5pt;"><b>Company Stamp:</b>
         <span style="display:inline-block; min-width:60mm; border-bottom:1px solid #000; text-align:center; vertical-align:bottom;">${stamp ? `<img src="${stamp}" style="height:30mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></div>
       ${LN("Date:", esc(date), "40mm")}
@@ -5103,7 +5162,7 @@ function ekUsaRender(){
       any point in Egypt, Somalia, Syria, or Yemen&rdquo;
     </div>
     <div style="margin-top:16mm; font-size:11pt;">Authorized Representative : <span style="display:inline-block; min-width:60mm; border-bottom:1px solid #000; font-weight:bold; text-align:center;">${esc(e.staff)}</span></div>
-    <div style="margin-top:8mm; font-size:11pt;">Official Company Stamp: <span style="display:inline-block; min-width:60mm; border-bottom:1px solid #000; text-align:center; vertical-align:bottom;">${e.stamp ? `<img src="${e.stamp}" style="height:28mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></div>
+    <div style="margin-top:8mm; font-size:11pt;">Official Company Stamp: <span style="display:inline-block; min-width:60mm; border-bottom:1px solid #000; text-align:center; vertical-align:bottom;">${staffSignTag(e.staff,13)}${e.stamp ? `<img src="${e.stamp}" style="height:28mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></div>
     <div style="margin-top:6mm; font-size:11pt;">Date &amp; Place: <span style="display:inline-block; min-width:60mm; border-bottom:1px solid #000; font-weight:bold; text-align:center;">${esc(e.date)}${e.date ? ", DUBAI" : ""}</span></div>
     <div style="margin-top:18mm; font-size:10pt;">Distribution:<br>1- One Copy: Retain in Station File<br><span style="font-size:8.5pt;">(must be maintained for a minimum of 90 calendar days)</span></div>
     <div style="margin-top:12mm; font-size:9.5pt;">Effective: 08 February 2016</div>
@@ -5146,7 +5205,7 @@ async function ekNonDgRender(){
     </div>
     <div style="margin-top:5mm; font-size:10.5pt;">Name of Signatory (Shipper/Agent): <span style="display:inline-block; min-width:70mm; border-bottom:1px solid #000; font-weight:bold; padding-left:3mm;">JFS LOGISTICS FZCO</span></div>
     <div style="margin-top:3.5mm; font-size:10.5pt;">Date: <span style="display:inline-block; min-width:50mm; border-bottom:1px solid #000; font-weight:bold; padding-left:3mm;">${esc(e.date)}</span></div>
-    <div style="margin-top:3.5mm; font-size:10.5pt;">Signature: <span style="display:inline-block; min-width:55mm; border-bottom:1px solid #000; vertical-align:bottom; text-align:center;">${e.stamp ? `<img src="${e.stamp}" style="height:22mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></div>
+    <div style="margin-top:3.5mm; font-size:10.5pt;">Signature: <span style="display:inline-block; min-width:55mm; border-bottom:1px solid #000; vertical-align:bottom; text-align:center;">${staffSignTag(e.staff,11)}${e.stamp ? `<img src="${e.stamp}" style="height:22mm; object-fit:contain; vertical-align:bottom;">` : "&nbsp;"}</span></div>
     <div style="font-size:9pt; margin-top:3mm;">${"*".repeat(110)}</div>
     <div style="margin-top:2mm; font-size:10.5pt;">Accepted By: &nbsp;Emirates ${CB} &nbsp; GHA ${CB}</div>
     <div style="margin-top:3mm; font-size:10.5pt;">Name of Signatory: ______________________________</div>
@@ -5197,7 +5256,7 @@ async function ekConsRender(){
           <td style="width:12%;">Title</td><td>: &nbsp;${V(esc((st[1]||"").trim().toUpperCase()))}</td></tr>
       <tr><td style="padding:1.5mm 0;">Company</td><td>: &nbsp;${V("JFS LOGISTICS FZCO")}</td>
           <td>Date</td><td>: &nbsp;${V(esc(e.date))}</td></tr>
-      <tr><td style="padding:1.5mm 0; vertical-align:bottom;">Signature</td><td colspan="3">: &nbsp;${e.stamp ? `<img src="${e.stamp}" style="height:26mm; object-fit:contain; vertical-align:bottom;">` : ""}</td></tr>
+      <tr><td style="padding:1.5mm 0; vertical-align:bottom;">Signature</td><td colspan="3">: &nbsp;${staffSignTag(e.staff,12)}${e.stamp ? `<img src="${e.stamp}" style="height:26mm; object-fit:contain; vertical-align:bottom;">` : ""}</td></tr>
     </table>
     <div style="font-size:7.5pt; color:#777; margin-top:6mm;">BUSINESS DOCUMENT &nbsp;This document is intended for business use and should be distributed to intended recipients only.</div>
   </div>`;
@@ -5254,7 +5313,7 @@ async function ekIdgRender(){
       <span style="font-size:8.5pt;">I hereby declare that I have no objection to Emirates SkyCargo conducting an open inspection of the shipment in accordance with <b>Clause 3.6 of the Conditions of Carriage</b>.</span><br>
       Shipper&rsquo;s / Agent&rsquo;s name: <b style="font-size:11pt;">JFS LOGISTICS FZCO</b><br>
       Name of person tendering the Cargo: <b>${esc((v("ek_tender") || "").toUpperCase())}</b> &nbsp; ID Number: <b>${esc(v("ek_idno"))}</b> &nbsp; ID Type: <b>EID</b><br>
-      Nationality: <b>${esc((v("ek_nat") || "").toUpperCase())}</b> &nbsp; Mobile no.: <b>${esc(v("ek_mob"))}</b> &nbsp; Signature: ____________ &nbsp; Date: <b>${esc(e.date)}</b>
+      Nationality: <b>${esc((v("ek_nat") || "").toUpperCase())}</b> &nbsp; Mobile no.: <b>${esc(v("ek_mob"))}</b> &nbsp; Signature: ${staffSignTag(e.staff,9) || "____________"} &nbsp; Date: <b>${esc(e.date)}</b>
     </div>
     <div style="font-weight:bold; margin-top:2mm;">Following checks to be completed by Acceptance staff <span style="float:right;">Yes &nbsp; No &nbsp; NA</span></div>
     <div style="border:1px solid #000; padding:1.5mm 2mm; margin-top:1mm; font-size:8.5pt; line-height:1.6;">
