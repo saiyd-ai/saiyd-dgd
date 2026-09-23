@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-D</span></span>
           </div>
         </div>
       </div>
@@ -1027,6 +1027,7 @@
             <span id="ekg_stampmsg" style="font-size:11px; color:#1d6b34; font-weight:bold;"></span></div>
           <div style="align-self:end;">
             <button class="btn btn-save" style="background:#c8102e;" onclick="ekgcAll()">&#8635; GENERATE ALL 4</button>
+            <button class="btn btn-print" style="background:#1d6b34;" onclick="ekgcPrintAll()">&#128424; PRINT ALL 4 (one click)</button>
           </div>
           <div style="align-self:end;">
             <button class="btn btn-print" onclick="ekgcStmtRender(); printAlt('ekg1_doc');">&#128424; 1. MAWB STATEMENT</button>
@@ -5459,6 +5460,25 @@ async function ekgcStampPick(){
   ekgcUndRender();
 }
 function ekgcAll(){ ekgcStmtRender(); ekgcTsaRender(); ekIdgRender("ekg3_doc"); ekgcUndRender(); }
+async function ekgcPrintAll(){
+  ekgcStmtRender(); ekgcTsaRender(); await ekIdgRender("ekg3_doc"); ekgcUndRender();
+  await new Promise(r => setTimeout(r, 350));
+  let h = "";
+  const ids = ["ekg1_doc","ekg2_doc","ekg3_doc","ekg4_doc"];
+  ids.forEach((id, i) => {
+    const el = document.getElementById(id).firstElementChild;
+    if(!el) return;
+    const c = el.cloneNode(true);
+    c.removeAttribute("id");
+    c.style.minHeight = "";
+    c.style.height = "294mm";
+    c.style.overflow = "hidden";
+    if(i < ids.length - 1) c.style.pageBreakAfter = "always";
+    h += c.outerHTML;
+  });
+  document.getElementById("dv_stash").innerHTML = h;
+  printAlt("dv_stash");
+}
 /* 1) EK MAWB Acceptance Statement (simple version, Somalia/Syria/Yemen/Egypt & Iran) */
 function ekgcStmtRender(){
   const out = document.getElementById("ekg1_doc"); if(!out) return;
