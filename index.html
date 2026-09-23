@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-D</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-E</span></span>
           </div>
         </div>
       </div>
@@ -304,6 +304,7 @@
       <button id="nav-docs" onclick="showTab('docs')">&#128193; DOCUMENTS</button>
       <button id="nav-dnata" onclick="showTab('dnata')">&#9992; DNATA</button>
       <button id="nav-alforms" onclick="showTab('alforms')">&#128745; AIRLINE FORMS</button>
+      <button id="nav-awb" onclick="showTab('awb')">&#128459; AWB / MANIFEST</button>
       <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
     </div>
 
@@ -1043,6 +1044,60 @@
       </div></div>
     </div>
 
+    <!-- ================= AWB / MANIFEST TAB ================= -->
+    <div class="tab" id="tab-awb">
+      <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#128459; MASTER AWB DRAFT &mdash; IATA standard layout (EK style)</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">Fill the fields &mdash; shipper/consignee/route/pieces/weight come automatically from the job. Print the draft AWB in the standard IATA layout.</div>
+        <div class="grid g4">
+          <div><label>AWB Number (auto)</label><input type="text" id="aw_no" oninput="mawbRender()"></div>
+          <div><label>Flight / Date</label><input type="text" id="aw_flight" placeholder="EK202 / 25-SEP-2026" oninput="mawbRender()"></div>
+          <div><label>To / By first carrier</label>
+            <div style="display:flex; gap:5px;"><input type="text" id="aw_to1" placeholder="JFK" style="width:70px;" oninput="mawbRender()"><input type="text" id="aw_by1" placeholder="EK" style="width:60px;" oninput="mawbRender()"></div></div>
+          <div><label>Chargeable wt / Rate per kg</label>
+            <div style="display:flex; gap:5px;"><input type="text" id="aw_chwt" placeholder="920" style="width:80px;" oninput="mawbRender()"><input type="text" id="aw_rate" placeholder="4.50" style="width:80px;" oninput="mawbRender()"></div></div>
+          <div><label>Dimensions (prints under goods)</label><input type="text" id="aw_dims" placeholder="DIMS: 4 PLT @ 120X100X110 CM" oninput="mawbRender()"></div>
+          <div><label>Handling information</label><input type="text" id="aw_handl" placeholder="e.g. GENERAL CARGO — NOTIFY CONSIGNEE ON ARRIVAL" oninput="mawbRender()"></div>
+          <div><label>Prepaid / Collect &nbsp;&bull;&nbsp; DRAFT mark</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select id="aw_pc" onchange="mawbRender()"><option>PREPAID</option><option>COLLECT</option></select>
+              <label style="font-size:12px; font-weight:normal;"><input type="checkbox" id="aw_draft" checked onchange="mawbRender()"> DRAFT</label>
+            </div></div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#0f2b4c;" onclick="mawbRender()">&#8635; GENERATE</button>
+            <button class="btn btn-print" onclick="mawbRender(); printAlt('aw_doc');">&#128424; PRINT DRAFT AWB</button>
+          </div>
+        </div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="aw_doc"></div></div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #1d6b34;"><h2>&#127968; HOUSE AWBs &mdash; multiple houses under this MAWB</h2><div class="body">
+        <div class="grid g4">
+          <div><label>HAWB Number</label><input type="text" id="hb_no" placeholder="JFSH-0001"></div>
+          <div><label>Pieces / Weight kg</label>
+            <div style="display:flex; gap:5px;"><input type="text" id="hb_pcs" style="width:70px;"><input type="text" id="hb_wt" style="width:90px;"></div></div>
+          <div><label>Nature of goods</label><input type="text" id="hb_goods" placeholder="PERFUMES"></div>
+          <div><label>Origin / Destination</label>
+            <div style="display:flex; gap:5px;"><input type="text" id="hb_org" placeholder="DXB" style="width:70px;"><input type="text" id="hb_dest" placeholder="JFK" style="width:70px;"></div></div>
+          <div><label>Shipper (name &amp; address)</label><textarea id="hb_shipper" style="min-height:64px;"></textarea></div>
+          <div><label>Consignee (name &amp; address)</label><textarea id="hb_consignee" style="min-height:64px;"></textarea></div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#1d6b34;" onclick="hbAdd()">&#10133; ADD / UPDATE HOUSE</button>
+            <button class="smallbtn sb-blue" onclick="hbClearForm()">Clear form</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto; margin-top:10px;"><table class="dtable" id="hb_table"></table></div>
+        <div style="margin-top:12px; overflow-x:auto;"><div id="hb_doc"></div></div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #7a4b00;"><h2>&#128203; CONSOL MANIFEST</h2><div class="body">
+        <div class="actions" style="margin:0 0 10px 0;">
+          <button class="btn btn-save" style="background:#7a4b00;" onclick="mfRender()">&#8635; GENERATE MANIFEST</button>
+          <button class="btn btn-print" onclick="mfRender(); printAlt('mf_doc');">&#128424; PRINT MANIFEST</button>
+        </div>
+        <div style="overflow-x:auto;"><div id="mf_doc"></div></div>
+      </div></div>
+    </div>
+
     <div class="tab" id="tab-settings">
       <div class="card"><h2>&#128444; DGD CORNER LOGO (top-right of the printed DGD)</h2><div class="body">
         <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">Upload the logo image that must appear on the DGD's top-right corner
@@ -1596,6 +1651,8 @@ function snapshot(){
     overpack:rv("f_overpack"), opcount:v("f_opcount"), opqty:v("f_opqty"), pl:PL,
     pt:PT, ptTare:v("pt_tare"), ptBox:v("pt_boxtype"),
     jobtype: (typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG"), gcwt: v("gc_wt"),
+    hawbs: (typeof HAWBS !== "undefined" ? HAWBS : []),
+    aw: {no:v("aw_no"), flight:v("aw_flight"), to1:v("aw_to1"), by1:v("aw_by1"), chwt:v("aw_chwt"), rate:v("aw_rate"), dims:v("aw_dims"), handl:v("aw_handl"), pc:v("aw_pc")},
     stampsign: (document.getElementById("f_stampsign") ? document.getElementById("f_stampsign").checked : true) };
 }
 function applySnapshot(s){
@@ -1629,6 +1686,9 @@ function applySnapshot(s){
   document.getElementById("items").innerHTML = "";
   (s.items && s.items.length ? s.items : [null]).forEach(it => addItem(it));
   if(s.gcwt !== undefined){ const ge = document.getElementById("gc_wt"); if(ge) ge.value = s.gcwt || ""; }
+  HAWBS = Array.isArray(s.hawbs) ? s.hawbs : [];
+  if(s.aw){ Object.entries({aw_no:s.aw.no, aw_flight:s.aw.flight, aw_to1:s.aw.to1, aw_by1:s.aw.by1, aw_chwt:s.aw.chwt, aw_rate:s.aw.rate, aw_dims:s.aw.dims, aw_handl:s.aw.handl, aw_pc:s.aw.pc}).forEach(([id,val]) => { const e = document.getElementById(id); if(e && val !== undefined) e.value = val || (id==="aw_pc"?"PREPAID":""); }); }
+  if(typeof hbRender === "function") hbRender();
   const ss = document.getElementById("f_stampsign"); if(ss) ss.checked = (s.stampsign !== false);
   if(s.jobtype && typeof setJobType === "function") setJobType(s.jobtype);   // only when the snapshot carries a type
   refresh();
@@ -1958,6 +2018,7 @@ function showTab(name){
   if(name === "dnata") dnataFill();
   if(name === "alforms") airlineFormFill();
   if(name === "gc") gcSyncFromMain();
+  if(name === "awb") awbFill();
 }
 
 /* ---------- alt print (checklist / stickers / labels) ---------- */
@@ -5340,10 +5401,11 @@ async function ekIdgRender(target){
   const CB = on => `<span style="display:inline-block; border:1.2px solid #000; width:4.2mm; height:4.2mm; text-align:center; font-size:9pt; line-height:4.2mm; vertical-align:middle;">${on ? "&#10003;" : "&nbsp;"}</span>`;
   const TD = "border:1px solid #000; padding:1.2mm 2mm; font-size:9pt;";
   let rows = "";
+  const hlist = (typeof HAWBS !== "undefined" && HAWBS.length) ? HAWBS : (e.hawb ? [{no:e.hawb, pcs:e.pcs, org:e.dep, dest:e.dest}] : []);
   for(let i = 0; i < 5; i++){
-    const h = i === 0 && e.hawb ? e.hawb : "";
-    rows += `<tr><td style="${TD} text-align:center;">${i+1}.</td><td style="${TD}">${esc(h)}&nbsp;</td>
-      <td style="${TD} text-align:center;">${i===0&&h?e.pcs:""}</td><td style="${TD} text-align:center;">${i===0&&h?esc(e.dep):""}</td><td style="${TD} text-align:center;">${i===0&&h?esc(e.dest):""}</td>
+    const hx = hlist[i] || null;
+    rows += `<tr><td style="${TD} text-align:center;">${i+1}.</td><td style="${TD}">${hx ? esc(hx.no) : ""}&nbsp;</td>
+      <td style="${TD} text-align:center;">${hx ? esc(String(hx.pcs||"")) : ""}</td><td style="${TD} text-align:center;">${hx ? esc(hx.org||e.dep) : ""}</td><td style="${TD} text-align:center;">${hx ? esc(hx.dest||e.dest) : ""}</td>
       <td style="${TD} text-align:center;">${CB(false)}</td><td style="${TD} text-align:center;">${CB(false)}</td></tr>`;
   }
   out.innerHTML = `<div class="sheet" id="ek_idg_sheet" style="min-height:285mm; padding:9mm 12mm; font-family:Arial, sans-serif; color:#000; font-size:9.5pt;">
@@ -5763,6 +5825,221 @@ function dvPrint(){
   } else if(_dv.url){
     window.open(_dv.url, "_blank");                        // print the uploaded PDF from the new tab
   } else alert("Upload the file first.");
+}
+/* ================= AWB / MANIFEST — draft MAWB, multiple HAWBs, consol manifest ================= */
+let HAWBS = [];
+let _hbEdit = -1;
+function awbFill(){
+  if(!v("aw_no") && v("f_awb")) document.getElementById("aw_no").value = v("f_awb");
+  mawbRender(); hbRender(); mfRender();
+}
+function _awNums(){
+  const pcs = PT.length || parseInt(v("f_opcount")) || "";
+  const gross = PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) : (v("gc_wt") || "");
+  return {pcs, gross};
+}
+/* shared IATA-style AWB layout */
+function mawbLayout(o){
+  const B = "border:1px solid #000; padding:1.2mm 2mm; font-size:8.5pt; vertical-align:top;";
+  const CAP = "font-size:6.5pt; color:#333; display:block;";
+  const V = "font-size:9.5pt; font-weight:bold; white-space:pre-line;";
+  const total = (parseFloat(o.chwt) && parseFloat(o.rate)) ? (parseFloat(o.chwt) * parseFloat(o.rate)).toFixed(2) : "AS AGREED";
+  return `<div class="sheet" style="min-height:285mm; padding:8mm 10mm; font-family:Arial, sans-serif; color:#000; position:relative;">
+    ${o.draft ? `<div style="position:absolute; top:120mm; left:30mm; font-size:60pt; color:rgba(200,0,0,.13); font-weight:900; transform:rotate(-25deg); letter-spacing:8px;">DRAFT</div>` : ""}
+    <table style="border-collapse:collapse; width:100%;">
+      <tr>
+        <td style="${B} width:20%; text-align:center;"><span style="font-size:13pt; font-weight:900;">${esc((o.no||"").split("-")[0]||"")}</span><br><span style="font-size:8pt;">${esc(o.dep)}</span></td>
+        <td style="${B} width:30%; text-align:center; vertical-align:middle;"><span style="font-size:12pt; font-weight:900;">${esc(o.no)}</span></td>
+        <td style="${B} text-align:center; vertical-align:middle;"><b style="font-size:11pt;">${esc(o.title)}</b><br><span style="font-size:7.5pt;">${esc(o.subtitle || "")}</span></td>
+      </tr>
+      <tr>
+        <td style="${B} width:50%;" colspan="2"><span style="${CAP}">Shipper's Name and Address</span><div style="${V}">${esc(o.shipper)}</div></td>
+        <td style="${B}" rowspan="2"><span style="${CAP}">Issued by</span><div style="${V}">${esc(o.issuer || "")}</div>
+          <div style="font-size:7.5pt; margin-top:2mm;">Copies 1, 2 and 3 of this Air Waybill are originals and have the same validity.</div></td>
+      </tr>
+      <tr><td style="${B}" colspan="2"><span style="${CAP}">Consignee's Name and Address</span><div style="${V}">${esc(o.consignee)}</div></td></tr>
+      <tr>
+        <td style="${B}" colspan="2"><span style="${CAP}">Issuing Carrier's Agent Name and City</span><div style="${V}">JFS LOGISTICS FZCO\nDUBAI, U.A.E.</div>
+          <span style="${CAP}" >Agent's IATA Code</span><b>8645305</b></td>
+        <td style="${B}"><span style="${CAP}">Accounting Information</span><div style="${V}">${esc(o.acct || "")}</div></td>
+      </tr>
+      <tr>
+        <td style="${B}" colspan="2"><span style="${CAP}">Airport of Departure (Addr. of First Carrier) and Requested Routing</span><div style="${V}">${esc(airportPlace(o.dep) || o.dep)}</div></td>
+        <td style="${B} padding:0;"><table style="border-collapse:collapse; width:100%;"><tr>
+          <td style="border-right:1px solid #000; padding:1mm 2mm; width:25%;"><span style="${CAP}">To</span><b>${esc(o.to1 || o.dest)}</b></td>
+          <td style="border-right:1px solid #000; padding:1mm 2mm; width:25%;"><span style="${CAP}">By First Carrier</span><b>${esc(o.by1 || "")}</b></td>
+          <td style="border-right:1px solid #000; padding:1mm 2mm; width:25%;"><span style="${CAP}">Currency</span><b>AED</b></td>
+          <td style="padding:1mm 2mm;"><span style="${CAP}">WT/VAL &nbsp;Other</span><b>${esc(o.pc === "COLLECT" ? "COLL" : "PPD")}</b></td></tr></table></td>
+      </tr>
+      <tr>
+        <td style="${B} width:25%;"><span style="${CAP}">Airport of Destination</span><div style="${V}">${esc(airportPlace(o.dest) || o.dest)}</div></td>
+        <td style="${B} width:25%;"><span style="${CAP}">Requested Flight/Date</span><div style="${V}">${esc(o.flight || "")}</div></td>
+        <td style="${B}"><span style="${CAP}">Amount of Insurance</span><b>NIL</b>
+          &nbsp;&nbsp;<span style="${CAP}" >Declared Value for Carriage / for Customs</span><b>NVD &nbsp;/&nbsp; NCV</b></td>
+      </tr>
+      <tr><td style="${B}" colspan="3"><span style="${CAP}">Handling Information</span><div style="${V}">${esc(o.handl || "")}</div></td></tr>
+    </table>
+    <table style="border-collapse:collapse; width:100%; margin-top:-1px;">
+      <tr style="font-size:6.5pt; text-align:center;">
+        <td style="${B} width:9%;">No. of Pieces RCP</td><td style="${B} width:11%;">Gross Weight</td><td style="${B} width:4%;">kg</td>
+        <td style="${B} width:7%;">Rate Class</td><td style="${B} width:12%;">Chargeable Weight</td><td style="${B} width:11%;">Rate / Charge</td>
+        <td style="${B} width:12%;">Total</td><td style="${B}">Nature and Quantity of Goods (incl. Dimensions or Volume)</td>
+      </tr>
+      <tr style="text-align:center;">
+        <td style="${B} font-weight:bold; font-size:10.5pt;">${esc(String(o.pcs || ""))}</td>
+        <td style="${B} font-weight:bold; font-size:10.5pt;">${esc(String(o.gross || ""))}</td>
+        <td style="${B}">K</td>
+        <td style="${B}">Q</td>
+        <td style="${B} font-weight:bold; font-size:10.5pt;">${esc(String(o.chwt || ""))}</td>
+        <td style="${B} font-weight:bold;">${esc(String(o.rate || "AS AGREED"))}</td>
+        <td style="${B} font-weight:bold;">${o.rate ? esc(total) : "AS AGREED"}</td>
+        <td style="${B} text-align:left; height:38mm;"><div style="${V}">${esc(o.goods || "")}${o.dims ? "\n" + esc(o.dims) : ""}</div></td>
+      </tr>
+      <tr style="text-align:center; font-weight:bold;">
+        <td style="${B}">${esc(String(o.pcs || ""))}</td><td style="${B}">${esc(String(o.gross || ""))}</td>
+        <td style="${B}" colspan="4"></td><td style="${B}">${o.rate ? esc(total) : ""}</td><td style="${B}"></td>
+      </tr>
+    </table>
+    <table style="border-collapse:collapse; width:100%; margin-top:-1px;">
+      <tr>
+        <td style="${B} width:50%; padding:0;">
+          <table style="border-collapse:collapse; width:100%; font-size:8pt;">
+            <tr><td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:1mm 2mm; width:50%;"><span style="${CAP}">Weight Charge (${esc(o.pc||"PREPAID")})</span><b>${o.rate ? esc(total) : "AS AGREED"}</b></td>
+                <td style="border-bottom:1px solid #000; padding:1mm 2mm;"><span style="${CAP}">Valuation Charge</span></td></tr>
+            <tr><td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:1mm 2mm;"><span style="${CAP}">Tax</span></td>
+                <td style="border-bottom:1px solid #000; padding:1mm 2mm;"><span style="${CAP}">Other Charges</span></td></tr>
+            <tr><td style="border-right:1px solid #000; padding:1mm 2mm;"><span style="${CAP}">Total ${esc(o.pc||"PREPAID")}</span><b>${o.rate ? esc(total) : "AS AGREED"}</b></td>
+                <td style="padding:1mm 2mm;"><span style="${CAP}">Total Collect</span></td></tr>
+          </table>
+        </td>
+        <td style="${B} vertical-align:top;">
+          <div style="font-size:7.5pt; text-align:justify;">Shipper certifies that the particulars on the face hereof are correct and that <b>insofar as any part of the consignment
+          contains dangerous goods, such part is properly described by name and is in proper condition for carriage by air
+          according to the applicable Dangerous Goods Regulations.</b></div>
+          <div style="border-top:1px solid #000; margin-top:5mm; padding-top:1mm; font-size:7pt; text-align:center;">Signature of Shipper or his Agent</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="${B}"><span style="${CAP}">Executed on (date)</span><b>${esc(o.date || "")}</b> &nbsp;&nbsp; <span style="${CAP}">at (place)</span><b>DUBAI</b></td>
+        <td style="${B}"><span style="${CAP}">Signature of Issuing Carrier or its Agent</span>
+          <div style="min-height:14mm;">${o.signHtml || ""}</div></td>
+      </tr>
+      <tr><td style="${B} text-align:right;" colspan="2"><b style="font-size:10.5pt;">${esc(o.no)}</b></td></tr>
+    </table>
+  </div>`;
+}
+function mawbRender(){
+  const out = document.getElementById("aw_doc"); if(!out) return;
+  const n = _awNums();
+  const staff = v("al_staff") || v("dn_staff") || "";
+  out.innerHTML = mawbLayout({
+    title: "AIR WAYBILL", subtitle: "Issued by the Carrier — DRAFT COPY prepared by JFS LOGISTICS FZCO",
+    no: v("aw_no") || v("f_awb") || "", issuer: "",
+    shipper: v("f_shipper"), consignee: v("f_consignee"),
+    dep: iata3(v("f_dep")) || "", dest: iata3(v("f_dest")) || "",
+    to1: (v("aw_to1")||"").toUpperCase(), by1: (v("aw_by1")||"").toUpperCase(),
+    flight: (v("aw_flight")||"").toUpperCase(),
+    pcs: n.pcs, gross: n.gross, chwt: v("aw_chwt") || n.gross, rate: v("aw_rate"),
+    goods: (v("cs_goods")||"").toUpperCase(), dims: (v("aw_dims")||"").toUpperCase(),
+    handl: (v("aw_handl")||"").toUpperCase(), pc: v("aw_pc") || "PREPAID",
+    date: v("al_date") || v("dn_date") || dgdDate(),
+    draft: document.getElementById("aw_draft") ? document.getElementById("aw_draft").checked : true,
+    signHtml: staffSignTag(staff, 11) + (dnataStamp() ? `<img src="${dnataStamp()}" style="height:13mm; object-fit:contain;">` : "")
+  });
+}
+/* ---- HOUSE AWBs ---- */
+function hbClearForm(){ _hbEdit = -1; ["hb_no","hb_pcs","hb_wt","hb_goods","hb_org","hb_dest","hb_shipper","hb_consignee"].forEach(id => document.getElementById(id).value = ""); }
+function hbAdd(){
+  const h = {no:(v("hb_no")||"").toUpperCase(), pcs:v("hb_pcs"), wt:v("hb_wt"), goods:(v("hb_goods")||"").toUpperCase(),
+    org:(v("hb_org")||iata3(v("f_dep"))||"").toUpperCase(), dest:(v("hb_dest")||iata3(v("f_dest"))||"").toUpperCase(),
+    shipper:v("hb_shipper"), consignee:v("hb_consignee")};
+  if(!h.no){ alert("Enter the HAWB number."); return; }
+  if(_hbEdit >= 0 && HAWBS[_hbEdit]) HAWBS[_hbEdit] = h;
+  else {
+    const i = HAWBS.findIndex(x => x.no === h.no);
+    if(i >= 0) HAWBS[i] = h; else HAWBS.push(h);
+  }
+  hbClearForm(); hbRender(); mfRender();
+  if(typeof autosaveCurrent === "function") autosaveCurrent();
+}
+function hbEdit(i){
+  const h = HAWBS[i]; if(!h) return;
+  _hbEdit = i;
+  document.getElementById("hb_no").value = h.no; document.getElementById("hb_pcs").value = h.pcs;
+  document.getElementById("hb_wt").value = h.wt; document.getElementById("hb_goods").value = h.goods;
+  document.getElementById("hb_org").value = h.org; document.getElementById("hb_dest").value = h.dest;
+  document.getElementById("hb_shipper").value = h.shipper; document.getElementById("hb_consignee").value = h.consignee;
+}
+function hbDel(i){ if(!confirm("Delete HAWB " + HAWBS[i].no + "?")) return; HAWBS.splice(i, 1); hbRender(); mfRender(); if(typeof autosaveCurrent === "function") autosaveCurrent(); }
+function hbRender(){
+  const tb = document.getElementById("hb_table"); if(!tb) return;
+  let h = "<tr><th>HAWB</th><th>PCS</th><th>WT (KG)</th><th>GOODS</th><th>ORG</th><th>DEST</th><th>SHIPPER</th><th>CONSIGNEE</th><th></th></tr>";
+  HAWBS.forEach((x, i) => {
+    h += `<tr><td><b>${esc(x.no)}</b></td><td>${esc(x.pcs)}</td><td>${esc(x.wt)}</td><td>${esc(x.goods)}</td>
+      <td>${esc(x.org)}</td><td>${esc(x.dest)}</td><td>${esc((x.shipper||"").split("\n")[0])}</td><td>${esc((x.consignee||"").split("\n")[0])}</td>
+      <td style="white-space:nowrap;"><button class="smallbtn sb-green" onclick="hbPrint(${i})">&#128424; Print</button>
+      <button class="smallbtn sb-blue" onclick="hbEdit(${i})">Edit</button>
+      <button class="smallbtn sb-red" onclick="hbDel(${i})">x</button></td></tr>`;
+  });
+  tb.innerHTML = h + (HAWBS.length ? "" : `<tr><td colspan="9" style="color:#8a97a5;">No house AWBs yet — fill the fields above and click ADD.</td></tr>`);
+}
+function hbPrint(i){
+  const x = HAWBS[i]; if(!x) return;
+  const staff = v("al_staff") || v("dn_staff") || "";
+  document.getElementById("hb_doc").innerHTML = mawbLayout({
+    title: "HOUSE AIR WAYBILL", subtitle: "Issued under MAWB " + (v("aw_no") || v("f_awb") || ""),
+    no: x.no, issuer: "JFS LOGISTICS FZCO\nDUBAI, U.A.E.",
+    shipper: x.shipper, consignee: x.consignee,
+    dep: x.org, dest: x.dest, to1: x.dest, by1: (v("aw_by1")||"").toUpperCase(),
+    flight: (v("aw_flight")||"").toUpperCase(),
+    pcs: x.pcs, gross: x.wt, chwt: x.wt, rate: "",
+    goods: x.goods, dims: "", handl: (v("aw_handl")||"").toUpperCase(), pc: v("aw_pc") || "PREPAID",
+    date: v("al_date") || dgdDate(), draft: false,
+    signHtml: staffSignTag(staff, 11) + (dnataStamp() ? `<img src="${dnataStamp()}" style="height:13mm; object-fit:contain;">` : "")
+  });
+  printAlt("hb_doc");
+}
+/* ---- CONSOL MANIFEST ---- */
+function mfRender(){
+  const out = document.getElementById("mf_doc"); if(!out) return;
+  const n = _awNums();
+  const TD = "border:1px solid #000; padding:1.8mm 2.5mm; font-size:9.5pt;";
+  const TH = TD + " font-weight:bold; background:#eee; text-align:center;";
+  let rows = "", tp = 0, tw = 0;
+  HAWBS.forEach((x, i) => {
+    tp += parseInt(x.pcs) || 0; tw += parseFloat(x.wt) || 0;
+    rows += `<tr><td style="${TD} text-align:center;">${i+1}</td><td style="${TD} font-weight:bold;">${esc(x.no)}</td>
+      <td style="${TD} text-align:center;">${esc(x.pcs)}</td><td style="${TD} text-align:center;">${esc(x.wt)}</td>
+      <td style="${TD}">${esc(x.goods)}</td><td style="${TD}">${esc((x.shipper||"").split("\n")[0])}</td>
+      <td style="${TD}">${esc((x.consignee||"").split("\n")[0])}</td><td style="${TD} text-align:center;">${esc(x.dest)}</td></tr>`;
+  });
+  const staff = v("al_staff") || v("dn_staff") || "";
+  out.innerHTML = `<div class="sheet" style="min-height:285mm; padding:12mm 14mm; font-family:Arial, sans-serif; color:#000;">
+    <table style="width:100%;"><tr>
+      <td><div class="dgwm" style="font-size:22px; font-weight:800;"><span style="color:#0f2b4c;">JFS</span> <span style="color:#3ec9a7;">LOGISTICS FZCO</span></div>
+        <div style="font-size:9pt;">P.O.Box: 54782, DAFZA - DUBAI, U.A.E. &nbsp;|&nbsp; IATA: 8645305</div></td>
+      <td style="text-align:right; font-size:15pt; font-weight:bold;">CONSOLIDATION MANIFEST</td></tr></table>
+    <table style="border-collapse:collapse; width:100%; margin-top:5mm;">
+      <tr><td style="${TH}">MAWB</td><td style="${TH}">FLIGHT / DATE</td><td style="${TH}">ORIGIN</td><td style="${TH}">DESTINATION</td><td style="${TH}">TOTAL HAWBS</td></tr>
+      <tr><td style="${TD} text-align:center; font-weight:bold; font-size:11pt;">${esc(v("aw_no") || v("f_awb") || "")}</td>
+          <td style="${TD} text-align:center;">${esc((v("aw_flight")||"").toUpperCase())}</td>
+          <td style="${TD} text-align:center;">${esc(iata3(v("f_dep"))||"")}</td>
+          <td style="${TD} text-align:center;">${esc(iata3(v("f_dest"))||"")}</td>
+          <td style="${TD} text-align:center; font-weight:bold;">${HAWBS.length}</td></tr>
+    </table>
+    <table style="border-collapse:collapse; width:100%; margin-top:5mm;">
+      <tr><td style="${TH} width:6%;">SL</td><td style="${TH} width:16%;">HAWB NO</td><td style="${TH} width:8%;">PCS</td><td style="${TH} width:10%;">WT (KG)</td>
+          <td style="${TH}">NATURE OF GOODS</td><td style="${TH} width:17%;">SHIPPER</td><td style="${TH} width:17%;">CONSIGNEE</td><td style="${TH} width:8%;">DEST</td></tr>
+      ${rows || `<tr><td style="${TD} text-align:center; color:#888;" colspan="8">No house AWBs added</td></tr>`}
+      <tr><td style="${TD} font-weight:bold; text-align:right;" colspan="2">TOTAL</td>
+          <td style="${TD} text-align:center; font-weight:bold;">${tp || esc(String(n.pcs||""))}</td>
+          <td style="${TD} text-align:center; font-weight:bold;">${tw ? ptR3(tw) : esc(String(n.gross||""))}</td>
+          <td style="${TD}" colspan="4"></td></tr>
+    </table>
+    <table style="width:100%; margin-top:12mm;"><tr>
+      <td style="font-size:10pt;">Prepared by: <b>${esc((staff||"").toUpperCase())}</b><br>Date: <b>${esc(v("al_date") || dgdDate())}</b></td>
+      <td style="text-align:right;">${staffSignTag(staff, 13)}${dnataStamp() ? `<img src="${dnataStamp()}" style="height:24mm; object-fit:contain;">` : ""}</td></tr></table>
+  </div>`;
 }
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
