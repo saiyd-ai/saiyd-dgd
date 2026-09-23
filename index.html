@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-B</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-C</span></span>
           </div>
         </div>
       </div>
@@ -922,8 +922,10 @@
           <div><label>Staff (name / title)</label><select id="al_staff" onchange="airlineFormRender()"></select>
             <div id="al_airmsg" style="font-size:11.5px; font-weight:bold; color:#0f4f8c; margin-top:4px;"></div></div>
           <div style="align-self:end;">
+            <span id="al_mainbtns">
             <button class="btn btn-save" style="background:#a40000;" onclick="airlineFormRender()">&#8635; GENERATE</button>
             <button class="btn btn-print" onclick="airlineFormPrint()">&#128424; PRINT / SAVE PDF</button>
+            </span>
           </div>
         </div>
         <div style="margin-top:14px; overflow-x:auto;"><div id="al_doc"></div></div>
@@ -4828,8 +4830,13 @@ async function airlineFormRender(){
   const gcEK = (typeof JOBTYPE !== "undefined" && JOBTYPE === "GC" && pfx === "176");
   const _tg = (id, on) => { const el = document.getElementById(id); if(el) el.style.display = on ? "" : "none"; };
   _tg("alc_ai", !gcEK); _tg("alc_ram", !gcEK); _tg("alc_cg", !gcEK); _tg("alc_ek", !gcEK); _tg("alc_ekgc", gcEK);
+  _tg("al_mainbtns", !gcEK);
   const mdoc = document.getElementById("al_doc"); if(mdoc) mdoc.style.display = gcEK ? "none" : "";
-  if(gcEK){ ekgcStmtRender(); ekgcTsaRender(); ekIdgRender("ekg3_doc"); ekgcUndRender(); return; }
+  if(gcEK){
+    if(msg) msg.innerHTML = "&#10003; EMIRATES (176) GENERAL CARGO — use the 4-document pack below";
+    ekgcStmtRender(); ekgcTsaRender(); ekIdgRender("ekg3_doc"); ekgcUndRender();
+    return;
+  }
   const stamp = dnataStamp();
   const CO = "JFS LOGISTICS FZCO";
   if(isQR){
@@ -5609,6 +5616,12 @@ function ekgcUndRender(){
   </div>`;
 }
 function airlineFormPrint(){
+  const pfx = (v("al_awb") || v("f_awb") || "").replace(/\D/g, "").slice(0, 3);
+  if(typeof JOBTYPE !== "undefined" && JOBTYPE === "GC" && pfx === "176"){
+    ekgcAll();
+    setTimeout(() => printAlt("ekg1_doc"), 400);   // GC+EK: print doc 1; use the pack buttons for the rest
+    return;
+  }
   airlineFormRender().then(() => {
     if(!v("al_awb").trim() && !confirm("AWB number is empty.\n\nPrint the airline statement anyway?")) return;
     printAlt("al_doc");
