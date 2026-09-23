@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-A</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-B</span></span>
           </div>
         </div>
       </div>
@@ -1008,7 +1008,13 @@
       <div class="card" id="alc_ekgc" style="display:none; border-left:5px solid #c8102e;"><h2>&#128230; EK GENERAL CARGO &mdash; DXB HANDOVER (4 DOCUMENTS)</h2><div class="body">
         <div class="warnbar" style="margin-top:0;">EK general cargo handed over at DXB needs exactly these 4 documents &mdash; MAWB Acceptance Statement, TSA Cargo Acceptance Form, IDG RFC, Shipper's Undertaking. Everything fills automatically from the job; add the SHIPPER's stamp on the Undertaking if you have it.</div>
         <div class="grid g4">
-          <div><label>Person tendering cargo</label><input type="text" id="ekg_tender" oninput="ekgcAll()"></div>
+          <div><label>Person tendering cargo (saved EID list)</label>
+            <select id="ekg_person" onchange="tpApply(this.value)"></select>
+            <input type="text" id="ekg_tender" placeholder="or type name" style="margin-top:4px;" oninput="ekgcAll()">
+            <div style="display:flex; gap:5px; margin-top:4px;">
+              <button class="smallbtn sb-green" onclick="tpSave()">&#128190; Save person</button>
+              <button class="smallbtn sb-red" onclick="tpDel()">x</button>
+            </div></div>
           <div><label>ID number / Validity</label>
             <div style="display:flex; gap:5px;"><input type="text" id="ekg_idno" placeholder="784-..." style="flex:1;" oninput="ekgcAll()"><input type="text" id="ekg_idval" placeholder="15-12-2026" style="width:95px;" oninput="ekgcAll()"></div></div>
           <div><label>Nationality / Mobile</label>
@@ -4551,7 +4557,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
@@ -4792,14 +4798,14 @@ async function airlineFormFill(){
   if(!v("al_date")) document.getElementById("al_date").value = dd;
   if(!v("al_awb") && v("f_awb")) document.getElementById("al_awb").value = v("f_awb");
   if(!v("al_hawb") && v("f_ref")) document.getElementById("al_hawb").value = v("f_ref");
-  staffFill();
+  staffFill(); tpFill();
   await airlineFormRender();
   csdRender(); nonhazRender();
   ramTsaRender(); ramCsdRender();
   cgRender();
   ekUsaRender(); ekNonDgRender(); ekConsRender(); ekIdgRender();
   dnataStampPull();
-  staffPull();
+  staffPull(); tpPull();
 }
 async function airlineFormRender(){
   const out = document.getElementById("al_doc"); if(!out) return;
@@ -5385,6 +5391,56 @@ async function ekIdgRender(target){
     </div>
     <div style="font-size:7.5pt; color:#777; margin-top:3mm;">BUSINESS DOCUMENT &nbsp;This document is intended for business use and should be distributed to intended recipients only. <span style="float:right;">Page 1/1</span></div>
   </div>`;
+}
+/* ===== TENDERING PERSONS — drivers/staff who hand cargo over at the airline dock (EID list, shared) ===== */
+function tpAll(){
+  try{ const p = JSON.parse(localStorage.getItem("jfs_tender_persons") || "null"); if(Array.isArray(p)) return p; }catch(e){}
+  return [];
+}
+async function tpStore(list){
+  localStorage.setItem("jfs_tender_persons", JSON.stringify(list));
+  if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key:"tender_persons", value:{list}, updated_by:sbUser.email}); }catch(e){} }
+}
+async function tpPull(){
+  if(!sb || !sbUser) return;
+  try{
+    const { data } = await sb.from("company_settings").select("value").eq("key","tender_persons").maybeSingle();
+    if(data && data.value && Array.isArray(data.value.list)){
+      localStorage.setItem("jfs_tender_persons", JSON.stringify(data.value.list));
+      tpFill();
+    }
+  }catch(e){}
+}
+function tpFill(){
+  const sel = document.getElementById("ekg_person"); if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">— select person —</option>` +
+    tpAll().map(p => `<option${p.name === cur ? " selected" : ""}>${esc(p.name)}</option>`).join("");
+}
+function tpApply(name){
+  const p = tpAll().find(x => x.name === name); if(!p) return;
+  const set = (id, val) => { const e = document.getElementById(id); if(e) e.value = val || ""; };
+  set("ekg_tender", p.name); set("ekg_idno", p.idno); set("ekg_idval", p.idval);
+  set("ekg_nat", p.nat || "INDIA"); set("ekg_mob", p.mob);
+  set("ek_tender", p.name); set("ek_idno", p.idno); set("ek_nat", p.nat || "INDIA"); set("ek_mob", p.mob);
+  set("ram_tender", p.name); set("ram_idno", p.idno);
+  ekgcAll();
+  if(typeof ramTsaRender === "function") ramTsaRender();
+}
+async function tpSave(){
+  const name = (v("ekg_tender") || "").trim().toUpperCase();
+  if(!name){ alert("Type the person's name first (with ID number / validity / mobile filled)."); return; }
+  const list = tpAll();
+  let p = list.find(x => x.name === name);
+  const rec = {name, idno: v("ekg_idno"), idval: v("ekg_idval"), nat: (v("ekg_nat")||"INDIA").toUpperCase(), mob: v("ekg_mob")};
+  if(p) Object.assign(p, rec); else list.push(rec);
+  await tpStore(list); tpFill();
+  document.getElementById("ekg_person").value = name;
+}
+async function tpDel(){
+  const cur = v("ekg_person");
+  if(!cur || !confirm("Remove \"" + cur + "\" from the tendering-person list?")) return;
+  await tpStore(tpAll().filter(p => p.name !== cur)); tpFill();
 }
 /* ===== EK GENERAL CARGO — DXB HANDOVER: 4 documents ===== */
 let _ekgStamp = "";
