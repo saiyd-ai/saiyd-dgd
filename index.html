@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-E</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-F</span></span>
           </div>
         </div>
       </div>
@@ -3158,10 +3158,9 @@ function setJobType(t){
   applyJobType();
 }
 function applyJobType(){
-  const gc = JOBTYPE === "GC";
-  const hideForGC = ["nav-dgd","nav-pl","nav-checklist","nav-labels","nav-items","nav-wh"];
-  hideForGC.forEach(id => { const e = document.getElementById(id); if(e) e.style.display = gc ? "none" : ""; });
-  const g = document.getElementById("nav-gc"); if(g) g.style.display = gc ? "" : "none";
+  // ALL features stay visible for every job type — GENERAL CARGO just adds its own tab
+  ["nav-dgd","nav-pl","nav-checklist","nav-labels","nav-items","nav-wh","nav-gc"]
+    .forEach(id => { const e = document.getElementById(id); if(e) e.style.display = ""; });
 }
 function gcSet(id, val){
   const e = document.getElementById(id);
