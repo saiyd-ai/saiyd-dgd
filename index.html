@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v22.09-L</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-A</span></span>
           </div>
         </div>
       </div>
@@ -929,7 +929,7 @@
         <div style="margin-top:14px; overflow-x:auto;"><div id="al_doc"></div></div>
       </div></div>
 
-      <div class="card" style="border-left:5px solid #b45309;"><h2>&#128737; CSD + NON-HAZARD CERTIFICATE &mdash; Air India (098) &amp; co.</h2><div class="body">
+      <div class="card" id="alc_ai" style="border-left:5px solid #b45309;"><h2>&#128737; CSD + NON-HAZARD CERTIFICATE &mdash; Air India (098) &amp; co.</h2><div class="body">
         <div class="warnbar" style="margin-top:0;">098 AIR INDIA flights need these 2 extra forms &mdash; Cargo Security Declaration (Annexure-II) + Certification for Non-Hazardous Cargo. AWB/route/pieces/weight all fill automatically; stamp shared with DNATA.</div>
         <div class="grid g4">
           <div><label>Acceptance location (CSD)</label><input type="text" id="cs_loc" value="DUBAI" oninput="csdRender()"></div>
@@ -945,7 +945,7 @@
         <div style="margin-top:14px; overflow-x:auto;"><div id="nh_doc"></div></div>
       </div></div>
 
-      <div class="card" style="border-left:5px solid #7a1020;"><h2>&#128958; ROYAL AIR MAROC (147) &mdash; TSA Acceptance + Consignment Security Declaration</h2><div class="body">
+      <div class="card" id="alc_ram" style="border-left:5px solid #7a1020;"><h2>&#128958; ROYAL AIR MAROC (147) &mdash; TSA Acceptance + Consignment Security Declaration</h2><div class="body">
         <div class="warnbar" style="margin-top:0;">147 RAM flights need these 2 forms &mdash; TSA Cargo Acceptance Form + CSD. AWB/route/pcs/weight fill automatically; contents come from the "Contents / description" box above.</div>
         <div class="grid g4">
           <div><label>Name of individual tendering cargo</label><input type="text" id="ram_tender" oninput="ramTsaRender()"></div>
@@ -968,7 +968,7 @@
         <div style="margin-top:14px; overflow-x:auto;"><div id="ram_csd_doc"></div></div>
       </div></div>
 
-      <div class="card" style="border-left:5px solid #333;"><h2>&#9888; CHALLENGE AIRLINES (752) &mdash; DG / Hidden DG Declaration &amp; Indemnity</h2><div class="body">
+      <div class="card" id="alc_cg" style="border-left:5px solid #333;"><h2>&#9888; CHALLENGE AIRLINES (752) &mdash; DG / Hidden DG Declaration &amp; Indemnity</h2><div class="body">
         <div class="warnbar" style="margin-top:0;">752 (Challenge / GSA Global Cargo LLC) flights need this indemnity form &mdash; shipper details fill automatically from the DGD tab; type the flight/date; stamp shared with DNATA.</div>
         <div class="grid g4">
           <div><label>Flight / Date</label><input type="text" id="cg_flight" placeholder="e.g. 5C-102 08-AUG-2026" oninput="cgRender()"></div>
@@ -982,7 +982,7 @@
         <div style="margin-top:14px; overflow-x:auto;"><div id="cg_doc"></div></div>
       </div></div>
 
-      <div class="card" style="border-left:5px solid #c8102e;"><h2>&#128745; EMIRATES SKYCARGO (176) &mdash; USA Statement + Non-DG + Consignee Letter + IDG RFC</h2><div class="body">
+      <div class="card" id="alc_ek" style="border-left:5px solid #c8102e;"><h2>&#128745; EMIRATES SKYCARGO (176) &mdash; USA Statement + Non-DG + Consignee Letter + IDG RFC</h2><div class="body">
         <div class="warnbar" style="margin-top:0;">The 4 Emirates (176) forms &mdash; AWB/route/pcs/weight/staff/stamp all fill automatically. Print only the form you need.</div>
         <div class="grid g4">
           <div><label>Person tendering cargo (IDG)</label><input type="text" id="ek_tender" oninput="ekIdgRender()"></div>
@@ -1003,6 +1003,34 @@
         <div style="margin-top:14px; overflow-x:auto;"><div id="ek_ndg_doc"></div></div>
         <div style="margin-top:14px; overflow-x:auto;"><div id="ek_cons_doc"></div></div>
         <div style="margin-top:14px; overflow-x:auto;"><div id="ek_idg_doc"></div></div>
+      </div></div>
+
+      <div class="card" id="alc_ekgc" style="display:none; border-left:5px solid #c8102e;"><h2>&#128230; EK GENERAL CARGO &mdash; DXB HANDOVER (4 DOCUMENTS)</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">EK general cargo handed over at DXB needs exactly these 4 documents &mdash; MAWB Acceptance Statement, TSA Cargo Acceptance Form, IDG RFC, Shipper's Undertaking. Everything fills automatically from the job; add the SHIPPER's stamp on the Undertaking if you have it.</div>
+        <div class="grid g4">
+          <div><label>Person tendering cargo</label><input type="text" id="ekg_tender" oninput="ekgcAll()"></div>
+          <div><label>ID number / Validity</label>
+            <div style="display:flex; gap:5px;"><input type="text" id="ekg_idno" placeholder="784-..." style="flex:1;" oninput="ekgcAll()"><input type="text" id="ekg_idval" placeholder="15-12-2026" style="width:95px;" oninput="ekgcAll()"></div></div>
+          <div><label>Nationality / Mobile</label>
+            <div style="display:flex; gap:5px;"><input type="text" id="ekg_nat" value="INDIA" style="width:80px;" oninput="ekgcAll()"><input type="text" id="ekg_mob" placeholder="05..." style="flex:1;" oninput="ekgcAll()"></div></div>
+          <div><label>Undertaking: addressed to (handover forwarder)</label><input type="text" id="ekg_to" placeholder="e.g. SKY RIVER GLOBAL LOGISTICS" oninput="ekgcUndRender()"></div>
+          <div><label>Shipper's stamp (this shipment only &mdash; optional)</label>
+            <input type="file" id="ekg_stamp" accept="image/*" style="font-size:11.5px;" onchange="ekgcStampPick()">
+            <span id="ekg_stampmsg" style="font-size:11px; color:#1d6b34; font-weight:bold;"></span></div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#c8102e;" onclick="ekgcAll()">&#8635; GENERATE ALL 4</button>
+          </div>
+          <div style="align-self:end;">
+            <button class="btn btn-print" onclick="ekgcStmtRender(); printAlt('ekg1_doc');">&#128424; 1. MAWB STATEMENT</button>
+            <button class="btn btn-print" onclick="ekgcTsaRender(); printAlt('ekg2_doc');">&#128424; 2. TSA FORM</button>
+            <button class="btn btn-print" onclick="ekIdgRender('ekg3_doc').then(()=>printAlt('ekg3_doc'));">&#128424; 3. IDG RFC</button>
+            <button class="btn btn-print" onclick="ekgcUndRender(); printAlt('ekg4_doc');">&#128424; 4. UNDERTAKING</button>
+          </div>
+        </div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="ekg1_doc"></div></div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="ekg2_doc"></div></div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="ekg3_doc"></div></div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="ekg4_doc"></div></div>
       </div></div>
     </div>
 
@@ -1910,7 +1938,14 @@ function showTab(name){
   if(name === "docs") renderDocs();
   if(name === "checklist"){ buildIata(); buildChecklist(); }
   if(name === "labels") buildLabels();
-  if(name === "stickers"){ buildStickers(); buildOpStickers(); blAutoFill(); }
+  if(name === "stickers"){
+    buildStickers(); buildOpStickers(); blAutoFill();
+    // GENERAL CARGO job: only the AIRLINE BARCODE LABELS card is shown
+    document.querySelectorAll("#tab-stickers .card").forEach(c => {
+      c.style.display = (typeof JOBTYPE !== "undefined" && JOBTYPE === "GC" && !c.querySelector("#awblblArea")) ? "none" : "";
+    });
+    if(typeof JOBTYPE !== "undefined" && JOBTYPE === "GC" && v("f_awb").replace(/\D/g, "").length === 11) buildAwbLabels();
+  }
   if(name === "dnata") dnataFill();
   if(name === "alforms") airlineFormFill();
   if(name === "gc") gcSyncFromMain();
@@ -2125,6 +2160,7 @@ Respond with ONLY a JSON object, no markdown, using exactly these keys (empty st
 "dep":"AIRPORT NAME (CODE)","dest":"AIRPORT NAME (CODE)","cao":true/false,"radioactive":true/false,
 "overpack":true/false,"opcount":number of overpacks or 0,"opqty":"total quantity in overpacks or empty",
 "emergency":"24h phone","handling":"handling notes",
+"pieces":total number of pieces/packages as a number or 0,"grossweight":"total gross weight in kg, number only","goods":"nature/description of goods exactly as written, e.g. PERFUMES, AIRCRAFT SPARE PARTS",
 "items":[{"un":"UN1266 or ID8000","psn":"proper shipping name","cls":"class e.g. 3","sub":"subsidiary risk or empty",
 "pg":"I/II/III or empty","pi":"packing instruction number if stated","qty":"e.g. 4 fibreboard boxes x 20 L","auth":""}]}
 Rules: only include items that are dangerous goods with a UN/ID number stated or clearly identifiable.
@@ -2156,6 +2192,19 @@ async function aiExtractShipment(text, label, imgs){
   if(j.dep) document.getElementById("f_dep").value = j.dep.toUpperCase();
   if(j.dest) document.getElementById("f_dest").value = j.dest.toUpperCase();
   if(j.emergency && !v("f_emergency")) document.getElementById("f_emergency").value = j.emergency;
+  // GENERAL CARGO essentials: pieces / gross weight / description of goods
+  if(j.pieces && parseInt(j.pieces) > 0){
+    document.getElementById("f_opcount").value = String(parseInt(j.pieces));
+    const gp = document.getElementById("gc_pcs"); if(gp) gp.value = String(parseInt(j.pieces));
+  }
+  if(j.grossweight){
+    const gw = document.getElementById("gc_wt"); if(gw) gw.value = String(j.grossweight).replace(/[^\d.]/g, "");
+  }
+  if(j.goods){
+    const gg = (j.goods || "").toUpperCase();
+    const c1 = document.getElementById("cs_goods"); if(c1) c1.value = gg;
+    const c2 = document.getElementById("gc_goods"); if(c2) c2.value = gg;
+  }
   // handling info deliberately NOT auto-filled — it must carry only the emergency contact (JFS rule)
   if(j.cao === true) document.querySelector('input[name=f_pax][value=CAO]').checked = true;
   else if(j.cao === false) document.querySelector('input[name=f_pax][value=PAX]').checked = true;
@@ -4769,6 +4818,12 @@ async function airlineFormRender(){
       : isQR ? "&#10003; QATAR AIRWAYS (157) — QR TSA format"
       : (alName ? "&#10003; " + esc(alName) + " (" + esc(pfx) + ") — standard format" : "AWB " + esc(pfx) + " — airline not in list, standard format"))
     : "Enter the AWB — the airline & format come automatically.";
+  // EK GENERAL CARGO (DXB handover): show ONLY the 4-document pack, hide everything else
+  const gcEK = (typeof JOBTYPE !== "undefined" && JOBTYPE === "GC" && pfx === "176");
+  const _tg = (id, on) => { const el = document.getElementById(id); if(el) el.style.display = on ? "" : "none"; };
+  _tg("alc_ai", !gcEK); _tg("alc_ram", !gcEK); _tg("alc_cg", !gcEK); _tg("alc_ek", !gcEK); _tg("alc_ekgc", gcEK);
+  const mdoc = document.getElementById("al_doc"); if(mdoc) mdoc.style.display = gcEK ? "none" : "";
+  if(gcEK){ ekgcStmtRender(); ekgcTsaRender(); ekIdgRender("ekg3_doc"); ekgcUndRender(); return; }
   const stamp = dnataStamp();
   const CO = "JFS LOGISTICS FZCO";
   if(isQR){
@@ -5262,8 +5317,10 @@ async function ekConsRender(){
   </div>`;
 }
 /* 4) IDG & Shipper's Declaration (RFC Agent) V2.1 */
-async function ekIdgRender(){
-  const out = document.getElementById("ek_idg_doc"); if(!out) return;
+async function ekIdgRender(target){
+  const out = document.getElementById(target || "ek_idg_doc"); if(!out) return;
+  const P = { t: v("ekg_tender") || v("ek_tender") || "", id: v("ekg_idno") || v("ek_idno") || "",
+              nat: v("ekg_nat") || v("ek_nat") || "", mob: v("ekg_mob") || v("ek_mob") || "" };
   const e = ekVals();
   const logo = await ekLogo();
   const CB = on => `<span style="display:inline-block; border:1.2px solid #000; width:4.2mm; height:4.2mm; text-align:center; font-size:9pt; line-height:4.2mm; vertical-align:middle;">${on ? "&#10003;" : "&nbsp;"}</span>`;
@@ -5307,13 +5364,14 @@ async function ekIdgRender(){
       <b>Afghanistan, Iran, Iraq, Lebanon, Libya*, Nigeria, Sudan, Syria* &amp; Mali</b> (* Embargo/ Sanction exist for these countries)
     </div>
     <div style="border:1px solid #000; padding:1.5mm 2mm; margin-top:1.5mm;">
-      ${CB(false)} <b><u>NON-DANGEROUS</u></b> <b>(Not applicable if shipment contains Dangerous goods, provided supporting documents are attached)</b><br>
+      ${CB(typeof JOBTYPE !== "undefined" && JOBTYPE === "GC")} <b><u>NON-DANGEROUS</u></b> <b>(Not applicable if shipment contains Dangerous goods, provided supporting documents are attached)</b><br>
       <span style="font-size:8.5pt;">I hereby declare that the shipment does not contain any undeclared or misdeclared Dangerous Goods as per current IATA Dangerous Goods Regulations and is safe for carriage by air. I accept full responsibility and liability for any penalties, delays, shipment holds, regulatory actions, damages or losses arising from inaccurate, incomplete or non-compliant shipment information, packing or declaration provided for the cargo tendered.</span><br>
       ${CB(true)} <b><u>INSPECTION AUTHORIZATION</u></b><br>
       <span style="font-size:8.5pt;">I hereby declare that I have no objection to Emirates SkyCargo conducting an open inspection of the shipment in accordance with <b>Clause 3.6 of the Conditions of Carriage</b>.</span><br>
+      <b><u>Shipment Weighing Criteria</u></b> &mdash; Shipment weighed at Agent warehouse on a Calibrated Weighing Scale and the declared weight is accurate &nbsp; Yes ${CB(true)} &nbsp; No ${CB(false)}<br>
       Shipper&rsquo;s / Agent&rsquo;s name: <b style="font-size:11pt;">JFS LOGISTICS FZCO</b><br>
-      Name of person tendering the Cargo: <b>${esc((v("ek_tender") || "").toUpperCase())}</b> &nbsp; ID Number: <b>${esc(v("ek_idno"))}</b> &nbsp; ID Type: <b>EID</b><br>
-      Nationality: <b>${esc((v("ek_nat") || "").toUpperCase())}</b> &nbsp; Mobile no.: <b>${esc(v("ek_mob"))}</b> &nbsp; Signature: ${staffSignTag(e.staff,9) || "____________"} &nbsp; Date: <b>${esc(e.date)}</b>
+      Name of person tendering the Cargo: <b>${esc(P.t.toUpperCase())}</b> &nbsp; ID Number: <b>${esc(P.id)}</b> &nbsp; ID Type: <b>EID</b><br>
+      Nationality: <b>${esc(P.nat.toUpperCase())}</b> &nbsp; Mobile no.: <b>${esc(P.mob)}</b> &nbsp; Signature: ${staffSignTag(e.staff,9) || "____________"} &nbsp; Date: <b>${esc(e.date)}</b>
     </div>
     <div style="font-weight:bold; margin-top:2mm;">Following checks to be completed by Acceptance staff <span style="float:right;">Yes &nbsp; No &nbsp; NA</span></div>
     <div style="border:1px solid #000; padding:1.5mm 2mm; margin-top:1mm; font-size:8.5pt; line-height:1.6;">
@@ -5321,10 +5379,177 @@ async function ekIdgRender(){
       2. Airline embargo list &nbsp; 3. AWB label affixed on all packages &nbsp; 4. Airworthiness of packages<br>
       5. The number of pieces specified is not the number of skids tendered, unless the skid only contains 1 piece of cargo. The customer has been engaged with to confirm the same in the event of a suspicion or lack of clarity<br>
       6. For DG, 'Shipper's declaration' signed by Shipper/Agent &nbsp; 7. For Non-DG, Customer briefed about any 'hidden DG'<br>
+      8. If the shipment weighing has not been done at Agent warehouse (On a Calibrated weighing scale), Shipment 100% weighed at acceptance<br>
       <b>Remarks:</b><br>
       Checked and verified by: &nbsp; Staff Name/ ID: ____________________ &nbsp; Signature : ____________ &nbsp; Date : ____________
     </div>
     <div style="font-size:7.5pt; color:#777; margin-top:3mm;">BUSINESS DOCUMENT &nbsp;This document is intended for business use and should be distributed to intended recipients only. <span style="float:right;">Page 1/1</span></div>
+  </div>`;
+}
+/* ===== EK GENERAL CARGO — DXB HANDOVER: 4 documents ===== */
+let _ekgStamp = "";
+async function ekgcStampPick(){
+  const f = document.getElementById("ekg_stamp").files[0];
+  if(!f){ _ekgStamp = ""; return; }
+  _ekgStamp = "data:image/jpeg;base64," + await imgFileToB64(f, 500);
+  document.getElementById("ekg_stampmsg").textContent = "✓ Shipper stamp added (this shipment only).";
+  ekgcUndRender();
+}
+function ekgcAll(){ ekgcStmtRender(); ekgcTsaRender(); ekIdgRender("ekg3_doc"); ekgcUndRender(); }
+/* 1) EK MAWB Acceptance Statement (simple version, Somalia/Syria/Yemen/Egypt & Iran) */
+function ekgcStmtRender(){
+  const out = document.getElementById("ekg1_doc"); if(!out) return;
+  const e = ekVals();
+  const ROW = (l, val) => `<div style="margin-top:5mm; font-size:10.5pt; display:flex;">
+    <span style="width:52mm; font-weight:bold;">${l}</span><span style="width:10mm;">-</span><b>${val || "&nbsp;"}</b></div>`;
+  out.innerHTML = `<div class="sheet" id="ekg1_sheet" style="min-height:285mm; padding:16mm 18mm; font-family:Calibri, Arial, sans-serif; color:#000;">
+    <div style="text-align:center; font-size:15.5pt; font-weight:bold; text-decoration:underline; margin-top:6mm;">Master Air Waybill Acceptance Statement</div>
+    <div style="margin-top:14mm; font-size:10.5pt;"><b>Master Air waybill (MAWB)</b> <b style="font-size:13pt;">${esc(e.awb)}</b></div>
+    <div style="margin-top:5mm; font-size:10.5pt; text-align:justify; line-height:1.6;">
+      All shipment tendered in this Master Air Waybill were received directly from a shipper, or other person with an
+      established relationship with <b><u>JFS LOGISTICS FZCO</u></b> for at least 180 calendar days, which has an established shipping
+      address, and a payment, credit, or invoice history of at least 180 calendar days or a person originating or tendering a
+      shipment where <b><u>JFS LOGISTICS FZCO</u></b> has an established business relationship or payment, credit, or invoice history
+      with the consignee or bill - to party of at least 180 calendar days.
+    </div>
+    <div style="text-align:center; font-size:14pt; font-weight:bold; text-decoration:underline; margin-top:9mm;">Declaration For US-Bound Shipments</div>
+    <div style="margin-top:6mm; font-size:10.5pt; text-align:justify; line-height:1.6;">
+      <b><u>JFS LOGISTICS FZCO</u></b> has reviewed all available documentation and has determined that none of the cargo being
+      offered in this consignment or consolidation has originated in, transferred from, or transited through any point in
+      Somalia, Syria, Yemen, Egypt &amp; Iran.
+    </div>
+    <div style="margin-top:9mm;">
+      ${ROW("Date", esc(e.date))}
+      ${ROW("AWB or MAWB Number", `<span style="font-size:13pt;">${esc(e.awb)}</span>`)}
+      ${ROW("HAWB Number", esc(e.hawb))}
+      ${ROW("Company Name", "JFS LOGISTICS FZCO")}
+      ${ROW("Name and title of signatory", esc((e.staff || "").toUpperCase()))}
+    </div>
+    <div style="margin-top:9mm; font-size:10.5pt; font-weight:bold;">Signature &amp; Stamp</div>
+    <div style="min-height:34mm; padding-top:3mm;">${staffSignTag(e.staff, 15)}${e.stamp ? `<img src="${e.stamp}" style="height:32mm; object-fit:contain;">` : ""}</div>
+  </div>`;
+}
+/* 2) EK TSA CARGO ACCEPTANCE FORM (echecklist #0020) */
+async function ekgcTsaRender(){
+  const out = document.getElementById("ekg2_doc"); if(!out) return;
+  const e = ekVals();
+  const logo = await ekLogo();
+  const t = (v("ekg_tender") || "").toUpperCase(), idno = v("ekg_idno") || "", idval = v("ekg_idval") || "";
+  const d = new Date();
+  const dtime = String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear() + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+  const TD = "border:1px solid #000; padding:1.8mm 2.5mm; font-size:9.5pt;";
+  const CK = on => `<span style="display:inline-block; border:1.2px solid #000; width:4mm; height:4mm; text-align:center; font-size:9pt; line-height:4mm; vertical-align:middle;">${on ? "&#10003;" : "&nbsp;"}</span>`;
+  const GB = "background:#e8e8e8;";
+  out.innerHTML = `<div class="sheet" id="ekg2_sheet" style="min-height:285mm; padding:10mm 14mm; font-family:Calibri, Arial, sans-serif; color:#000;">
+    <div style="text-align:center;"><img src="${logo}" style="height:17mm; object-fit:contain;" onerror="this.style.display='none'"></div>
+    <div style="text-align:center; font-size:14pt; font-weight:bold; margin-top:2mm;">TSA CARGO ACCEPTANCE FORM</div>
+    <table style="border-collapse:collapse; width:100%; margin-top:3mm;">
+      <tr><td style="${TD} width:24%; font-weight:bold; font-size:11pt;">AWB Number</td><td style="${TD} font-weight:bold; font-size:11pt; ${GB}">${esc(e.awb)}</td></tr>
+    </table>
+    <div style="font-size:11pt; font-weight:bold; text-decoration:underline; margin-top:3mm;">Identification Check</div>
+    <table style="border-collapse:collapse; width:100%; margin-top:1mm; font-size:9.5pt;">
+      <tr><td style="${TD} width:34%;">Type of Government Issue ID</td><td style="${TD} width:16%; text-align:center; font-weight:bold; ${GB}">EID</td>
+          <td style="${TD} width:12%;">Validity</td><td style="${TD} width:14%; font-weight:bold; ${GB}">${esc(idval)}</td>
+          <td style="${TD} width:10%;">ID Number</td><td style="${TD} font-weight:bold; ${GB}">${esc(idno)}</td></tr>
+      <tr><td style="${TD}">Matching Photo on ID? Indicate</td><td style="${TD} text-align:center;" colspan="2">Yes ${CK(true)}</td><td style="${TD} text-align:center;" colspan="3">No ${CK(false)}</td></tr>
+      <tr><td style="${TD}">Printed Name of individual (Regulated Agent or Freight Forwarder representative) from whom the cargo was accepted</td>
+          <td style="${TD} font-weight:bold; ${GB}" colspan="5">${esc(t)}</td></tr>
+      <tr><td style="${TD}">Company Name (where applicable)</td><td style="${TD} font-weight:bold; ${GB}" colspan="5">JFS LOGISTICS FZCO</td></tr>
+      <tr><td style="${TD}" colspan="6">Name of Emirates Staff / GHA who verified ID</td></tr>
+      <tr><td style="${TD}">Name:</td><td style="${TD} ${GB}" colspan="2">&nbsp;</td><td style="${TD}">ID Number:</td><td style="${TD} ${GB}" colspan="2">&nbsp;</td></tr>
+    </table>
+    <div style="font-size:11pt; font-weight:bold; margin-top:4mm;">Shipper Statement</div>
+    <table style="border-collapse:collapse; width:100%; margin-top:1mm; font-size:9.5pt;">
+      <tr><td style="${TD} width:6%; vertical-align:top;">1</td><td style="${TD} text-align:justify; line-height:1.5;">
+        All shipments tendered in this MAWB were received directly from a shipper, or other person with an established relationship
+        with <b><u>JFS LOGISTICS FZCO</u></b> (insert name of regulated agent or freight forwarder) for at least 180 calendar days, which has an
+        established shipping address and a payment, credit or invoice history of at least 180 calendar days OR a person originating or
+        tendering a shipment where <b><u>JFS LOGISTICS FZCO</u></b> (insert name of regulated agent or freight forwarder) has an established
+        business relationship* or payment, credit or invoice history with the consignee or bill-to party of at least 180 calendar days. All
+        shipment tendered in this MAWB were accepted via a secure transport, either directly from the shipper, or picked up by
+        <b><u>JFS LOGISTICS FZCO</u></b> (insert name of regulated agent or freight forwarder) or agent.<br><br>
+        <i>*An established business relationship is an association between persons ("persons" includes individuals and entities) that may
+        also include a documented history of sales contacts or activities, other documented correspondence or business records.</i></td></tr>
+      <tr><td style="${TD} vertical-align:top;">2</td><td style="${TD} text-align:justify; line-height:1.5;">
+        The US Government has required Emirates to inspect your cargo to verify its contents prior transportation by air. Your cargo will
+        be subject to security controls.<br>Shipper authorizes consent to screen, search and inspect this shipment tendered by Shipper/Agent</td></tr>
+      <tr><td style="${TD} vertical-align:top;">3</td><td style="${TD} text-align:justify; line-height:1.5;">
+        <b><u>JFS LOGISTICS FZCO</u></b> (name of person or entity tendering cargo shipment) has reviewed all available documentation and
+        has determined that none of the cargo being offered in this consignment or consolidation has originated in, transferred from, or
+        transited through any point in Egypt, Somalia, Syria, or Yemen</td></tr>
+    </table>
+    <table style="border-collapse:collapse; width:100%; margin-top:2mm; font-size:9.5pt;">
+      <tr><td style="${TD}">Additional Security Information :<br><span style="font-size:8.5pt;">(if no 1 is not applicable, shipment must be screened under enhanced security requirement TSA IV.3.2.1)</span><div style="min-height:8mm;"></div></td></tr>
+    </table>
+    <table style="border-collapse:collapse; width:100%; margin-top:2mm; font-size:9.5pt;">
+      <tr><td style="${TD} width:68%;">Signature of Regulated Agent or Freight Forwarder representative :<div style="min-height:16mm; padding-top:1mm;">${staffSignTag(e.staff, 12)}${e.stamp ? `<img src="${e.stamp}" style="height:15mm; object-fit:contain;">` : ""}</div></td>
+          <td style="${TD} vertical-align:top;">Date - Time :<div style="font-weight:bold; margin-top:1mm;">${dtime}</div></td></tr>
+    </table>
+    <div style="font-size:8.5pt; margin-top:3mm; line-height:1.5;">Note:<br>
+      - This form must be completed by direct employees and/or carrier representatives only<br>
+      - Copy of the valid ID must be attached with this form<br>
+      - One copy must be retained at the origin station for 90 days<br>
+      - One copy must accompany the shipment<br>
+      - Only valid ID issued by government authority<br>
+      - Unauthorized disclosure of ID information is strictly prohibited<br>
+      - If any information required is not available, shipment must be rejected</div>
+    <div style="font-size:8.5pt; font-weight:bold; font-style:italic; margin-top:2mm;">echecklist #0020</div>
+    <div style="font-size:7pt; color:#777;">BUSINESS DOCUMENT &nbsp;This document is intended for business use and should be distributed to intended recipients only.</div>
+  </div>`;
+}
+/* 4) Shipper's Undertaking for Correct Declaration of Goods (GCAA, Version #3) */
+function ekgcUndRender(){
+  const out = document.getElementById("ekg4_doc"); if(!out) return;
+  const e = ekVals();
+  const ship = (v("f_shipper") || "").split("\n").map(x => x.trim()).filter(Boolean);
+  const shName = ship[0] || "";
+  const telLn = ship.find(l => /TE?L/i.test(l)) || "";
+  const mob = telLn.replace(/^TE?L[:\s]*/i, "");
+  const addr = ship.slice(1).filter(l => l !== telLn).join(", ");
+  const to = (v("ekg_to") || "").toUpperCase();
+  const TD = "border:1px solid #000; padding:1.8mm 2.5mm; font-size:9.5pt; vertical-align:top;";
+  const CK = on => `<span style="display:inline-block; border:1.4px solid #000; width:5mm; height:5mm; text-align:center; font-size:11pt; line-height:5mm; vertical-align:middle; margin-right:3mm;">${on ? "&#10003;" : "&nbsp;"}</span>`;
+  out.innerHTML = `<div class="sheet" id="ekg4_sheet" style="min-height:285mm; padding:12mm 15mm; font-family:Arial, sans-serif; color:#000;">
+    <div style="border:1.4px solid #000; padding:5mm 6mm;">
+    <div style="text-align:center; font-size:14pt; font-weight:bold;">Shipper's Undertaking for Correct Declaration of Goods</div>
+    <div style="border:1px solid #c00; color:#c00; font-size:9pt; padding:2mm 3mm; margin-top:3mm; text-align:justify;">
+      The incorrect declaration of goods may result in posing a potential hazard to health, safety, property or the environment, hence
+      the Shipper will be held fully responsible and liable for actual damage or loss of life and property or any impact to Civil Aviation
+      Safety &amp; Security resulted from the discovery of incorrect declaration of goods in any UAE originating cargo consignment.</div>
+    <table style="border-collapse:collapse; width:100%; margin-top:3mm;">
+      <tr><td style="${TD} width:30%;" rowspan="2"><span style="font-size:8.5pt;">Addressed To: (Name of the Freight Forwarder who will tender the shipment to the acceptance dock)</span>
+          <div style="font-size:11.5pt; font-weight:bold; margin-top:2mm;">${esc(to)}</div></td>
+          <td style="${TD} width:16%; text-align:center; font-weight:bold;">Date</td><td style="${TD} width:22%; text-align:center; font-weight:bold;">Air Waybill #</td>
+          <td style="${TD} width:14%; text-align:center; font-weight:bold;">Origin</td><td style="${TD} text-align:center; font-weight:bold;">Destination</td></tr>
+      <tr><td style="${TD} text-align:center;">${esc(e.date)}</td><td style="${TD} text-align:center;">${esc(e.awb)}</td>
+          <td style="${TD} text-align:center;">${esc(e.dep)}</td><td style="${TD} text-align:center;">${esc(e.dest)}</td></tr>
+      <tr><td style="${TD}" colspan="5">Nature of Goods:<div style="font-size:12pt; font-weight:bold; margin-top:1mm;">${esc(e.goods)}</div></td></tr>
+    </table>
+    <div style="margin-top:4mm; font-size:10.5pt;">I/We <b style="font-size:13pt;">${esc(shName)}</b> <span style="float:right;">hereby confirm that this consignment:</span></div>
+    <div style="margin-top:4mm; font-size:11pt;">${CK(true)} <u><b>Does Not Contain Dangerous Goods.</b></u></div>
+    <div style="margin-top:3mm; font-size:11pt;">${CK(false)} <u>Contains Dangerous Goods in accordance with the current Dangerous Goods Regulations.</u></div>
+    <div style="margin-top:4mm; font-size:9.5pt; text-align:justify; line-height:1.55;">
+      I/We understand that I/we are fully liable and accept all legal consequences for any potential damage or hazard to
+      health, safety, property or the environment, resulted from or caused to result from the incorrect/inaccurate declaration
+      or misdeclaration of the content or resulted from or caused to result from the use of non-compliant inner/outer packaging.</div>
+    <table style="border-collapse:collapse; width:100%; margin-top:3mm; font-size:9.5pt;">
+      <tr><td style="${TD}">Name of Shipper: <b>${esc(shName)}</b><br>
+        Address: <b>${esc(addr)}</b><br>
+        Passport / EID / Trade License No. (as applicable):<br>
+        Mobile Number: <b>${esc(mob)}</b> &nbsp;&nbsp; Email:<br>
+        Remarks:<br><br>
+        Signature &amp; Stamp (as applicable) &nbsp; ${_ekgStamp ? `<img src="${_ekgStamp}" style="height:26mm; object-fit:contain; vertical-align:middle;">` : ""}
+      </td></tr>
+    </table>
+    <div style="text-align:center; font-size:10.5pt; font-weight:bold; text-decoration:underline; margin-top:3mm;">REGULATORY CONDITIONS</div>
+    <div style="font-size:9pt; line-height:1.55; margin-top:1.5mm;">
+      1. This undertaking must be completed by the Shipper who must be fully aware of the Nature of Goods contained in the cargo consignment.<br>
+      2. It is the responsibility of the Freight Forwarder and Cargo Agent;<br>
+      &nbsp;&nbsp;a) To ensure that this undertaking is completed by the Shipper for every UAE originating cargo consignment.<br>
+      &nbsp;&nbsp;b) To retain a hard or electronic copy of the completed undertaking in file for 12 months as a minimum, and make it accessible/available, as and when requested by GCAA.<br>
+      &nbsp;&nbsp;c) To retain a copy of the undertaking during tendering the cargo consignment for acceptance in accordance with Subsection 3.11.1 of CAR Part VI .</div>
+    </div>
+    <div style="font-size:8.5pt; margin-top:3mm;">Version #3 | 11<sup>th</sup> Apr 2025</div>
   </div>`;
 }
 function airlineFormPrint(){
