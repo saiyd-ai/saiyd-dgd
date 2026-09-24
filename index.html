@@ -326,7 +326,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-K</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-L</span></span>
           </div>
         </div>
       </div>
@@ -334,7 +334,7 @@
       <div style="display:flex; align-items:center; gap:12px;">
         <div class="userchip" id="userchip" style="display:none;">
           <span id="syncdot" title="Cloud sync"></span>
-          <span><b id="uc_email"></b> &bull; <span id="uc_plan">trial</span></span>
+          <span><b id="uc_email"></b><span style="display:none;"> &bull; <span id="uc_plan">trial</span></span></span>
           <button onclick="doLogout()">Logout</button>
         </div>
         <div class="badge">IATA DGR FORMAT</div>
@@ -342,7 +342,7 @@
     </div>
 
     <div class="nav">
-      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai &nbsp;&bull;&nbsp; v24.09-K</span></div>
+      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai &nbsp;&bull;&nbsp; v24.09-L</span></div>
       <button id="nav-dash" class="on" onclick="showTab('dash')">&#128202; DASHBOARD</button>
       <button id="nav-gc" style="display:none;" onclick="showTab('gc')">&#128230; GENERAL CARGO</button>
       <button id="nav-dgd" onclick="showTab('dgd')">&#128203; DGD PREPARE</button>
@@ -6988,17 +6988,23 @@ async function doLogout(){
   document.getElementById("userchip").style.display = "none";
   document.getElementById("authgate").style.display = "flex";
 }
+const USER_NAMES = { "ms@jfslogistics.com": "MUHAMMED SAYID", "murshid@jfslogistics.com": "MURSHID" };
+function userDisplayName(email){
+  const e = (email || "").toLowerCase();
+  try{ const p = staffAll().find(x => (x.email || "").toLowerCase() === e); if(p && p.name) return p.name.toUpperCase(); }catch(x){}
+  if(USER_NAMES[e]) return USER_NAMES[e];
+  return e.split("@")[0].replace(/[._]/g, " ").toUpperCase();
+}
 async function enterApp(user){
   sbUser = user;
   document.getElementById("authgate").style.display = "none";
   document.getElementById("userchip").style.display = "flex";
-  document.getElementById("uc_email").textContent = user.email;
+  document.getElementById("uc_email").textContent = userDisplayName(user.email);
   // slim topbar greeting (desktop) + dashboard is the landing tab
   try{
     const h = new Date().getHours();
     const g = h < 12 ? "Good morning" : (h < 17 ? "Good afternoon" : "Good evening");
-    const nm = (user.email || "").split("@")[0].split(".")[0].toUpperCase();
-    document.getElementById("tb_greet").textContent = g + ", " + nm + " — " + new Date().toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"long"});
+    document.getElementById("tb_greet").textContent = g + ", " + userDisplayName(user.email) + " — " + new Date().toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"long"});
     if(document.getElementById("tab-dash").classList.contains("on")) renderDash();
   }catch(e){}
   try{
@@ -7012,6 +7018,13 @@ async function enterApp(user){
     }
   }catch(e){}
   await cloudPullAll(false);
+  // staff profiles may have arrived with the pull — refresh the display name
+  try{
+    const nm2 = userDisplayName(user.email);
+    document.getElementById("uc_email").textContent = nm2;
+    const tg = document.getElementById("tb_greet");
+    if(tg && tg.textContent) tg.textContent = tg.textContent.replace(/,\s[^—]+—/, ", " + nm2 + " —");
+  }catch(e){}
   dgdLogoApply();
   dgdLogoPull();          // company-wide logo — same for every user
   jobGateShow();
