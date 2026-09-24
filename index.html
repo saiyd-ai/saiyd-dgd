@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-G</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-H</span></span>
           </div>
         </div>
       </div>
@@ -2231,9 +2231,11 @@ Respond with ONLY a JSON object, no markdown, using exactly these keys (empty st
 "overpack":true/false,"opcount":number of overpacks or 0,"opqty":"total quantity in overpacks or empty",
 "emergency":"24h phone","handling":"handling notes",
 "pieces":total number of pieces/packages as a number or 0,"grossweight":"total gross weight in kg, number only","goods":"nature/description of goods exactly as written, e.g. PERFUMES, AIRCRAFT SPARE PARTS",
+"hawb":"HOUSE air waybill number when the document is a House Air Waybill or a HAWB number is stated (e.g. HAN-783), else empty",
 "items":[{"un":"UN1266 or ID8000","psn":"proper shipping name","cls":"class e.g. 3","sub":"subsidiary risk or empty",
 "pg":"I/II/III or empty","pi":"packing instruction number if stated","qty":"e.g. 4 fibreboard boxes x 20 L","auth":""}]}
 Rules: only include items that are dangerous goods with a UN/ID number stated or clearly identifiable.
+If the document is a HOUSE AIR WAYBILL, put the HOUSE number in "hawb" and the master 11-digit number (top boxes, e.g. 176-62853066) in "awb".
 If the same UN/ID number appears on multiple pallets or packages, output it ONCE and combine all pallet quantities in "qty" separated by "; ".
 Shipper/consignee format: company name on line 1, then address lines, then the FULL COUNTRY NAME on its own line
 (always write the country in full — "UNITED ARAB EMIRATES", "UNITED KINGDOM", "USA" — NEVER 2-letter codes like AE/GB),
@@ -2274,6 +2276,23 @@ async function aiExtractShipment(text, label, imgs){
     const gg = (j.goods || "").toUpperCase();
     const c1 = document.getElementById("cs_goods"); if(c1) c1.value = gg;
     const c2 = document.getElementById("gc_goods"); if(c2) c2.value = gg;
+  }
+  // HOUSE AWB detected → fill HAWB fields AND add it to the HOUSE AWBs list automatically
+  if(j.hawb){
+    const hno = String(j.hawb).toUpperCase().trim();
+    document.getElementById("f_ref").value = hno;
+    const gh = document.getElementById("gc_hawb"); if(gh) gh.value = hno;
+    if(typeof HAWBS !== "undefined"){
+      const rec = {no: hno,
+        pcs: String(parseInt(j.pieces) || ""), wt: String(j.grossweight || "").replace(/[^\d.]/g, ""),
+        goods: (j.goods || "").toUpperCase(),
+        org: iata3(j.dep || "") || "", dest: iata3(j.dest || "") || "",
+        shipper: fixAddr(j.shipper || ""), consignee: fixAddr(j.consignee || "")};
+      const ix = HAWBS.findIndex(x => x.no === rec.no);
+      if(ix >= 0) HAWBS[ix] = rec; else HAWBS.push(rec);
+      if(typeof hbRender === "function") hbRender();
+      if(typeof mfRender === "function") mfRender();
+    }
   }
   // handling info deliberately NOT auto-filled — it must carry only the emergency contact (JFS rule)
   if(j.cao === true) document.querySelector('input[name=f_pax][value=CAO]').checked = true;
