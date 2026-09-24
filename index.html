@@ -238,6 +238,11 @@
 
   /* ============ COMMAND CENTER THEME — marble background + dark sidebar (desktop) ============ */
   .navlogo{display:none;}   /* logo lives in the sidebar — desktop only */
+  .navstart{display:flex; gap:6px; align-items:center;}
+  .navstart .nslabel{display:none;}
+  .navstart button{border:0; cursor:pointer; font-weight:bold; border-radius:8px; padding:10px 12px; font-size:12px; color:#fff;}
+  .navstart .ns-dg{background:#a40000;} .navstart .ns-gc{background:#1d6b34;}
+  #uc_email{display:none;}   /* chip shows only the live dot + Logout */
   body{
     background-color:#e8ebf1;
     background-image:
@@ -254,6 +259,12 @@
       background:linear-gradient(168deg,#0c1a3c 0%,#14306b 52%,#0c1a3c 100%);
       border-radius:18px; overflow-y:auto; box-shadow:0 16px 44px rgba(12,26,60,.4);
       scrollbar-width:thin; scrollbar-color:#2a4a8f transparent;}
+    .navstart{display:block; margin-bottom:10px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,.12);}
+    .navstart .nslabel{display:block; font-size:10px; font-weight:bold; letter-spacing:1.5px; color:#8fa3d9; padding:2px 8px 8px;}
+    .navstart button{display:block; width:100%; text-align:center; margin-top:6px; padding:12px 10px; font-size:13px;
+      border-radius:10px; box-shadow:0 4px 14px rgba(0,0,0,.3);}
+    .navstart .ns-dg{background:linear-gradient(120deg,#a40000,#d32f2f);}
+    .navstart .ns-gc{background:linear-gradient(120deg,#1d6b34,#2e9e4f);}
     .navlogo{display:block !important; font-size:28px; padding:4px 8px 12px;
       border-bottom:1px solid rgba(255,255,255,.12); margin-bottom:8px; text-align:center;
       text-shadow:0 2px 10px rgba(62,201,167,.35);}
@@ -326,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-L</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-M</span></span>
           </div>
         </div>
       </div>
@@ -342,7 +353,12 @@
     </div>
 
     <div class="nav">
-      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai &nbsp;&bull;&nbsp; v24.09-L</span></div>
+      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai &nbsp;&bull;&nbsp; v24.09-M</span></div>
+      <div class="navstart">
+        <div class="nslabel">NEW JOB</div>
+        <button class="ns-dg" onclick="jgOpen('DG')">&#129513; DG SHIPMENT</button>
+        <button class="ns-gc" onclick="jgOpen('GC')">&#128230; GENERAL CARGO</button>
+      </div>
       <button id="nav-dash" class="on" onclick="showTab('dash')">&#128202; DASHBOARD</button>
       <button id="nav-gc" style="display:none;" onclick="showTab('gc')">&#128230; GENERAL CARGO</button>
       <button id="nav-dgd" onclick="showTab('dgd')">&#128203; DGD PREPARE</button>
@@ -3409,6 +3425,8 @@ function jgPick(type){
   setTimeout(() => { const el = document.getElementById("jg_job"); if(el) el.focus(); }, 100);
 }
 function jgGo(){ jobStart(_jgType); }
+/* sidebar quick start: open the gate straight on the job-number step for the picked type */
+function jgOpen(type){ _acceptRow = null; document.getElementById("jg_job").value = ""; jobGateShow(); jgPick(type); }
 function jgBack(){
   const s1 = document.getElementById("jg_step1"), s2 = document.getElementById("jg_step2");
   if(s1) s1.style.display = ""; if(s2) s2.style.display = "none";
@@ -7027,7 +7045,7 @@ async function enterApp(user){
   }catch(e){}
   dgdLogoApply();
   dgdLogoPull();          // company-wide logo — same for every user
-  jobGateShow();
+  // no auto popup — new jobs start from the DG / GC buttons in the sidebar
   inboxPoll();
   if(_inboxT) clearInterval(_inboxT);
   _inboxT = setInterval(inboxPoll, 60000);
