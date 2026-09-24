@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-D</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-E</span></span>
           </div>
         </div>
       </div>
@@ -1130,6 +1130,7 @@
           <button class="smallbtn sb-blue" onclick="invAddCol()">+ Add column</button>
           <button class="smallbtn sb-red" onclick="if(confirm('Clear all items?')){INVITEMS=[]; invRenderTable();}">Clear</button>
         </div>
+        <div id="inv_merge"></div>
         <div style="overflow-x:auto;"><table class="dtable" id="inv_table"></table></div>
       </div></div>
 
@@ -6260,6 +6261,57 @@ function invNew(){
   document.getElementById("inv_msg").textContent = "New " + invTypeName().toLowerCase() + " started — " + v("inv_no") + ". Add items, consignee is required.";
   if(typeof autosaveCurrent === "function") autosaveCurrent();
 }
+/* ---- merge rows with same HS CODE + same country of origin (optional, user choice) ---- */
+function _invMergeGroups(){
+  const map = {};
+  INVITEMS.forEach((x, i) => {
+    const hs = (x.hs || "").replace(/\D/g, "");
+    const org = (x.origin || "").trim().toUpperCase();
+    if(!hs || !org) return;                      // origin MUST be known and same — never merge without it
+    const k = hs + "|" + org;
+    (map[k] = map[k] || []).push(i);
+  });
+  return Object.entries(map).filter(([k, v]) => v.length > 1);
+}
+function invMergeBar(){
+  const el = document.getElementById("inv_merge"); if(!el) return;
+  const g = _invMergeGroups();
+  if(!g.length){ el.innerHTML = ""; return; }
+  const lines = g.map(([k, v]) => {
+    const [hs, org] = k.split("|");
+    return `<div style="font-size:12px;">&bull; HS <b>${esc(hs)}</b> &mdash; ${esc(org)} : ${v.length} rows (${v.map(i => esc((INVITEMS[i].desc||"").slice(0,22))).join(", ")})</div>`;
+  }).join("");
+  el.innerHTML = `<div style="border:1.5px solid #b8860b; background:#fff8e6; border-radius:8px; padding:8px 12px; margin:8px 0;">
+    <div style="font-weight:bold; color:#7a4b00; font-size:12.5px;">&#128257; SAME HS CODE + SAME ORIGIN found — merge into one line?</div>
+    ${lines}
+    <div style="margin-top:6px;"><button class="smallbtn sb-green" onclick="invMergeGo()">&#10004; MERGE THEM</button>
+    <span style="font-size:11px; color:#8a97a5;">Optional — quantities, cartons &amp; weights are added together. Different origin is NEVER merged.</span></div></div>`;
+}
+function invMergeGo(){
+  const groups = _invMergeGroups();
+  if(!groups.length) return;
+  const kill = new Set();
+  groups.forEach(([k, idxs]) => {
+    const first = INVITEMS[idxs[0]];
+    let qty = 0, amt = 0, ctns = 0, net = 0, gross = 0; const descs = [];
+    idxs.forEach(i => {
+      const x = INVITEMS[i];
+      qty += parseFloat(x.qty) || 0;
+      amt += (parseFloat(x.qty) || 0) * (parseFloat(x.price) || 0);
+      ctns += parseFloat(x.ctns) || 0; net += parseFloat(x.net) || 0; gross += parseFloat(x.gross) || 0;
+      const d = (x.desc || "").trim(); if(d && !descs.includes(d)) descs.push(d);
+    });
+    first.desc = descs.join(" / ");
+    first.qty = qty || "";
+    first.price = (qty && amt) ? +(amt / qty).toFixed(2) : first.price;   // weighted average unit price
+    first.ctns = ctns || ""; first.net = net ? ptR3(net) : ""; first.gross = gross ? ptR3(gross) : "";
+    idxs.slice(1).forEach(i => kill.add(i));
+  });
+  INVITEMS = INVITEMS.filter((x, i) => !kill.has(i));
+  invRenderTable();
+  document.getElementById("inv_msg").textContent = "✓ Merged — same HS + same origin combined (qty, cartons & weights added, unit price weighted).";
+  if(typeof autosaveCurrent === "function") autosaveCurrent();
+}
 /* ---- custom columns (Excel style) ---- */
 function invAddCol(){
   const n = (prompt("New column name (e.g. BATCH NO, EXP DATE):") || "").trim().toUpperCase();
@@ -6382,6 +6434,7 @@ function invRenderTable(){
       <td><button class="smallbtn sb-red" onclick="INVITEMS.splice(${i},1); invRenderTable();">x</button></td></tr>`;
   });
   tb.innerHTML = h + (INVITEMS.length ? "" : `<tr><td colspan="${12 + INVCOLS.length}" style="color:#8a97a5;">No items — click NEW INVOICE, then import with AI or add rows.</td></tr>`);
+  if(typeof invMergeBar === "function") invMergeBar();
   invRenderAll();
 }
 let _invT = null;
