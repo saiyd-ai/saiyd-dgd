@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-B</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-C</span></span>
           </div>
         </div>
       </div>
@@ -6452,14 +6452,126 @@ function numWords(n){
   if(r) out += three(r);
   return out.trim();
 }
-/* ---- letterhead sheet wrapper ---- */
-function lhSheet(inner, draft){
+/* ---- letterhead page (fixed A4, WYSIWYG — preview pages = printed pages) ---- */
+function _lhPage(inner, draft, last, pageTag){
   const p = lhCur();
-  return `<div class="sheet" style="min-height:285mm; padding:0; position:relative; overflow:hidden;">
+  const padTop = p && p.img ? 42 : 16, padBot = p && p.img ? 26 : 16;
+  return `<div class="sheet" style="height:294mm; padding:0; position:relative; overflow:hidden; ${last ? "" : "break-after:page; page-break-after:always;"}">
     ${p && p.img ? `<img src="${p.img}" style="position:absolute; inset:0; width:100%; height:100%; object-fit:fill;">` : ""}
     ${draft ? `<div style="position:absolute; top:120mm; left:32mm; font-size:58pt; color:rgba(200,0,0,.12); font-weight:900; transform:rotate(-25deg); letter-spacing:8px; z-index:5;">DRAFT</div>` : ""}
-    <div style="position:relative; padding:${p && p.img ? "40mm 16mm 40mm" : "16mm 16mm 20mm"};">${inner}</div>
+    ${pageTag ? `<div style="position:absolute; bottom:${p && p.img ? 21 : 6}mm; right:16mm; font-size:8pt; color:#777;">${pageTag}</div>` : ""}
+    <div style="position:relative; padding:${padTop}mm 16mm ${padBot}mm;">${inner}</div>
   </div>`;
+}
+function _lhAvailMM(){ const p = lhCur(); return p && p.img ? 294 - 42 - 26 : 294 - 16 - 16; }
+/* paginate: measure header/rows/totals, pack into exact A4 pages */
+function _invPaginate(o){
+  const ms = document.createElement("div");
+  ms.className = "sheet";
+  ms.style.cssText = "position:fixed; left:-9999px; top:0; padding:0;";
+  ms.innerHTML = `<div style="padding:0 16mm;"><div id="_mHead">${o.head}</div>
+    <table style="border-collapse:collapse; width:100%; margin-top:4mm;" id="_mTab"><tbody>${o.colHeader}${o.rows.join("")}${o.totalRow}</tbody></table>
+    <div id="_mFoot">${o.foot}</div>
+    <div id="_mCont">${o.contHead}</div></div>`;
+  document.body.appendChild(ms);
+  const pxMM = ms.offsetWidth / 210;
+  const trs = ms.querySelectorAll("#_mTab tr");
+  const hHead = ms.querySelector("#_mHead").offsetHeight / pxMM + 4;
+  const hCont = ms.querySelector("#_mCont").offsetHeight / pxMM + 4;
+  const hCol = trs[0].offsetHeight / pxMM;
+  const hTotal = trs[trs.length - 1].offsetHeight / pxMM;
+  const hFoot = ms.querySelector("#_mFoot").offsetHeight / pxMM + 2;
+  const rowH = [];
+  for(let i = 1; i < trs.length - 1; i++) rowH.push(trs[i].offsetHeight / pxMM);
+  document.body.removeChild(ms);
+  const avail = _lhAvailMM();
+  const pages = []; let cur = [], used = hHead + hCol, first = true;
+  o.rows.forEach((r, i) => {
+    if(used + rowH[i] > avail - 2){ pages.push({rows: cur, first}); first = false; cur = []; used = hCont + hCol; }
+    cur.push(r); used += rowH[i];
+  });
+  // totals + signature must fit under the last rows
+  if(used + hTotal + hFoot > avail - 2){ pages.push({rows: cur, first}); first = false; cur = []; }
+  pages.push({rows: cur, first, last: true});
+  return pages;
+}
+function _invBuildDoc(kind){
+  const p = lhCur();
+  const draft = document.getElementById("inv_draft") && document.getElementById("inv_draft").checked;
+  const cur = v("inv_cur") || "USD";
+  const t = _invTotals();
+  const shipName = p ? p.name : ((v("f_shipper") || "").split("\n")[0] || "");
+  const TD = "border:1px solid #000; padding:1.6mm 2mm; font-size:9pt;";
+  const TH = TD + " font-weight:bold; background:#f0f0f0; text-align:center;";
+  const title = kind === "inv" ? "COMMERCIAL INVOICE" : "PACKING LIST";
+  const head = `
+    ${p && p.img ? "" : `<div style="font-size:14pt; font-weight:bold;">${esc(shipName)}</div>`}
+    <div style="text-align:center; font-size:14pt; font-weight:bold; text-decoration:underline; letter-spacing:1px;">${title}</div>
+    <table style="width:100%; margin-top:4mm; font-size:9.5pt;">
+      <tr><td style="width:58%; vertical-align:top;">
+        <b>SHIPPER / EXPORTER:</b><br><span style="white-space:pre-line;">${esc(p ? p.name : v("f_shipper"))}</span><br><br>
+        <b>CONSIGNEE / BUYER:</b><br><span style="white-space:pre-line;">${esc(v("inv_cons") || v("f_consignee"))}</span></td>
+      <td style="vertical-align:top;">
+        <table style="font-size:9.5pt;">
+          <tr><td style="width:30mm;"><b>Invoice No</b></td><td>: ${esc(v("inv_no"))}</td></tr>
+          <tr><td><b>Date</b></td><td>: ${esc(v("inv_date"))}</td></tr>
+          ${v("f_awb") ? `<tr><td><b>AWB No</b></td><td>: ${esc(v("f_awb"))}</td></tr>` : ""}
+          ${(iata3(v("f_dep")) || iata3(v("f_dest"))) ? `<tr><td><b>From / To</b></td><td>: ${esc(iata3(v("f_dep"))||"")} &rarr; ${esc(iata3(v("f_dest"))||"")}</td></tr>` : ""}
+          ${kind === "inv" && v("inv_terms") ? `<tr><td><b>Terms</b></td><td>: ${esc(v("inv_terms").toUpperCase())}</td></tr>` : ""}
+          ${kind === "inv" ? `<tr><td><b>Currency</b></td><td>: ${cur}</td></tr>` : ""}
+        </table></td></tr>
+    </table>`;
+  const contHead = `<div style="font-size:10pt; font-weight:bold; padding-top:1mm;">${title} — ${esc(v("inv_no"))} <span style="float:right; font-weight:normal; font-size:9pt;">(continued)</span></div>`;
+  let colHeader, rows = [], totalRow;
+  if(kind === "inv"){
+    colHeader = `<tr><td style="${TH} width:6%;">SL</td><td style="${TH}">DESCRIPTION OF GOODS</td><td style="${TH} width:11%;">HS CODE</td>
+      <td style="${TH} width:11%;">ORIGIN</td><td style="${TH} width:11%;">QTY</td><td style="${TH} width:11%;">UNIT PRICE<br>${cur}</td><td style="${TH} width:13%;">AMOUNT<br>${cur}</td></tr>`;
+    INVITEMS.forEach((x, i) => {
+      const amt = (parseFloat(x.qty) && parseFloat(x.price)) ? (parseFloat(x.qty) * parseFloat(x.price)).toFixed(2) : "";
+      rows.push(`<tr><td style="${TD} text-align:center;">${i+1}</td><td style="${TD}">${esc(x.desc)}</td>
+        <td style="${TD} text-align:center;">${esc(x.hs)}</td><td style="${TD} text-align:center;">${esc(x.origin)}</td>
+        <td style="${TD} text-align:center;">${esc(String(x.qty))} ${esc(x.unit||"")}</td>
+        <td style="${TD} text-align:right;">${esc(String(x.price))}</td><td style="${TD} text-align:right; font-weight:bold;">${amt}</td></tr>`);
+    });
+    totalRow = `<tr><td style="${TD} text-align:right; font-weight:bold;" colspan="6">TOTAL ${cur}</td>
+      <td style="${TD} text-align:right; font-weight:bold; font-size:10.5pt;">${t.amt}</td></tr>`;
+  } else {
+    colHeader = `<tr><td style="${TH} width:6%;">SL</td><td style="${TH}">DESCRIPTION OF GOODS</td><td style="${TH} width:12%;">HS CODE</td>
+      <td style="${TH} width:13%;">QTY</td><td style="${TH} width:10%;">CTNS</td><td style="${TH} width:13%;">NET WT (KG)</td><td style="${TH} width:14%;">GROSS WT (KG)</td></tr>`;
+    INVITEMS.forEach((x, i) => {
+      rows.push(`<tr><td style="${TD} text-align:center;">${i+1}</td><td style="${TD}">${esc(x.desc)}</td>
+        <td style="${TD} text-align:center;">${esc(x.hs)}</td>
+        <td style="${TD} text-align:center;">${esc(String(x.qty))} ${esc(x.unit||"")}</td>
+        <td style="${TD} text-align:center;">${esc(String(x.ctns))}</td>
+        <td style="${TD} text-align:right;">${esc(String(x.net))}</td><td style="${TD} text-align:right;">${esc(String(x.gross))}</td></tr>`);
+    });
+    totalRow = `<tr><td style="${TD} text-align:right; font-weight:bold;" colspan="3">TOTAL</td>
+      <td style="${TD} text-align:center; font-weight:bold;">${t.qty}</td><td style="${TD} text-align:center; font-weight:bold;">${t.ctns}</td>
+      <td style="${TD} text-align:right; font-weight:bold;">${t.net}</td><td style="${TD} text-align:right; font-weight:bold;">${t.gross}</td></tr>`;
+  }
+  if(!rows.length) rows.push(`<tr><td style="${TD} text-align:center; color:#888;" colspan="7">No items</td></tr>`);
+  /* professional signature + stamp block */
+  const foot = `
+    ${kind === "inv" ? `<div style="font-size:9.5pt; margin-top:2.5mm;"><b>AMOUNT IN WORDS:</b> ${cur} ${numWords(t.amt)} ONLY</div>` : `<div style="font-size:9.5pt; margin-top:2.5mm;">Total packages: <b>${t.ctns || ""}</b></div>`}
+    ${kind === "inv" && v("inv_note") ? `<div style="font-size:9.5pt; margin-top:1.5mm;"><b>${esc(v("inv_note").toUpperCase())}</b></div>` : ""}
+    <table style="width:100%; margin-top:5mm;"><tr>
+      <td style="font-size:9.5pt; vertical-align:bottom; padding-bottom:2mm;">We certify that this ${kind === "inv" ? "invoice" : "packing list"} is true and correct.</td>
+      <td style="width:62mm; text-align:center; vertical-align:bottom;">
+        <div style="font-size:9pt; font-weight:bold; letter-spacing:0.5px;">For ${esc(shipName)}</div>
+        <div style="height:27mm; display:flex; align-items:center; justify-content:center;">
+          ${p && p.stamp ? `<img src="${p.stamp}" style="height:25mm; object-fit:contain; transform:rotate(-7deg); mix-blend-mode:multiply; opacity:.92;">` : ""}</div>
+        <div style="border-top:1px solid #000; font-size:8.5pt; padding-top:1mm;">Authorized Signatory</div>
+      </td></tr></table>`;
+  const pages = _invPaginate({head, contHead, colHeader, rows, totalRow, foot});
+  const tabW = `border-collapse:collapse; width:100%; margin-top:4mm;`;
+  return pages.map((pg, pi) => {
+    const last = pi === pages.length - 1;
+    let inner = pg.first ? head : contHead;
+    inner += `<table style="${tabW}">${colHeader}${pg.rows.join("")}${last ? totalRow : ""}</table>`;
+    if(!last) inner += `<div style="font-size:8.5pt; color:#555; text-align:right; margin-top:2mm;">Continued on page ${pi+2} …</div>`;
+    else inner += foot;
+    return _lhPage(inner, draft, last, pages.length > 1 ? "Page " + (pi+1) + " of " + pages.length : "");
+  }).join("");
 }
 function _invTotals(){
   let amt = 0, qty = 0, ctns = 0, net = 0, gross = 0;
@@ -6472,93 +6584,11 @@ function _invTotals(){
 }
 function invoiceRender(){
   const out = document.getElementById("inv_doc"); if(!out) return;
-  const p = lhCur();
-  const cur = v("inv_cur") || "USD";
-  const t = _invTotals();
-  const TD = "border:1px solid #000; padding:1.6mm 2mm; font-size:9pt;";
-  const TH = TD + " font-weight:bold; background:#f0f0f0; text-align:center;";
-  let rows = "";
-  INVITEMS.forEach((x, i) => {
-    const amt = (parseFloat(x.qty) && parseFloat(x.price)) ? ((parseFloat(x.qty))*(parseFloat(x.price))).toFixed(2) : "";
-    rows += `<tr><td style="${TD} text-align:center;">${i+1}</td><td style="${TD}">${esc(x.desc)}</td>
-      <td style="${TD} text-align:center;">${esc(x.hs)}</td><td style="${TD} text-align:center;">${esc(x.origin)}</td>
-      <td style="${TD} text-align:center;">${esc(String(x.qty))} ${esc(x.unit||"")}</td>
-      <td style="${TD} text-align:right;">${esc(String(x.price))}</td><td style="${TD} text-align:right; font-weight:bold;">${amt}</td></tr>`;
-  });
-  const inner = `
-    ${p && p.img ? "" : `<div style="font-size:14pt; font-weight:bold;">${esc((p && p.name) || (v("f_shipper")||"").split("\n")[0] || "")}</div>`}
-    <div style="text-align:center; font-size:14pt; font-weight:bold; text-decoration:underline; letter-spacing:1px;">COMMERCIAL INVOICE</div>
-    <table style="width:100%; margin-top:4mm; font-size:9.5pt;">
-      <tr><td style="width:60%; vertical-align:top;">
-        <b>SHIPPER / EXPORTER:</b><br><span style="white-space:pre-line;">${esc(p ? p.name : v("f_shipper"))}</span><br><br>
-        <b>CONSIGNEE / BUYER:</b><br><span style="white-space:pre-line;">${esc(v("inv_cons") || v("f_consignee"))}</span></td>
-      <td style="vertical-align:top;">
-        <table style="font-size:9.5pt;">
-          <tr><td style="width:30mm;"><b>Invoice No</b></td><td>: ${esc(v("inv_no"))}</td></tr>
-          <tr><td><b>Date</b></td><td>: ${esc(v("inv_date"))}</td></tr>
-          <tr><td><b>AWB No</b></td><td>: ${esc(v("f_awb"))}</td></tr>
-          <tr><td><b>From / To</b></td><td>: ${esc(iata3(v("f_dep"))||"")} → ${esc(iata3(v("f_dest"))||"")}</td></tr>
-          <tr><td><b>Terms</b></td><td>: ${esc((v("inv_terms")||"").toUpperCase())}</td></tr>
-          <tr><td><b>Currency</b></td><td>: ${cur}</td></tr>
-        </table></td></tr>
-    </table>
-    <table style="border-collapse:collapse; width:100%; margin-top:4mm;">
-      <tr><td style="${TH} width:6%;">SL</td><td style="${TH}">DESCRIPTION OF GOODS</td><td style="${TH} width:11%;">HS CODE</td>
-          <td style="${TH} width:11%;">ORIGIN</td><td style="${TH} width:11%;">QTY</td><td style="${TH} width:11%;">UNIT PRICE<br>${cur}</td><td style="${TH} width:13%;">AMOUNT<br>${cur}</td></tr>
-      ${rows || `<tr><td style="${TD} text-align:center; color:#888;" colspan="7">No items</td></tr>`}
-      <tr><td style="${TD} text-align:right; font-weight:bold;" colspan="6">TOTAL ${cur}</td>
-          <td style="${TD} text-align:right; font-weight:bold; font-size:10.5pt;">${t.amt}</td></tr>
-    </table>
-    <div style="font-size:9.5pt; margin-top:2.5mm;"><b>AMOUNT IN WORDS:</b> ${cur} ${numWords(t.amt)} ONLY</div>
-    ${v("inv_note") ? `<div style="font-size:9.5pt; margin-top:1.5mm;"><b>${esc(v("inv_note").toUpperCase())}</b></div>` : ""}
-    <table style="width:100%; margin-top:8mm;"><tr>
-      <td style="font-size:9.5pt;">We certify this invoice is true and correct.</td>
-      <td style="text-align:right;">${p && p.stamp ? `<img src="${p.stamp}" style="height:26mm; object-fit:contain;">` : ""}<br>
-        <span style="font-size:9pt; border-top:1px solid #000; padding-top:1mm;">Authorized Signatory</span></td></tr></table>`;
-  out.innerHTML = lhSheet(inner, document.getElementById("inv_draft") && document.getElementById("inv_draft").checked);
+  out.innerHTML = _invBuildDoc("inv");
 }
 function packingRender(){
   const out = document.getElementById("pk_doc"); if(!out) return;
-  const p = lhCur();
-  const t = _invTotals();
-  const TD = "border:1px solid #000; padding:1.6mm 2mm; font-size:9pt;";
-  const TH = TD + " font-weight:bold; background:#f0f0f0; text-align:center;";
-  let rows = "";
-  INVITEMS.forEach((x, i) => {
-    rows += `<tr><td style="${TD} text-align:center;">${i+1}</td><td style="${TD}">${esc(x.desc)}</td>
-      <td style="${TD} text-align:center;">${esc(x.hs)}</td>
-      <td style="${TD} text-align:center;">${esc(String(x.qty))} ${esc(x.unit||"")}</td>
-      <td style="${TD} text-align:center;">${esc(String(x.ctns))}</td>
-      <td style="${TD} text-align:right;">${esc(String(x.net))}</td><td style="${TD} text-align:right;">${esc(String(x.gross))}</td></tr>`;
-  });
-  const inner = `
-    ${p && p.img ? "" : `<div style="font-size:14pt; font-weight:bold;">${esc((p && p.name) || (v("f_shipper")||"").split("\n")[0] || "")}</div>`}
-    <div style="text-align:center; font-size:14pt; font-weight:bold; text-decoration:underline; letter-spacing:1px;">PACKING LIST</div>
-    <table style="width:100%; margin-top:4mm; font-size:9.5pt;">
-      <tr><td style="width:60%; vertical-align:top;">
-        <b>SHIPPER:</b><br><span style="white-space:pre-line;">${esc(p ? p.name : v("f_shipper"))}</span><br><br>
-        <b>CONSIGNEE:</b><br><span style="white-space:pre-line;">${esc(v("inv_cons") || v("f_consignee"))}</span></td>
-      <td style="vertical-align:top;">
-        <table style="font-size:9.5pt;">
-          <tr><td style="width:30mm;"><b>Invoice No</b></td><td>: ${esc(v("inv_no"))}</td></tr>
-          <tr><td><b>Date</b></td><td>: ${esc(v("inv_date"))}</td></tr>
-          <tr><td><b>AWB No</b></td><td>: ${esc(v("f_awb"))}</td></tr>
-          <tr><td><b>From / To</b></td><td>: ${esc(iata3(v("f_dep"))||"")} → ${esc(iata3(v("f_dest"))||"")}</td></tr>
-        </table></td></tr>
-    </table>
-    <table style="border-collapse:collapse; width:100%; margin-top:4mm;">
-      <tr><td style="${TH} width:6%;">SL</td><td style="${TH}">DESCRIPTION OF GOODS</td><td style="${TH} width:12%;">HS CODE</td>
-          <td style="${TH} width:13%;">QTY</td><td style="${TH} width:10%;">CTNS</td><td style="${TH} width:13%;">NET WT (KG)</td><td style="${TH} width:14%;">GROSS WT (KG)</td></tr>
-      ${rows || `<tr><td style="${TD} text-align:center; color:#888;" colspan="7">No items</td></tr>`}
-      <tr><td style="${TD} text-align:right; font-weight:bold;" colspan="3">TOTAL</td>
-          <td style="${TD} text-align:center; font-weight:bold;">${t.qty}</td><td style="${TD} text-align:center; font-weight:bold;">${t.ctns}</td>
-          <td style="${TD} text-align:right; font-weight:bold;">${t.net}</td><td style="${TD} text-align:right; font-weight:bold;">${t.gross}</td></tr>
-    </table>
-    <table style="width:100%; margin-top:8mm;"><tr>
-      <td style="font-size:9.5pt;">Total packages: <b>${t.ctns || ""}</b></td>
-      <td style="text-align:right;">${p && p.stamp ? `<img src="${p.stamp}" style="height:26mm; object-fit:contain;">` : ""}<br>
-        <span style="font-size:9pt; border-top:1px solid #000; padding-top:1mm;">Authorized Signatory</span></td></tr></table>`;
-  out.innerHTML = lhSheet(inner, document.getElementById("inv_draft") && document.getElementById("inv_draft").checked);
+  out.innerHTML = _invBuildDoc("pk");
 }
 function invRenderAll(){ invoiceRender(); packingRender(); }
 function invFill(){
