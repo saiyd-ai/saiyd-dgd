@@ -281,7 +281,7 @@
     #nav-customers{--acc:#0091ff;} #nav-items{--acc:#12a594;} #nav-wh{--acc:#ad7f58;}
     #nav-docs{--acc:#ffc53d;} #nav-dnata{--acc:#3e63dd;} #nav-alforms{--acc:#00b3c2;}
     #nav-awb{--acc:#6e56cf;} #nav-inv{--acc:#86c332;} #nav-skyd{--acc:#3ec9a7; background:linear-gradient(120deg,rgba(62,201,167,.25),rgba(37,71,201,.25));}
-    #nav-settings{--acc:#8a97a5;}
+    #nav-settings{--acc:#8a97a5;} #nav-msds{--acc:#b45309;}
     .topbar{background:linear-gradient(120deg,#0c1a3c 0%,#173a80 55%,#0c1a3c 100%) !important; border-radius:16px;
       box-shadow:0 10px 30px rgba(12,26,60,.25); padding:12px 22px;}
     #tb_brand{display:none !important;}                    /* logo lives in the sidebar — no duplicate */
@@ -337,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-T</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-U</span></span>
           </div>
         </div>
       </div>
@@ -359,6 +359,7 @@
       <button id="nav-gc" onclick="if(typeof setJobType==='function')setJobType('GC'); showTab('gc');">&#128230; GENERAL CARGO</button>
       <button id="nav-pl" onclick="showTab('pl')">&#128196; PACKING LIST</button>
       <button id="nav-checklist" onclick="showTab('checklist')">&#9989; CHECKLIST</button>
+      <button id="nav-msds" onclick="showTab('msds')">&#128269; MSDS CHECKER</button>
       <button id="nav-stickers" onclick="showTab('stickers')">&#127991; STICKERS</button>
       <button id="nav-labels" onclick="showTab('labels')">&#9888; DG LABELS</button>
       <button id="nav-customers" onclick="showTab('customers')">&#128101; CUSTOMERS</button>
@@ -598,23 +599,7 @@
       </div>
     </div>
 
-    <!-- MSDS DG CHECKER -->
-    <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128269; MSDS CHECKER &mdash; DG or NON-DG? + PAX/CAO + UN suggestion</h2><div class="body">
-      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
-        <label style="margin:0;">Attach MSDS PDF:</label>
-        <input type="file" id="msdsfile" accept=".pdf" style="font-size:12.5px;">
-        <button class="btn btn-save" style="background:#7b2d8b;" onclick="readMsdsPdf()">&#129302; UPLOAD &amp; AI CHECK</button>
-        <span id="msdspdfmsg" style="font-size:12px; color:#7a4b00;"></span>
-      </div>
-      <label>...or copy the MSDS/SDS text (especially Section 9 &amp; Section 14) and paste here</label>
-      <textarea id="f_msds" style="min-height:110px;" placeholder="Paste MSDS text here...&#10;e.g.&#10;Flash point: 14 °C (closed cup)&#10;SECTION 14: Transport information&#10;UN number: 1266&#10;Proper shipping name: PERFUMERY PRODUCTS&#10;Class: 3, Packing group: II"></textarea>
-      <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
-        <button class="btn btn-save" style="background:#b45309;" onclick="msdsCheck()">&#128269; CHECK MSDS</button>
-        <button class="btn btn-save" style="background:#7b2d8b;" onclick="aiMsdsCheck()">&#129302; AI CHECK</button>
-        <button class="btn btn-add" id="msdsAddBtn" style="display:none;" onclick="msdsAddItem()">+ Add this item to DGD form</button>
-      </div>
-      <div id="msdsresult" style="margin-top:12px;"></div>
-    </div></div>
+    <!-- MSDS DG CHECKER moved to its own tab (tab-msds) -->
 
     <!-- AUTO FILL -->
     <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#9889; AUTO FILL &mdash; paste AWB / booking details here</h2><div class="body">
@@ -1250,6 +1235,33 @@
       <div class="card" style="border-left:5px solid #7a4b00;"><h2>&#128218; HS CODE HISTORY &mdash; every code found is saved here</h2><div class="body">
         <input type="text" id="hs_search" placeholder="Search item / HS code..." style="width:280px; margin-bottom:8px;" oninput="hsHistRender()">
         <div style="overflow-x:auto;"><table class="dtable" id="hs_table"></table></div>
+      </div></div>
+    </div>
+
+    <!-- ================= MSDS CHECKER TAB ================= -->
+    <div class="tab" id="tab-msds">
+      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128269; MSDS CHECKER &mdash; DG or NON-DG? + PAX/CAO + UN suggestion</h2><div class="body">
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+          <label style="margin:0;">Attach MSDS PDF:</label>
+          <input type="file" id="msdsfile" accept=".pdf" style="font-size:12.5px;">
+          <button class="btn btn-save" style="background:#7b2d8b;" onclick="readMsdsPdf()">&#129302; UPLOAD &amp; AI CHECK</button>
+          <span id="msdspdfmsg" style="font-size:12px; color:#7a4b00;"></span>
+        </div>
+        <div style="margin-bottom:8px;"><label>Product / item name (saved with the history)</label>
+          <input type="text" id="msds_name" placeholder="e.g. ACETONE CLEANER 500ML" style="width:320px;"></div>
+        <label>...or copy the MSDS/SDS text (especially Section 9 &amp; Section 14) and paste here</label>
+        <textarea id="f_msds" style="min-height:110px;" placeholder="Paste MSDS text here...&#10;e.g.&#10;Flash point: 14 °C (closed cup)&#10;SECTION 14: Transport information&#10;UN number: 1266&#10;Proper shipping name: PERFUMERY PRODUCTS&#10;Class: 3, Packing group: II"></textarea>
+        <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+          <button class="btn btn-save" style="background:#b45309;" onclick="msdsCheck()">&#128269; CHECK MSDS</button>
+          <button class="btn btn-save" style="background:#7b2d8b;" onclick="aiMsdsCheck()">&#129302; AI CHECK</button>
+          <button class="btn btn-add" id="msdsAddBtn" style="display:none;" onclick="msdsAddItem()">+ Add this item to DGD form</button>
+        </div>
+        <div id="msdsresult" style="margin-top:12px;"></div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#128218; MSDS HISTORY &mdash; every check is saved here</h2><div class="body">
+        <input type="text" id="msds_search" placeholder="Search product / UN number..." style="width:300px; margin-bottom:8px;" oninput="msdsHistRender()">
+        <div style="overflow-x:auto;"><table class="dtable" id="msds_hist_table"></table></div>
       </div></div>
     </div>
 
@@ -2212,6 +2224,7 @@ function showTab(name){
   if(name === "awb") awbFill();
   if(name === "inv" && typeof invFill === "function") invFill();
   if(name === "skyd" && typeof skydFill === "function") skydFill();
+  if(name === "msds" && typeof msdsHistRender === "function") msdsHistRender();
 }
 
 /* ---------- alt print (checklist / stickers / labels) ---------- */
@@ -4898,7 +4911,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log","jfs_inv_counters","jfs_job_counter"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log","jfs_inv_counters","jfs_job_counter","jfs_msds_history"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
@@ -6920,6 +6933,55 @@ function invFill(){
   invRenderTable();
   lhPull();
 }
+/* ================= MSDS HISTORY — every MSDS check saved (product, UN, DG/NON-DG) ================= */
+function msdsHist(){ try{ const p = JSON.parse(localStorage.getItem("jfs_msds_history") || "null"); return Array.isArray(p) ? p : []; }catch(e){ return []; } }
+function msdsHistAdd(rec){
+  if(!rec || (!rec.name && !rec.un && !rec.psn)) return;
+  const list = msdsHist();
+  list.unshift(rec); if(list.length > 300) list.pop();
+  setStore("jfs_msds_history", list);
+  msdsHistRender();
+}
+/* read the verdict straight out of the result box — works for both CHECK MSDS and AI CHECK */
+function msdsHistFromResult(src){
+  const out = document.getElementById("msdsresult"); if(!out) return;
+  const t = out.innerText || "";
+  if(!t.trim() || t.includes("analysing")) return;
+  let verdict = "UNKNOWN";
+  if(/DANGEROUS GOODS/i.test(t)) verdict = "DG";
+  else if(/NON-?DG/i.test(t)) verdict = "NON-DG";
+  const un = (t.match(/\b(UN\s?\d{4}|ID\s?8000)\b/i) || [""])[0].replace(/\s/g, "").toUpperCase();
+  const cls = (t.match(/Class:\s*([0-9.]+(?:\s*\([^)]*\))?)/i) || [,""])[1];
+  const pg = (t.match(/Packing Group:\s*(I{1,3})\b/i) || [,""])[1];
+  const psn = (t.match(/UN suggestion:\s*\S+\s*—\s*([^\n]+)/i) || [,""])[1].trim();
+  const fileEl = document.getElementById("msdsfile");
+  const fname = fileEl && fileEl.files.length ? fileEl.files[0].name : "";
+  const name = (v("msds_name") || psn || fname || "").toUpperCase() || "(no name)";
+  msdsHistAdd({when: new Date().toLocaleString("en-GB"), name, verdict, un, cls, pg, psn,
+    src: src + (fname ? " • " + fname : ""),
+    note: (t.match(/🤖\s*([^\n]+)/) || [,""])[1].slice(0, 180)});
+}
+function msdsHistRender(){
+  const tb = document.getElementById("msds_hist_table"); if(!tb) return;
+  const q = (v("msds_search") || "").toLowerCase();
+  let h = "<tr><th>WHEN</th><th>PRODUCT / MSDS</th><th>VERDICT</th><th>UN / ID</th><th>CLASS</th><th>PG</th><th>DETAILS</th><th></th></tr>";
+  msdsHist().forEach((x, i) => {
+    if(q && !((x.name||"") + " " + (x.un||"") + " " + (x.psn||"")).toLowerCase().includes(q)) return;
+    const vd = x.verdict === "DG" ? "<b style='color:#a40000;'>&#9888; DG</b>" : (x.verdict === "NON-DG" ? "<b style='color:#1d6b34;'>&#10004; NON-DG</b>" : "<span style='color:#b45309;'>?</span>");
+    h += `<tr><td style="white-space:nowrap;">${esc(x.when||"")}</td><td><b>${esc(x.name||"")}</b>${x.src ? `<div style="font-size:10.5px; color:#8a97a5;">${esc(x.src)}</div>` : ""}</td>
+      <td>${vd}</td><td><b>${esc(x.un||"—")}</b></td><td>${esc(x.cls||"")}</td><td>${esc(x.pg||"")}</td>
+      <td style="font-size:11.5px; max-width:340px;">${esc(x.psn||"")}${x.note ? "<div style='color:#5b6b7d;'>" + esc(x.note) + "</div>" : ""}</td>
+      <td><button class="smallbtn sb-red" onclick="const l=msdsHist(); l.splice(${i},1); setStore('jfs_msds_history',l); msdsHistRender();">x</button></td></tr>`;
+  });
+  tb.innerHTML = h + (msdsHist().length ? "" : `<tr><td colspan="8" style="color:#8a97a5;">No checks yet — every MSDS check is saved here automatically.</td></tr>`);
+}
+/* hook the existing checkers so every result lands in the history */
+(function(){
+  const mc = msdsCheck;
+  msdsCheck = function(){ const r = mc.apply(this, arguments); setTimeout(() => msdsHistFromResult("CHECK MSDS"), 300); return r; };
+  const ac = aiMsdsCheck;
+  aiMsdsCheck = async function(){ const r = await ac.apply(this, arguments); setTimeout(() => msdsHistFromResult("AI CHECK"), 300); return r; };
+})();
 /* ================= SKYD — AI CARGO AGENT (STEP 1: one-command job preparation) ================= */
 function skydLogAdd(entry){
   const l = store("jfs_skyd_log"); l.unshift(entry); if(l.length > 100) l.pop();
