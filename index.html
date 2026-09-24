@@ -337,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-M</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-N</span></span>
           </div>
         </div>
       </div>
@@ -353,7 +353,7 @@
     </div>
 
     <div class="nav">
-      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai &nbsp;&bull;&nbsp; v24.09-M</span></div>
+      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai &nbsp;&bull;&nbsp; v24.09-N</span></div>
       <div class="navstart">
         <div class="nslabel">NEW JOB</div>
         <button class="ns-dg" onclick="jgOpen('DG')">&#129513; DG SHIPMENT</button>
@@ -3425,8 +3425,12 @@ function jgPick(type){
   setTimeout(() => { const el = document.getElementById("jg_job"); if(el) el.focus(); }, 100);
 }
 function jgGo(){ jobStart(_jgType); }
-/* sidebar quick start: open the gate straight on the job-number step for the picked type */
-function jgOpen(type){ _acceptRow = null; document.getElementById("jg_job").value = ""; jobGateShow(); jgPick(type); }
+/* sidebar quick start: NO popup — go straight to the page for the picked type */
+function jgOpen(type){
+  _acceptRow = null;
+  if(typeof setJobType === "function") setJobType(type);
+  showTab(type === "GC" ? "gc" : "dgd");
+}
 function jgBack(){
   const s1 = document.getElementById("jg_step1"), s2 = document.getElementById("jg_step2");
   if(s1) s1.style.display = ""; if(s2) s2.style.display = "none";
@@ -3504,7 +3508,21 @@ function jobContinue(){
   document.getElementById("jobgate").style.display = "none";
   showTab("dgd");
 }
-function jobNew(){ _acceptRow = null; document.getElementById("jg_job").value = ""; jobGateShow(); }
+/* auto job number series — JFS-YYYY-NNNN (year-wise, cloud-synced, editable after) */
+function jobNextNo(commit){
+  const yr = new Date().getFullYear();
+  let c; try{ c = JSON.parse(localStorage.getItem("jfs_job_counter") || "{}"); }catch(e){ c = {}; }
+  if(c.year !== yr) c = {year: yr, n: 0};
+  const next = c.n + 1;
+  if(commit){ c.n = next; localStorage.setItem("jfs_job_counter", JSON.stringify(c)); if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_job_counter"); }
+  return "JFS-" + yr + "-" + String(next).padStart(4, "0");
+}
+/* NEW JOB button on the page: auto number, start immediately — no popup */
+function jobNew(){
+  _acceptRow = null;
+  document.getElementById("jg_job").value = jobNextNo(true);
+  jobStart(typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG");
+}
 function jobLogPrint(){
   const s = snapshot();
   const key = (s.job||"").trim().toUpperCase();
@@ -4848,7 +4866,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log","jfs_inv_counters"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log","jfs_inv_counters","jfs_job_counter"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
