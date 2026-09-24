@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-H</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-A</span></span>
           </div>
         </div>
       </div>
@@ -305,6 +305,7 @@
       <button id="nav-dnata" onclick="showTab('dnata')">&#9992; DNATA</button>
       <button id="nav-alforms" onclick="showTab('alforms')">&#128745; AIRLINE FORMS</button>
       <button id="nav-awb" onclick="showTab('awb')">&#128459; AWB / MANIFEST</button>
+      <button id="nav-inv" onclick="showTab('inv')">&#129534; INVOICE</button>
       <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
     </div>
 
@@ -1098,6 +1099,65 @@
       </div></div>
     </div>
 
+    <!-- ================= INVOICE TAB ================= -->
+    <div class="tab" id="tab-inv">
+      <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#127991; SHIPPER LETTERHEAD &amp; STAMP</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">Upload each shipper's letterhead (PDF or image) once &mdash; invoices &amp; packing lists print ON that letterhead with the stamp. Saved for the whole company.</div>
+        <div class="grid g4">
+          <div><label>Saved letterheads</label><select id="lh_sel" onchange="invRenderAll()"></select></div>
+          <div><label>Shipper name (new)</label><input type="text" id="lh_name" placeholder="AMOS TRADING FZE LLC"></div>
+          <div><label>Letterhead (PDF page 1 / image)</label><input type="file" id="lh_file" accept=".pdf,image/*" style="font-size:11.5px;"></div>
+          <div><label>Stamp (optional, prints bottom)</label>
+            <div style="display:flex; gap:6px;"><input type="file" id="lh_stamp" accept="image/*" style="font-size:11.5px; flex:1;">
+            <button class="smallbtn sb-green" onclick="lhSave()">&#128190; Save</button>
+            <button class="smallbtn sb-red" onclick="lhDel()">x</button></div>
+            <span id="lh_msg" style="font-size:11px; color:#1d6b34; font-weight:bold;"></span></div>
+        </div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #7b2d8b;"><h2>&#128230; ITEMS &mdash; from Excel / PDF / photo / WhatsApp text (AI)</h2><div class="body">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <input type="file" id="inv_file" accept=".pdf,.xlsx,.xls,.csv,image/*" style="font-size:12px;">
+          <button class="btn btn-save" style="background:#7b2d8b;" onclick="invImportFile()">&#129302; AI IMPORT FILE</button>
+          <span id="inv_msg" style="font-size:12.5px; color:#7a4b00; font-weight:bold;"></span>
+        </div>
+        <textarea id="inv_paste" style="min-height:64px;" placeholder="...or paste the WhatsApp chat / item list here (any format)"></textarea>
+        <div style="display:flex; gap:10px; margin:8px 0; flex-wrap:wrap;">
+          <button class="btn btn-save" style="background:#7b2d8b;" onclick="invImportText()">&#129302; AI IMPORT (paste)</button>
+          <button class="btn btn-save" style="background:#1a5fb4;" onclick="aiHsPrice()">&#129302; AI: HS CODES + MARKET PRICES</button>
+          <button class="smallbtn sb-green" onclick="INVITEMS.push({desc:'',hs:'',origin:'',qty:'',unit:'PCS',price:'',ctns:'',net:'',gross:''}); invRenderTable();">+ Add row</button>
+          <button class="smallbtn sb-red" onclick="if(confirm('Clear all items?')){INVITEMS=[]; invRenderTable();}">Clear</button>
+        </div>
+        <div style="overflow-x:auto;"><table class="dtable" id="inv_table"></table></div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #1d6b34;"><h2>&#129534; COMMERCIAL INVOICE &amp; PACKING LIST</h2><div class="body">
+        <div class="grid g4">
+          <div><label>Invoice No / Date</label>
+            <div style="display:flex; gap:5px;"><input type="text" id="inv_no" placeholder="INV-2026-001" style="flex:1;" oninput="invRenderAll()"><input type="text" id="inv_date" style="width:95px;" oninput="invRenderAll()"></div></div>
+          <div><label>Currency / Incoterms</label>
+            <div style="display:flex; gap:5px;"><select id="inv_cur" onchange="invRenderAll()"><option>USD</option><option>AED</option><option>EUR</option></select>
+            <input type="text" id="inv_terms" placeholder="e.g. CIF HANOI" style="flex:1;" oninput="invRenderAll()"></div></div>
+          <div><label>Consignee / Buyer (auto from job)</label><textarea id="inv_cons" style="min-height:56px;" oninput="invRenderAll()"></textarea></div>
+          <div><label>Notes &nbsp;&bull;&nbsp; DRAFT mark</label>
+            <input type="text" id="inv_note" placeholder="e.g. FOR CUSTOMS PURPOSE ONLY" oninput="invRenderAll()">
+            <label style="font-size:12px; font-weight:normal;"><input type="checkbox" id="inv_draft" checked onchange="invRenderAll()"> DRAFT (untick for final)</label></div>
+          <div style="align-self:end;">
+            <button class="btn btn-save" style="background:#1d6b34;" onclick="invRenderAll()">&#8635; GENERATE</button>
+            <button class="btn btn-print" onclick="invoiceRender(); printAlt('inv_doc');">&#128424; PRINT INVOICE</button>
+            <button class="btn btn-print" onclick="packingRender(); printAlt('pk_doc');">&#128424; PRINT PACKING LIST</button>
+          </div>
+        </div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="inv_doc"></div></div>
+        <div style="margin-top:14px; overflow-x:auto;"><div id="pk_doc"></div></div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #7a4b00;"><h2>&#128218; HS CODE HISTORY &mdash; every code found is saved here</h2><div class="body">
+        <input type="text" id="hs_search" placeholder="Search item / HS code..." style="width:280px; margin-bottom:8px;" oninput="hsHistRender()">
+        <div style="overflow-x:auto;"><table class="dtable" id="hs_table"></table></div>
+      </div></div>
+    </div>
+
     <div class="tab" id="tab-settings">
       <div class="card"><h2>&#128444; DGD CORNER LOGO (top-right of the printed DGD)</h2><div class="body">
         <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">Upload the logo image that must appear on the DGD's top-right corner
@@ -1653,6 +1713,8 @@ function snapshot(){
     jobtype: (typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG"), gcwt: v("gc_wt"),
     hawbs: (typeof HAWBS !== "undefined" ? HAWBS : []),
     aw: {no:v("aw_no"), flight:v("aw_flight"), to1:v("aw_to1"), by1:v("aw_by1"), chwt:v("aw_chwt"), rate:v("aw_rate"), dims:v("aw_dims"), handl:v("aw_handl"), pc:v("aw_pc")},
+    invitems: (typeof INVITEMS !== "undefined" ? INVITEMS : []),
+    inv: {no:v("inv_no"), date:v("inv_date"), cur:v("inv_cur"), terms:v("inv_terms"), cons:v("inv_cons"), note:v("inv_note"), lh:v("lh_sel")},
     stampsign: (document.getElementById("f_stampsign") ? document.getElementById("f_stampsign").checked : true) };
 }
 function applySnapshot(s){
@@ -1689,6 +1751,10 @@ function applySnapshot(s){
   HAWBS = Array.isArray(s.hawbs) ? s.hawbs : [];
   if(s.aw){ Object.entries({aw_no:s.aw.no, aw_flight:s.aw.flight, aw_to1:s.aw.to1, aw_by1:s.aw.by1, aw_chwt:s.aw.chwt, aw_rate:s.aw.rate, aw_dims:s.aw.dims, aw_handl:s.aw.handl, aw_pc:s.aw.pc}).forEach(([id,val]) => { const e = document.getElementById(id); if(e && val !== undefined) e.value = val || (id==="aw_pc"?"PREPAID":""); }); }
   if(typeof hbRender === "function") hbRender();
+  if(typeof INVITEMS !== "undefined"){ INVITEMS = Array.isArray(s.invitems) ? s.invitems : []; }
+  if(s.inv){ if(typeof lhFill === "function") lhFill();
+    Object.entries({inv_no:s.inv.no, inv_date:s.inv.date, inv_cur:s.inv.cur, inv_terms:s.inv.terms, inv_cons:s.inv.cons, inv_note:s.inv.note, lh_sel:s.inv.lh}).forEach(([id,val]) => { const e = document.getElementById(id); if(e && val !== undefined) e.value = val || (id==="inv_cur"?"USD":""); }); }
+  if(typeof invRenderTable === "function") invRenderTable();
   const ss = document.getElementById("f_stampsign"); if(ss) ss.checked = (s.stampsign !== false);
   if(s.jobtype && typeof setJobType === "function") setJobType(s.jobtype);   // only when the snapshot carries a type
   refresh();
@@ -2019,6 +2085,7 @@ function showTab(name){
   if(name === "alforms") airlineFormFill();
   if(name === "gc") gcSyncFromMain();
   if(name === "awb") awbFill();
+  if(name === "inv" && typeof invFill === "function") invFill();
 }
 
 /* ---------- alt print (checklist / stickers / labels) ---------- */
@@ -4639,7 +4706,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
@@ -4887,7 +4954,7 @@ async function airlineFormFill(){
   cgRender();
   ekUsaRender(); ekNonDgRender(); ekConsRender(); ekIdgRender();
   dnataStampPull();
-  staffPull(); tpPull();
+  staffPull(); tpPull(); if(typeof lhPull === "function") lhPull();
 }
 async function airlineFormRender(){
   const out = document.getElementById("al_doc"); if(!out) return;
@@ -6130,6 +6197,359 @@ function mfRender(){
         <td style="border-top:1.5px solid #000;" colspan="4"></td></tr>
     </table>
   </div>`;
+}
+/* ================= INVOICE & PACKING LIST — letterhead, AI items, HS codes, market prices ================= */
+let INVITEMS = [];
+/* ---- shipper letterheads (company-wide) ---- */
+function lhAll(){ try{ const p = JSON.parse(localStorage.getItem("jfs_letterheads") || "null"); return Array.isArray(p) ? p : []; }catch(e){ return []; } }
+async function lhStore(list){
+  localStorage.setItem("jfs_letterheads", JSON.stringify(list));
+  if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key:"letterheads", value:{list}, updated_by:sbUser.email}); }catch(e){} }
+}
+async function lhPull(){
+  if(!sb || !sbUser) return;
+  try{
+    const { data } = await sb.from("company_settings").select("value").eq("key","letterheads").maybeSingle();
+    if(data && data.value && Array.isArray(data.value.list)){ localStorage.setItem("jfs_letterheads", JSON.stringify(data.value.list)); lhFill(); }
+  }catch(e){}
+}
+function lhFill(){
+  const sel = document.getElementById("lh_sel"); if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">— plain paper (no letterhead) —</option>` +
+    lhAll().map(p => `<option${p.name === cur ? " selected" : ""}>${esc(p.name)}</option>`).join("");
+}
+function lhCur(){ return lhAll().find(p => p.name === v("lh_sel")) || null; }
+async function _fileToPageImg(f){
+  if(f.type === "application/pdf" || /\.pdf$/i.test(f.name)){
+    await loadPdfjs();
+    const pdf = await window.pdfjsLib.getDocument({data: await f.arrayBuffer()}).promise;
+    const page = await pdf.getPage(1);
+    const vp = page.getViewport({scale: 2});
+    const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
+    await page.render({canvasContext: c.getContext("2d"), viewport: vp}).promise;
+    return c.toDataURL("image/jpeg", 0.82);
+  }
+  return "data:image/jpeg;base64," + await imgFileToB64(f, 1600);
+}
+async function lhSave(){
+  const name = (v("lh_name") || v("lh_sel") || "").trim().toUpperCase();
+  if(!name){ alert("Enter the shipper name."); return; }
+  const msg = document.getElementById("lh_msg");
+  msg.textContent = "Saving...";
+  const list = lhAll();
+  let p = list.find(x => x.name === name);
+  if(!p){ p = {name, img:"", stamp:""}; list.push(p); }
+  const lf = document.getElementById("lh_file").files[0];
+  if(lf) p.img = await _fileToPageImg(lf);
+  const sf = document.getElementById("lh_stamp").files[0];
+  if(sf) p.stamp = "data:image/jpeg;base64," + await imgFileToB64(sf, 500);
+  await lhStore(list); lhFill();
+  document.getElementById("lh_sel").value = name;
+  document.getElementById("lh_name").value = ""; document.getElementById("lh_file").value = ""; document.getElementById("lh_stamp").value = "";
+  msg.textContent = "✓ Letterhead saved (whole company) — invoices print on it.";
+  invRenderAll();
+}
+async function lhDel(){
+  const cur = v("lh_sel");
+  if(!cur || !confirm("Remove letterhead \"" + cur + "\"?")) return;
+  await lhStore(lhAll().filter(p => p.name !== cur)); lhFill(); invRenderAll();
+}
+/* ---- HS code history (company-wide via ALL_KEYS sync) ---- */
+function hsHist(){ try{ const p = JSON.parse(localStorage.getItem("jfs_hs_history") || "null"); return Array.isArray(p) ? p : []; }catch(e){ return []; } }
+function hsHistAdd(item, hs, origin, price){
+  if(!item || !hs) return;
+  const list = hsHist();
+  const k = item.trim().toUpperCase();
+  let e = list.find(x => x.item === k);
+  if(e){ e.hs = hs; if(origin) e.origin = origin; if(price) e.price = price; e.when = Date.now(); }
+  else list.unshift({item:k, hs, origin:origin||"", price:price||"", when:Date.now()});
+  if(list.length > 500) list.pop();
+  setStore("jfs_hs_history", list);
+  hsHistRender();
+}
+function hsHistFind(desc){
+  const d = (desc || "").trim().toUpperCase();
+  if(!d) return null;
+  return hsHist().find(x => x.item === d) || hsHist().find(x => d.includes(x.item) || x.item.includes(d)) || null;
+}
+function hsHistRender(){
+  const tb = document.getElementById("hs_table"); if(!tb) return;
+  const q = (v("hs_search") || "").toLowerCase();
+  let h = "<tr><th>ITEM</th><th>HS CODE</th><th>ORIGIN</th><th>LAST PRICE</th><th>SAVED</th><th></th></tr>";
+  hsHist().forEach((x, i) => {
+    if(q && !(x.item + " " + x.hs).toLowerCase().includes(q)) return;
+    h += `<tr><td>${esc(x.item)}</td><td><b>${esc(x.hs)}</b></td><td>${esc(x.origin||"")}</td><td>${esc(String(x.price||""))}</td>
+      <td>${x.when ? new Date(x.when).toLocaleDateString("en-GB") : ""}</td>
+      <td><button class="smallbtn sb-red" onclick="const l=hsHist(); l.splice(${i},1); setStore('jfs_hs_history',l); hsHistRender();">x</button></td></tr>`;
+  });
+  tb.innerHTML = h;
+}
+/* ---- items table ---- */
+function invRenderTable(){
+  const tb = document.getElementById("inv_table"); if(!tb) return;
+  const IN = "border:1px solid #c9d4e2; border-radius:4px; padding:4px 5px; font-size:12px;";
+  let h = "<tr><th>SL</th><th>DESCRIPTION</th><th>HS CODE</th><th>ORIGIN</th><th>QTY</th><th>UNIT</th><th>UNIT PRICE</th><th>AMOUNT</th><th>CTNS</th><th>NET KG</th><th>GROSS KG</th><th></th></tr>";
+  INVITEMS.forEach((x, i) => {
+    const amt = (parseFloat(x.qty) && parseFloat(x.price)) ? (parseFloat(x.qty) * parseFloat(x.price)).toFixed(2) : "";
+    h += `<tr><td>${i+1}</td>
+      <td><input style="${IN} width:200px;" value="${esc(x.desc||"")}" oninput="INVITEMS[${i}].desc=this.value; invAuto();"></td>
+      <td><input style="${IN} width:90px;" value="${esc(x.hs||"")}" oninput="INVITEMS[${i}].hs=this.value; invAuto();"></td>
+      <td><input style="${IN} width:100px;" value="${esc(x.origin||"")}" oninput="INVITEMS[${i}].origin=this.value; invAuto();"></td>
+      <td><input style="${IN} width:55px;" value="${esc(String(x.qty||""))}" oninput="INVITEMS[${i}].qty=this.value; invRenderTable();"></td>
+      <td><input style="${IN} width:55px;" value="${esc(x.unit||"")}" oninput="INVITEMS[${i}].unit=this.value; invAuto();"></td>
+      <td><input style="${IN} width:70px;" value="${esc(String(x.price||""))}" oninput="INVITEMS[${i}].price=this.value; invRenderTable();"></td>
+      <td style="font-weight:bold;">${amt}</td>
+      <td><input style="${IN} width:50px;" value="${esc(String(x.ctns||""))}" oninput="INVITEMS[${i}].ctns=this.value; invAuto();"></td>
+      <td><input style="${IN} width:60px;" value="${esc(String(x.net||""))}" oninput="INVITEMS[${i}].net=this.value; invAuto();"></td>
+      <td><input style="${IN} width:60px;" value="${esc(String(x.gross||""))}" oninput="INVITEMS[${i}].gross=this.value; invAuto();"></td>
+      <td><button class="smallbtn sb-red" onclick="INVITEMS.splice(${i},1); invRenderTable();">x</button></td></tr>`;
+  });
+  tb.innerHTML = h + (INVITEMS.length ? "" : `<tr><td colspan="12" style="color:#8a97a5;">No items — import with AI or add rows.</td></tr>`);
+  invRenderAll();
+}
+let _invT = null;
+function invAuto(){ clearTimeout(_invT); _invT = setTimeout(() => { invRenderAll(); if(typeof autosaveCurrent === "function") autosaveCurrent(); }, 600); }
+/* ---- AI import ---- */
+const AI_INV_SYSTEM = `You extract ITEM LISTS for commercial invoices from any document: Excel/CSV text, packing lists, WhatsApp chats, photos of handwritten lists, PDFs.
+Respond ONLY with JSON: {"items":[{"desc":"item description as written (clean, CAPITALS)","qty":number,"unit":"PCS/CTN/KG/BOTTLE etc","price":unit price number if stated else 0,"origin":"country of origin if stated else empty","hs":"HS code if stated else empty","ctns":cartons if stated else 0,"net":net weight kg if stated else 0,"gross":gross weight kg if stated else 0}]}
+Rules: one row per distinct item. Never invent prices or HS codes not in the document. Quantities must come from the document.`;
+async function invImportText(){
+  const raw = v("inv_paste");
+  if(!raw.trim()){ alert("Paste the item list / chat text first."); return; }
+  if(!aiKey()){ document.getElementById("inv_msg").textContent = "Add the Claude API key in SETTINGS → AI first."; return; }
+  document.getElementById("inv_msg").textContent = "🤖 AI reading the items...";
+  try{
+    const j = aiJson(await aiCall(AI_INV_SYSTEM, "Item list:\n\n" + raw.slice(0, 10000), 2500));
+    _invApply(j);
+  }catch(e){ document.getElementById("inv_msg").textContent = "AI failed: " + e.message.slice(0, 80); }
+}
+async function invImportFile(){
+  const f = document.getElementById("inv_file").files[0];
+  const msg = document.getElementById("inv_msg");
+  if(!f){ alert("Choose the Excel / PDF / photo first."); return; }
+  if(!aiKey()){ msg.textContent = "Add the Claude API key in SETTINGS → AI first."; return; }
+  msg.textContent = "Reading file...";
+  try{
+    let j;
+    if(/\.(xlsx|xls|csv)$/i.test(f.name)){
+      await loadSheetJs();
+      const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
+      let txt = "";
+      wb.SheetNames.slice(0, 3).forEach(n => { txt += "SHEET " + n + ":\n" + XLSX.utils.sheet_to_csv(wb.Sheets[n]) + "\n\n"; });
+      msg.textContent = "🤖 AI reading the Excel...";
+      j = aiJson(await aiCall(AI_INV_SYSTEM, "Item list (Excel export):\n\n" + txt.slice(0, 11000), 2500));
+    } else if(/\.pdf$/i.test(f.name) || f.type === "application/pdf"){
+      await loadPdfjs();
+      const pdf = await window.pdfjsLib.getDocument({data: await f.arrayBuffer()}).promise;
+      let text = "";
+      for(let p = 1; p <= Math.min(pdf.numPages, 6); p++){
+        const tc = await (await pdf.getPage(p)).getTextContent();
+        text += tc.items.map(t => t.str).join(" ") + "\n";
+      }
+      if(text.trim().length < 30){
+        msg.textContent = "🤖 Scanned PDF — AI reading the page image(s)...";
+        const imgs = await pdfPageImages(pdf, 3);
+        const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
+        content.push({type:"text", text:"Extract the item list from the pages above."});
+        j = aiJson(await aiCall(AI_INV_SYSTEM, content, 2500));
+      } else {
+        msg.textContent = "🤖 AI reading the PDF...";
+        j = aiJson(await aiCall(AI_INV_SYSTEM, "Item list (PDF text):\n\n" + text.slice(0, 11000), 2500));
+      }
+    } else {
+      msg.textContent = "🤖 AI reading the photo...";
+      const b64 = await imgFileToB64(f, 1500);
+      j = aiJson(await aiCall(AI_INV_SYSTEM, [{type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}, {type:"text", text:"Extract the item list from the photo."}], 2500));
+    }
+    _invApply(j);
+  }catch(e){ msg.textContent = "Failed: " + (e.message || e).slice(0, 90); }
+}
+function _invApply(j){
+  const items = (j && Array.isArray(j.items)) ? j.items : [];
+  if(!items.length){ document.getElementById("inv_msg").textContent = "No items found — check the input."; return; }
+  items.forEach(x => {
+    const rec = {desc:(x.desc||"").toUpperCase(), hs:x.hs||"", origin:(x.origin||"").toUpperCase(), qty:x.qty||"", unit:(x.unit||"PCS").toUpperCase(),
+      price:x.price||"", ctns:x.ctns||"", net:x.net||"", gross:x.gross||""};
+    const h = !rec.hs ? hsHistFind(rec.desc) : null;             // known item → reuse saved HS code
+    if(h){ rec.hs = h.hs; if(!rec.origin) rec.origin = h.origin || ""; if(!rec.price) rec.price = h.price || ""; }
+    INVITEMS.push(rec);
+  });
+  invRenderTable();
+  document.getElementById("inv_msg").textContent = "✓ " + items.length + " item(s) imported — check each row, then run AI HS CODES + PRICES for the missing ones.";
+}
+function loadSheetJs(){
+  return new Promise((res, rej) => {
+    if(window.XLSX) return res();
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload = res; s.onerror = () => rej(new Error("Could not load the Excel reader"));
+    document.head.appendChild(s);
+  });
+}
+/* ---- AI: HS codes + market prices for missing rows ---- */
+async function aiHsPrice(){
+  const msg = document.getElementById("inv_msg");
+  if(!INVITEMS.length){ alert("Import or add the items first."); return; }
+  if(!aiKey()){ msg.textContent = "Add the Claude API key in SETTINGS → AI first."; return; }
+  // history first
+  INVITEMS.forEach(x => {
+    if(!x.hs){ const h = hsHistFind(x.desc); if(h){ x.hs = h.hs; if(!x.origin) x.origin = h.origin || ""; } }
+  });
+  const need = INVITEMS.filter(x => x.desc && (!x.hs || !x.price));
+  if(!need.length){ invRenderTable(); msg.textContent = "✓ All rows already have HS codes & prices (some from history)."; return; }
+  msg.textContent = "🤖 AI finding HS codes & market prices for " + need.length + " item(s)...";
+  const sys = `You are a UAE customs & trade expert. For each item give:
+- "hs": the 6-8 digit HS code (harmonized system) most commonly used for this product in UAE exports
+- "price": a realistic wholesale/export MARKET unit price in USD (number only) for a typical retail-size unit
+- "origin": likely country of origin ONLY if the item name implies it, else empty
+Respond ONLY with JSON: {"items":[{"desc":"...","hs":"...","price":number,"origin":"..."}]} — same order as given. These are estimates the user will verify.`;
+  try{
+    const listTxt = need.map((x, i) => (i+1) + ". " + x.desc + (x.origin ? " (origin: " + x.origin + ")" : "")).join("\n");
+    const j = aiJson(await aiCall(sys, "Items:\n" + listTxt, 2500));
+    const res = (j && j.items) || [];
+    need.forEach((x, i) => {
+      const r = res[i] || {};
+      if(!x.hs && r.hs) x.hs = String(r.hs);
+      if(!x.price && r.price) x.price = String(r.price);
+      if(!x.origin && r.origin) x.origin = String(r.origin).toUpperCase();
+      if(x.hs) hsHistAdd(x.desc, x.hs, x.origin, x.price);       // save to HS history
+    });
+    invRenderTable();
+    msg.textContent = "✓ HS codes & market prices filled (AI estimates — VERIFY before final). Saved to HS history.";
+  }catch(e){ msg.textContent = "AI failed: " + (e.message || e).slice(0, 80); }
+}
+/* ---- number to words ---- */
+function numWords(n){
+  n = Math.round(parseFloat(n) || 0);
+  if(!n) return "ZERO";
+  const a = ["","ONE","TWO","THREE","FOUR","FIVE","SIX","SEVEN","EIGHT","NINE","TEN","ELEVEN","TWELVE","THIRTEEN","FOURTEEN","FIFTEEN","SIXTEEN","SEVENTEEN","EIGHTEEN","NINETEEN"];
+  const b = ["","","TWENTY","THIRTY","FORTY","FIFTY","SIXTY","SEVENTY","EIGHTY","NINETY"];
+  const two = x => x < 20 ? a[x] : b[Math.floor(x/10)] + (x%10 ? " " + a[x%10] : "");
+  const three = x => (x >= 100 ? a[Math.floor(x/100)] + " HUNDRED" + (x%100 ? " " : "") : "") + (x%100 ? two(x%100) : "");
+  let out = "";
+  const mil = Math.floor(n/1000000), th = Math.floor((n%1000000)/1000), r = n%1000;
+  if(mil) out += three(mil) + " MILLION ";
+  if(th) out += three(th) + " THOUSAND ";
+  if(r) out += three(r);
+  return out.trim();
+}
+/* ---- letterhead sheet wrapper ---- */
+function lhSheet(inner, draft){
+  const p = lhCur();
+  return `<div class="sheet" style="min-height:285mm; padding:0; position:relative; overflow:hidden;">
+    ${p && p.img ? `<img src="${p.img}" style="position:absolute; inset:0; width:100%; height:100%; object-fit:fill;">` : ""}
+    ${draft ? `<div style="position:absolute; top:120mm; left:32mm; font-size:58pt; color:rgba(200,0,0,.12); font-weight:900; transform:rotate(-25deg); letter-spacing:8px; z-index:5;">DRAFT</div>` : ""}
+    <div style="position:relative; padding:${p && p.img ? "40mm 16mm 40mm" : "16mm 16mm 20mm"};">${inner}</div>
+  </div>`;
+}
+function _invTotals(){
+  let amt = 0, qty = 0, ctns = 0, net = 0, gross = 0;
+  INVITEMS.forEach(x => {
+    amt += (parseFloat(x.qty) || 0) * (parseFloat(x.price) || 0);
+    qty += parseFloat(x.qty) || 0; ctns += parseFloat(x.ctns) || 0;
+    net += parseFloat(x.net) || 0; gross += parseFloat(x.gross) || 0;
+  });
+  return {amt: amt.toFixed(2), qty, ctns, net: ptR3(net), gross: ptR3(gross)};
+}
+function invoiceRender(){
+  const out = document.getElementById("inv_doc"); if(!out) return;
+  const p = lhCur();
+  const cur = v("inv_cur") || "USD";
+  const t = _invTotals();
+  const TD = "border:1px solid #000; padding:1.6mm 2mm; font-size:9pt;";
+  const TH = TD + " font-weight:bold; background:#f0f0f0; text-align:center;";
+  let rows = "";
+  INVITEMS.forEach((x, i) => {
+    const amt = (parseFloat(x.qty) && parseFloat(x.price)) ? ((parseFloat(x.qty))*(parseFloat(x.price))).toFixed(2) : "";
+    rows += `<tr><td style="${TD} text-align:center;">${i+1}</td><td style="${TD}">${esc(x.desc)}</td>
+      <td style="${TD} text-align:center;">${esc(x.hs)}</td><td style="${TD} text-align:center;">${esc(x.origin)}</td>
+      <td style="${TD} text-align:center;">${esc(String(x.qty))} ${esc(x.unit||"")}</td>
+      <td style="${TD} text-align:right;">${esc(String(x.price))}</td><td style="${TD} text-align:right; font-weight:bold;">${amt}</td></tr>`;
+  });
+  const inner = `
+    ${p && p.img ? "" : `<div style="font-size:14pt; font-weight:bold;">${esc((p && p.name) || (v("f_shipper")||"").split("\n")[0] || "")}</div>`}
+    <div style="text-align:center; font-size:14pt; font-weight:bold; text-decoration:underline; letter-spacing:1px;">COMMERCIAL INVOICE</div>
+    <table style="width:100%; margin-top:4mm; font-size:9.5pt;">
+      <tr><td style="width:60%; vertical-align:top;">
+        <b>SHIPPER / EXPORTER:</b><br><span style="white-space:pre-line;">${esc(p ? p.name : v("f_shipper"))}</span><br><br>
+        <b>CONSIGNEE / BUYER:</b><br><span style="white-space:pre-line;">${esc(v("inv_cons") || v("f_consignee"))}</span></td>
+      <td style="vertical-align:top;">
+        <table style="font-size:9.5pt;">
+          <tr><td style="width:30mm;"><b>Invoice No</b></td><td>: ${esc(v("inv_no"))}</td></tr>
+          <tr><td><b>Date</b></td><td>: ${esc(v("inv_date"))}</td></tr>
+          <tr><td><b>AWB No</b></td><td>: ${esc(v("f_awb"))}</td></tr>
+          <tr><td><b>From / To</b></td><td>: ${esc(iata3(v("f_dep"))||"")} → ${esc(iata3(v("f_dest"))||"")}</td></tr>
+          <tr><td><b>Terms</b></td><td>: ${esc((v("inv_terms")||"").toUpperCase())}</td></tr>
+          <tr><td><b>Currency</b></td><td>: ${cur}</td></tr>
+        </table></td></tr>
+    </table>
+    <table style="border-collapse:collapse; width:100%; margin-top:4mm;">
+      <tr><td style="${TH} width:6%;">SL</td><td style="${TH}">DESCRIPTION OF GOODS</td><td style="${TH} width:11%;">HS CODE</td>
+          <td style="${TH} width:11%;">ORIGIN</td><td style="${TH} width:11%;">QTY</td><td style="${TH} width:11%;">UNIT PRICE<br>${cur}</td><td style="${TH} width:13%;">AMOUNT<br>${cur}</td></tr>
+      ${rows || `<tr><td style="${TD} text-align:center; color:#888;" colspan="7">No items</td></tr>`}
+      <tr><td style="${TD} text-align:right; font-weight:bold;" colspan="6">TOTAL ${cur}</td>
+          <td style="${TD} text-align:right; font-weight:bold; font-size:10.5pt;">${t.amt}</td></tr>
+    </table>
+    <div style="font-size:9.5pt; margin-top:2.5mm;"><b>AMOUNT IN WORDS:</b> ${cur} ${numWords(t.amt)} ONLY</div>
+    ${v("inv_note") ? `<div style="font-size:9.5pt; margin-top:1.5mm;"><b>${esc(v("inv_note").toUpperCase())}</b></div>` : ""}
+    <table style="width:100%; margin-top:8mm;"><tr>
+      <td style="font-size:9.5pt;">We certify this invoice is true and correct.</td>
+      <td style="text-align:right;">${p && p.stamp ? `<img src="${p.stamp}" style="height:26mm; object-fit:contain;">` : ""}<br>
+        <span style="font-size:9pt; border-top:1px solid #000; padding-top:1mm;">Authorized Signatory</span></td></tr></table>`;
+  out.innerHTML = lhSheet(inner, document.getElementById("inv_draft") && document.getElementById("inv_draft").checked);
+}
+function packingRender(){
+  const out = document.getElementById("pk_doc"); if(!out) return;
+  const p = lhCur();
+  const t = _invTotals();
+  const TD = "border:1px solid #000; padding:1.6mm 2mm; font-size:9pt;";
+  const TH = TD + " font-weight:bold; background:#f0f0f0; text-align:center;";
+  let rows = "";
+  INVITEMS.forEach((x, i) => {
+    rows += `<tr><td style="${TD} text-align:center;">${i+1}</td><td style="${TD}">${esc(x.desc)}</td>
+      <td style="${TD} text-align:center;">${esc(x.hs)}</td>
+      <td style="${TD} text-align:center;">${esc(String(x.qty))} ${esc(x.unit||"")}</td>
+      <td style="${TD} text-align:center;">${esc(String(x.ctns))}</td>
+      <td style="${TD} text-align:right;">${esc(String(x.net))}</td><td style="${TD} text-align:right;">${esc(String(x.gross))}</td></tr>`;
+  });
+  const inner = `
+    ${p && p.img ? "" : `<div style="font-size:14pt; font-weight:bold;">${esc((p && p.name) || (v("f_shipper")||"").split("\n")[0] || "")}</div>`}
+    <div style="text-align:center; font-size:14pt; font-weight:bold; text-decoration:underline; letter-spacing:1px;">PACKING LIST</div>
+    <table style="width:100%; margin-top:4mm; font-size:9.5pt;">
+      <tr><td style="width:60%; vertical-align:top;">
+        <b>SHIPPER:</b><br><span style="white-space:pre-line;">${esc(p ? p.name : v("f_shipper"))}</span><br><br>
+        <b>CONSIGNEE:</b><br><span style="white-space:pre-line;">${esc(v("inv_cons") || v("f_consignee"))}</span></td>
+      <td style="vertical-align:top;">
+        <table style="font-size:9.5pt;">
+          <tr><td style="width:30mm;"><b>Invoice No</b></td><td>: ${esc(v("inv_no"))}</td></tr>
+          <tr><td><b>Date</b></td><td>: ${esc(v("inv_date"))}</td></tr>
+          <tr><td><b>AWB No</b></td><td>: ${esc(v("f_awb"))}</td></tr>
+          <tr><td><b>From / To</b></td><td>: ${esc(iata3(v("f_dep"))||"")} → ${esc(iata3(v("f_dest"))||"")}</td></tr>
+        </table></td></tr>
+    </table>
+    <table style="border-collapse:collapse; width:100%; margin-top:4mm;">
+      <tr><td style="${TH} width:6%;">SL</td><td style="${TH}">DESCRIPTION OF GOODS</td><td style="${TH} width:12%;">HS CODE</td>
+          <td style="${TH} width:13%;">QTY</td><td style="${TH} width:10%;">CTNS</td><td style="${TH} width:13%;">NET WT (KG)</td><td style="${TH} width:14%;">GROSS WT (KG)</td></tr>
+      ${rows || `<tr><td style="${TD} text-align:center; color:#888;" colspan="7">No items</td></tr>`}
+      <tr><td style="${TD} text-align:right; font-weight:bold;" colspan="3">TOTAL</td>
+          <td style="${TD} text-align:center; font-weight:bold;">${t.qty}</td><td style="${TD} text-align:center; font-weight:bold;">${t.ctns}</td>
+          <td style="${TD} text-align:right; font-weight:bold;">${t.net}</td><td style="${TD} text-align:right; font-weight:bold;">${t.gross}</td></tr>
+    </table>
+    <table style="width:100%; margin-top:8mm;"><tr>
+      <td style="font-size:9.5pt;">Total packages: <b>${t.ctns || ""}</b></td>
+      <td style="text-align:right;">${p && p.stamp ? `<img src="${p.stamp}" style="height:26mm; object-fit:contain;">` : ""}<br>
+        <span style="font-size:9pt; border-top:1px solid #000; padding-top:1mm;">Authorized Signatory</span></td></tr></table>`;
+  out.innerHTML = lhSheet(inner, document.getElementById("inv_draft") && document.getElementById("inv_draft").checked);
+}
+function invRenderAll(){ invoiceRender(); packingRender(); }
+function invFill(){
+  lhFill(); hsHistRender();
+  if(!v("inv_date")){ const d = new Date(); document.getElementById("inv_date").value = String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear(); }
+  if(!v("inv_no")) document.getElementById("inv_no").value = "INV-" + (v("f_job") || new Date().getFullYear() + "-" + String(Date.now()).slice(-4));
+  if(!v("inv_cons") && v("f_consignee")) document.getElementById("inv_cons").value = v("f_consignee");
+  invRenderTable();
+  lhPull();
 }
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
