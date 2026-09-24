@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-F</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v23.09-G</span></span>
           </div>
         </div>
       </div>
@@ -5837,113 +5837,163 @@ function _awNums(){
   const gross = PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) : (v("gc_wt") || "");
   return {pcs, gross};
 }
-/* shared IATA-style AWB layout */
+/* shared IATA-style AWB layout — matched to the AWBeditor sample */
+const CARRIER_HQ = {
+ "176":"EMIRATES\nNEW EMIRATES GROUP HQ\nAIRPORT ROAD, DEIRA\nUNITED ARAB EMIRATES"
+};
+const JFS_AGENT = "JFS LOGISTICS FZCO.\nP.O BOX 54782, W/H# F18\nDUBAI AIRPORT FREE ZONE\nDUBAI, TEL:+97142521786.";
+function _apFull(code){
+  const c = (code || "").toUpperCase();
+  const city = airportPlace(c);
+  return c && city && city !== c ? c + "/" + city + " INTL" : c;
+}
 function mawbLayout(o){
-  const B = "border:1px solid #000; padding:1.2mm 2mm; font-size:8.5pt; vertical-align:top;";
-  const CAP = "font-size:6.5pt; color:#333; display:block;";
-  const V = "font-size:9.5pt; font-weight:bold; white-space:pre-line;";
-  const total = (parseFloat(o.chwt) && parseFloat(o.rate)) ? (parseFloat(o.chwt) * parseFloat(o.rate)).toFixed(2) : "AS AGREED";
-  return `<div class="sheet" style="min-height:285mm; padding:8mm 10mm; font-family:Arial, sans-serif; color:#000; position:relative;">
-    ${o.draft ? `<div style="position:absolute; top:120mm; left:30mm; font-size:60pt; color:rgba(200,0,0,.13); font-weight:900; transform:rotate(-25deg); letter-spacing:8px;">DRAFT</div>` : ""}
+  const B = "border:1px solid #000; padding:1mm 1.6mm; font-size:7.5pt; vertical-align:top;";
+  const CAP = "font-size:6pt; color:#222; display:block; line-height:1.25;";
+  const V = "font-family:'Courier New', monospace; font-size:9.5pt; font-weight:bold; white-space:pre-line; line-height:1.3;";
+  const total = (parseFloat(o.chwt) && parseFloat(o.rate)) ? (parseFloat(o.chwt) * parseFloat(o.rate)).toFixed(2) : "";
+  const digits = (o.topNo || o.no || "").replace(/\D/g, "");
+  const pfx = digits.slice(0, 3), ser = digits.slice(3);
+  const agree = `It is agreed that the goods described herein are accepted in apparent good order and condition
+(except as noted) for carriage SUBJECT TO THE CONDITIONS OF CONTRACT ON THE REVERSE HEREOF.
+ALL GOODS MAY BE CARRIED BY ANY OTHER MEANS INCLUDING ROAD OR ANY OTHER CARRIER UNLESS
+SPECIFIC CONTRARY INSTRUCTIONS ARE GIVEN HEREON BY THE SHIPPER, AND SHIPPER AGREES THAT
+THE SHIPMENT MAY BE CARRIED VIA INTERMEDIATE STOPPING PLACES WHICH THE CARRIER DEEMS
+APPROPRIATE. THE SHIPPER'S ATTENTION IS DRAWN TO THE NOTICE CONCERNING CARRIER'S
+LIMITATION OF LIABILITY. Shipper may increase such limitation of liability by declaring a higher value
+for carriage and paying a supplemental charge if required.`;
+  return `<div class="sheet" style="min-height:285mm; padding:7mm 9mm; font-family:Arial, sans-serif; color:#000; position:relative;">
+    ${o.draft ? `<div style="position:absolute; top:118mm; left:28mm; font-size:62pt; color:rgba(200,0,0,.12); font-weight:900; transform:rotate(-25deg); letter-spacing:9px; z-index:5;">DRAFT</div>` : ""}
+    <table style="width:100%; border-collapse:collapse; margin-bottom:0.5mm;"><tr>
+      <td style="font-family:'Courier New',monospace; font-weight:bold; font-size:11pt;">
+        <span style="border:1px solid #000; padding:0.5mm 2mm;">${esc(pfx)}</span><span style="border:1px solid #000; border-left:0; padding:0.5mm 2mm;">${esc(o.orgCode || "")}</span><span style="border:1px solid #000; border-left:0; padding:0.5mm 2mm;">${esc(ser)}</span></td>
+      <td style="text-align:right; font-family:'Courier New',monospace; font-weight:bold; font-size:11.5pt;">${esc(o.no)}</td></tr></table>
     <table style="border-collapse:collapse; width:100%;">
       <tr>
-        <td style="${B} width:20%; text-align:center;"><span style="font-size:13pt; font-weight:900;">${esc((o.no||"").split("-")[0]||"")}</span><br><span style="font-size:8pt;">${esc(o.dep)}</span></td>
-        <td style="${B} width:30%; text-align:center; vertical-align:middle;"><span style="font-size:12pt; font-weight:900;">${esc(o.no)}</span></td>
-        <td style="${B} text-align:center; vertical-align:middle;"><b style="font-size:11pt;">${esc(o.title)}</b><br><span style="font-size:7.5pt;">${esc(o.subtitle || "")}</span></td>
+        <td style="${B} width:33%; height:22mm;" colspan="2"><span style="${CAP}">Shipper's Name and Address</span><div style="${V}">${esc(o.shipper)}</div></td>
+        <td style="${B} width:17%;"><span style="${CAP}">Shipper's Account Number</span></td>
+        <td style="${B}" rowspan="2"><span style="${CAP}">Not Negotiable</span>
+          <div style="font-size:13pt; font-weight:bold; margin:0.5mm 0;">${esc(o.title)}</div>
+          <table style="width:100%;"><tr><td style="font-size:6.5pt; vertical-align:top; width:12mm;">Issued by</td>
+          <td style="${V} font-size:8pt;">${esc(o.carrier || "")}</td></tr></table>
+          <div style="border-top:1px solid #000; font-size:6.2pt; margin-top:1mm; padding-top:0.5mm;">Copies 1, 2 and 3 of this Air Waybill are originals and have the same validity.</div></td>
       </tr>
       <tr>
-        <td style="${B} width:50%;" colspan="2"><span style="${CAP}">Shipper's Name and Address</span><div style="${V}">${esc(o.shipper)}</div></td>
-        <td style="${B}" rowspan="2"><span style="${CAP}">Issued by</span><div style="${V}">${esc(o.issuer || "")}</div>
-          <div style="font-size:7.5pt; margin-top:2mm;">Copies 1, 2 and 3 of this Air Waybill are originals and have the same validity.</div></td>
-      </tr>
-      <tr><td style="${B}" colspan="2"><span style="${CAP}">Consignee's Name and Address</span><div style="${V}">${esc(o.consignee)}</div></td></tr>
-      <tr>
-        <td style="${B}" colspan="2"><span style="${CAP}">Issuing Carrier's Agent Name and City</span><div style="${V}">JFS LOGISTICS FZCO\nDUBAI, U.A.E.</div>
-          <span style="${CAP}" >Agent's IATA Code</span><b>8645305</b></td>
-        <td style="${B}"><span style="${CAP}">Accounting Information</span><div style="${V}">${esc(o.acct || "")}</div></td>
+        <td style="${B} height:26mm;" colspan="2"><span style="${CAP}">Consignee's Name and Address</span><div style="${V} font-size:8.5pt;">${esc(o.consignee)}</div></td>
+        <td style="${B}"><span style="${CAP}">Consignee's Account Number</span></td>
       </tr>
       <tr>
-        <td style="${B}" colspan="2"><span style="${CAP}">Airport of Departure (Addr. of First Carrier) and Requested Routing</span><div style="${V}">${esc(airportPlace(o.dep) || o.dep)}</div></td>
-        <td style="${B} padding:0;"><table style="border-collapse:collapse; width:100%;"><tr>
-          <td style="border-right:1px solid #000; padding:1mm 2mm; width:25%;"><span style="${CAP}">To</span><b>${esc(o.to1 || o.dest)}</b></td>
-          <td style="border-right:1px solid #000; padding:1mm 2mm; width:25%;"><span style="${CAP}">By First Carrier</span><b>${esc(o.by1 || "")}</b></td>
-          <td style="border-right:1px solid #000; padding:1mm 2mm; width:25%;"><span style="${CAP}">Currency</span><b>AED</b></td>
-          <td style="padding:1mm 2mm;"><span style="${CAP}">WT/VAL &nbsp;Other</span><b>${esc(o.pc === "COLLECT" ? "COLL" : "PPD")}</b></td></tr></table></td>
+        <td style="${B} height:2mm; border-top:0;" colspan="3" rowspan="0" hidden></td>
       </tr>
       <tr>
-        <td style="${B} width:25%;"><span style="${CAP}">Airport of Destination</span><div style="${V}">${esc(airportPlace(o.dest) || o.dest)}</div></td>
-        <td style="${B} width:25%;"><span style="${CAP}">Requested Flight/Date</span><div style="${V}">${esc(o.flight || "")}</div></td>
-        <td style="${B}"><span style="${CAP}">Amount of Insurance</span><b>NIL</b>
-          &nbsp;&nbsp;<span style="${CAP}" >Declared Value for Carriage / for Customs</span><b>NVD &nbsp;/&nbsp; NCV</b></td>
+        <td style="${B} height:20mm;" colspan="3"><span style="${CAP}">Issuing Carrier's Agent Name and City</span><div style="${V}">${esc(o.issuer || JFS_AGENT)}</div></td>
+        <td style="${B}"><div style="font-size:6.2pt; text-align:justify; line-height:1.35;">${agree.replace(/\n/g," ")}</div></td>
       </tr>
-      <tr><td style="${B}" colspan="3"><span style="${CAP}">Handling Information</span><div style="${V}">${esc(o.handl || "")}</div></td></tr>
+      <tr>
+        <td style="${B} width:25%;"><span style="${CAP}">Agent's IATA Code</span><div style="${V}">8645305</div></td>
+        <td style="${B}" colspan="2"><span style="${CAP}">Account No.</span></td>
+        <td style="${B}"><span style="${CAP}">Accounting Information</span><div style="${V} font-size:8pt;">${esc(o.acct || "")}</div></td>
+      </tr>
+      <tr>
+        <td style="${B}" colspan="3"><span style="${CAP}">Airport of Departure (Addr. of First Carrier) and Requested Routing</span><div style="${V}">${esc(o.depFull)}</div></td>
+        <td style="${B} padding:0;"><table style="border-collapse:collapse; width:100%; font-size:7pt;"><tr>
+          <td style="border-right:1px solid #000; padding:0.5mm 1mm; width:16%;"><span style="${CAP}">Currency</span><div style="${V} font-size:8.5pt;">AED</div></td>
+          <td style="border-right:1px solid #000; padding:0.5mm 1mm; width:10%;"><span style="${CAP}">CHGS Code</span></td>
+          <td style="border-right:1px solid #000; padding:0.5mm 1mm; width:20%; text-align:center;"><span style="${CAP}">WT/VAL<br>PPD&nbsp;COLL</span><div style="${V} font-size:8.5pt;">${o.pc === "COLLECT" ? "&nbsp;&nbsp;X" : "X"}</div></td>
+          <td style="border-right:1px solid #000; padding:0.5mm 1mm; width:18%; text-align:center;"><span style="${CAP}">Other<br>PPD&nbsp;COLL</span><div style="${V} font-size:8.5pt;">${o.pc === "COLLECT" ? "&nbsp;&nbsp;X" : "X"}</div></td>
+          <td style="border-right:1px solid #000; padding:0.5mm 1mm;"><span style="${CAP}">Declared Value for Carriage</span><div style="${V} font-size:8.5pt;">NVD</div></td>
+          <td style="padding:0.5mm 1mm;"><span style="${CAP}">Declared Value for Customs</span><div style="${V} font-size:8.5pt;">NCV</div></td></tr></table>
+          <div style="border-top:1px solid #000; padding:0.5mm 1mm;"><table style="width:100%;"><tr>
+            <td style="width:20%;"><span style="${CAP}">To</span><div style="${V}">${esc(o.to1 || "")}</div></td>
+            <td><span style="${CAP}">By First Carrier</span><div style="${V}">${esc(o.by1 || "")}</div></td></tr></table></div></td>
+      </tr>
+      <tr>
+        <td style="${B}" colspan="2"><span style="${CAP}">Airport of Destination</span><div style="${V}">${esc(o.destFull)}</div></td>
+        <td style="${B}"><span style="${CAP}">Requested Flight/Date</span><div style="${V}">${esc(o.flight || "")}</div></td>
+        <td style="${B}"><span style="${CAP}">Amount of Insurance</span><div style="${V}">NIL</div>
+          <span style="font-size:6pt;">INSURANCE - If carrier offers insurance, and such insurance is requested in accordance with the conditions thereof, indicate amount to be insured in figures in box marked "Amount of Insurance".</span></td>
+      </tr>
+      <tr><td style="${B}" colspan="4"><span style="${CAP}">Handling Information</span><div style="${V} font-size:8.5pt;">${esc(o.handl || "")}</div>
+        <div style="text-align:right;"><span style="border:1px solid #000; font-size:6pt; padding:0.5mm 6mm 2mm 1mm;">SCI</span></div></td></tr>
     </table>
     <table style="border-collapse:collapse; width:100%; margin-top:-1px;">
-      <tr style="font-size:6.5pt; text-align:center;">
-        <td style="${B} width:9%;">No. of Pieces RCP</td><td style="${B} width:11%;">Gross Weight</td><td style="${B} width:4%;">kg</td>
-        <td style="${B} width:7%;">Rate Class</td><td style="${B} width:12%;">Chargeable Weight</td><td style="${B} width:11%;">Rate / Charge</td>
-        <td style="${B} width:12%;">Total</td><td style="${B}">Nature and Quantity of Goods (incl. Dimensions or Volume)</td>
+      <tr style="font-size:6pt; text-align:center;">
+        <td style="${B} width:8%;">No. of<br>Pieces<br>RCP</td><td style="${B} width:10%;">Gross<br>Weight</td><td style="${B} width:3.5%;">kg<br>lb</td>
+        <td style="${B} width:9%;">Rate Class<br><span style="font-size:5.5pt;">Commodity Item No.</span></td><td style="${B} width:11%;">Chargeable<br>Weight</td>
+        <td style="${B} width:11%;">Rate<br>/ Charge</td><td style="${B} width:13%;">Total</td>
+        <td style="${B}">Nature and Quantity of Goods<br>(incl. Dimensions or Volume)</td>
       </tr>
       <tr style="text-align:center;">
-        <td style="${B} font-weight:bold; font-size:10.5pt;">${esc(String(o.pcs || ""))}</td>
-        <td style="${B} font-weight:bold; font-size:10.5pt;">${esc(String(o.gross || ""))}</td>
-        <td style="${B}">K</td>
-        <td style="${B}">Q</td>
-        <td style="${B} font-weight:bold; font-size:10.5pt;">${esc(String(o.chwt || ""))}</td>
-        <td style="${B} font-weight:bold;">${esc(String(o.rate || "AS AGREED"))}</td>
-        <td style="${B} font-weight:bold;">${o.rate ? esc(total) : "AS AGREED"}</td>
-        <td style="${B} text-align:left; height:38mm;"><div style="${V}">${esc(o.goods || "")}${o.dims ? "\n" + esc(o.dims) : ""}</div></td>
+        <td style="${B} ${'font-family:Courier New,monospace; font-weight:bold; font-size:10pt;'}">${esc(String(o.pcs || ""))}</td>
+        <td style="${B} font-family:'Courier New',monospace; font-weight:bold; font-size:10pt;">${esc(String(o.gross || ""))}</td>
+        <td style="${B} font-family:'Courier New',monospace; font-weight:bold;">K</td>
+        <td style="${B} font-family:'Courier New',monospace; font-weight:bold;">Q</td>
+        <td style="${B} font-family:'Courier New',monospace; font-weight:bold; font-size:10pt;">${esc(String(o.chwt || ""))}</td>
+        <td style="${B} font-family:'Courier New',monospace; font-weight:bold;">${esc(String(o.rate || ""))}</td>
+        <td style="${B} font-family:'Courier New',monospace; font-weight:bold;">${esc(total)}</td>
+        <td style="${B} text-align:left; height:42mm;"><div style="${V}">${esc(o.goods || "")}${o.dims ? "\n" + esc(o.dims) : ""}</div></td>
       </tr>
-      <tr style="text-align:center; font-weight:bold;">
-        <td style="${B}">${esc(String(o.pcs || ""))}</td><td style="${B}">${esc(String(o.gross || ""))}</td>
-        <td style="${B}" colspan="4"></td><td style="${B}">${o.rate ? esc(total) : ""}</td><td style="${B}"></td>
+      <tr style="text-align:center;">
+        <td style="${B} font-family:'Courier New',monospace; font-weight:bold; font-size:10pt;">${esc(String(o.pcs || ""))}</td>
+        <td style="${B} font-family:'Courier New',monospace; font-weight:bold; font-size:10pt;">${esc(String(o.gross || ""))}</td>
+        <td style="${B} font-family:'Courier New',monospace; font-weight:bold;">K</td>
+        <td style="${B}" colspan="3"></td><td style="${B} font-family:'Courier New',monospace; font-weight:bold;">${esc(total)}</td><td style="${B}"></td>
       </tr>
     </table>
     <table style="border-collapse:collapse; width:100%; margin-top:-1px;">
       <tr>
-        <td style="${B} width:50%; padding:0;">
-          <table style="border-collapse:collapse; width:100%; font-size:8pt;">
-            <tr><td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:1mm 2mm; width:50%;"><span style="${CAP}">Weight Charge (${esc(o.pc||"PREPAID")})</span><b>${o.rate ? esc(total) : "AS AGREED"}</b></td>
-                <td style="border-bottom:1px solid #000; padding:1mm 2mm;"><span style="${CAP}">Valuation Charge</span></td></tr>
-            <tr><td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:1mm 2mm;"><span style="${CAP}">Tax</span></td>
-                <td style="border-bottom:1px solid #000; padding:1mm 2mm;"><span style="${CAP}">Other Charges</span></td></tr>
-            <tr><td style="border-right:1px solid #000; padding:1mm 2mm;"><span style="${CAP}">Total ${esc(o.pc||"PREPAID")}</span><b>${o.rate ? esc(total) : "AS AGREED"}</b></td>
-                <td style="padding:1mm 2mm;"><span style="${CAP}">Total Collect</span></td></tr>
+        <td style="${B} width:44%; padding:0;">
+          <table style="border-collapse:collapse; width:100%; font-size:6.5pt;">
+            <tr><td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:0.8mm 1.5mm; width:50%;"><span style="${CAP}">Prepaid &nbsp;/&nbsp; Weight Charge</span><div style="${V} font-size:8.5pt;">${o.pc !== "COLLECT" ? esc(total) : ""}</div></td>
+                <td style="border-bottom:1px solid #000; padding:0.8mm 1.5mm;"><span style="${CAP}">Collect</span><div style="${V} font-size:8.5pt;">${o.pc === "COLLECT" ? esc(total) : ""}</div></td></tr>
+            <tr><td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:0.8mm 1.5mm;"><span style="${CAP}">Valuation Charge</span></td>
+                <td style="border-bottom:1px solid #000; padding:0.8mm 1.5mm;"><span style="${CAP}">Tax</span></td></tr>
+            <tr><td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:0.8mm 1.5mm;"><span style="${CAP}">Total Other Charges Due Agent</span></td>
+                <td style="border-bottom:1px solid #000; padding:0.8mm 1.5mm;"><span style="${CAP}">Total Other Charges Due Carrier</span></td></tr>
+            <tr><td style="border-right:1px solid #000; padding:0.8mm 1.5mm;"><span style="${CAP}">Total Prepaid</span><div style="${V} font-size:8.5pt;">${o.pc !== "COLLECT" ? esc(total) : ""}</div></td>
+                <td style="padding:0.8mm 1.5mm;"><span style="${CAP}">Total Collect</span><div style="${V} font-size:8.5pt;">${o.pc === "COLLECT" ? esc(total) : ""}</div></td></tr>
           </table>
         </td>
         <td style="${B} vertical-align:top;">
-          <div style="font-size:7.5pt; text-align:justify;">Shipper certifies that the particulars on the face hereof are correct and that <b>insofar as any part of the consignment
+          <span style="${CAP}">Other Charges</span>
+          <div style="font-size:6.8pt; text-align:justify; margin-top:2mm;">Shipper certifies that the particulars on the face hereof are correct and that <b>insofar as any part of the consignment
           contains dangerous goods, such part is properly described by name and is in proper condition for carriage by air
           according to the applicable Dangerous Goods Regulations.</b></div>
-          <div style="border-top:1px solid #000; margin-top:5mm; padding-top:1mm; font-size:7pt; text-align:center;">Signature of Shipper or his Agent</div>
+          <div style="border-top:1px dashed #000; margin-top:7mm; padding-top:0.5mm; font-size:6.5pt; text-align:center;">Signature of Shipper or his Agent</div>
+          <table style="width:100%; margin-top:3mm;"><tr>
+            <td style="border-top:1px dashed #000; font-size:6.5pt; width:28%;"><span style="${CAP}">Executed on (date)</span><div style="${V} font-size:8.5pt;">${esc(o.date || "")}</div></td>
+            <td style="border-top:1px dashed #000; font-size:6.5pt; width:22%;"><span style="${CAP}">at (place)</span><div style="${V} font-size:8.5pt;">DUBAI</div></td>
+            <td style="border-top:1px dashed #000; font-size:6.5pt;"><span style="${CAP}">Signature of Issuing Carrier or its Agent</span><div style="min-height:11mm;">${o.signHtml || ""}</div></td></tr></table>
         </td>
       </tr>
-      <tr>
-        <td style="${B}"><span style="${CAP}">Executed on (date)</span><b>${esc(o.date || "")}</b> &nbsp;&nbsp; <span style="${CAP}">at (place)</span><b>DUBAI</b></td>
-        <td style="${B}"><span style="${CAP}">Signature of Issuing Carrier or its Agent</span>
-          <div style="min-height:14mm;">${o.signHtml || ""}</div></td>
-      </tr>
-      <tr><td style="${B} text-align:right;" colspan="2"><b style="font-size:10.5pt;">${esc(o.no)}</b></td></tr>
+      <tr><td style="${B}"><span style="${CAP}">Currency Conversion Rates / CC Charges in Dest. Currency &nbsp;|&nbsp; For Carrier's Use only at Destination &nbsp;|&nbsp; Charges at Destination &nbsp;|&nbsp; Total Collect Charges</span></td>
+          <td style="${B} text-align:right;"><b style="font-family:'Courier New',monospace; font-size:11.5pt;">${esc(o.no)}</b></td></tr>
     </table>
+    <div style="text-align:center; font-family:'Courier New',monospace; font-weight:bold; font-size:9.5pt; margin-top:1mm;">${esc(o.copy || "Original 1 (for Issuing Carrier)")}</div>
   </div>`;
 }
 function mawbRender(){
   const out = document.getElementById("aw_doc"); if(!out) return;
   const n = _awNums();
   const staff = v("al_staff") || v("dn_staff") || "";
+  const no = v("aw_no") || v("f_awb") || "";
+  const pfx = no.replace(/\D/g, "").slice(0, 3);
+  const dep = iata3(v("f_dep")) || "", dest = iata3(v("f_dest")) || "";
   out.innerHTML = mawbLayout({
-    title: "AIR WAYBILL", subtitle: "Issued by the Carrier — DRAFT COPY prepared by JFS LOGISTICS FZCO",
-    no: v("aw_no") || v("f_awb") || "", issuer: "",
+    title: "Air Waybill",
+    no: no, topNo: no, orgCode: dep,
+    carrier: CARRIER_HQ[pfx] || ((typeof PREFIX_AIRLINES !== "undefined" && PREFIX_AIRLINES[pfx]) ? PREFIX_AIRLINES[pfx][1] : ""),
+    issuer: JFS_AGENT,
     shipper: v("f_shipper"), consignee: v("f_consignee"),
-    dep: iata3(v("f_dep")) || "", dest: iata3(v("f_dest")) || "",
-    to1: (v("aw_to1")||"").toUpperCase(), by1: (v("aw_by1")||"").toUpperCase(),
-    flight: (v("aw_flight")||"").toUpperCase(),
+    depFull: _apFull(dep), destFull: _apFull(dest),
+    to1: (v("aw_to1") || dest).toUpperCase(), by1: (v("aw_by1") || "").toUpperCase(),
+    flight: (v("aw_flight") || "").toUpperCase(),
     pcs: n.pcs, gross: n.gross, chwt: v("aw_chwt") || n.gross, rate: v("aw_rate"),
-    goods: (v("cs_goods")||"").toUpperCase(), dims: (v("aw_dims")||"").toUpperCase(),
-    handl: (v("aw_handl")||"").toUpperCase(), pc: v("aw_pc") || "PREPAID",
+    goods: (v("cs_goods") || "").toUpperCase(), dims: (v("aw_dims") || "").toUpperCase(),
+    handl: (v("aw_handl") || "").toUpperCase(), pc: v("aw_pc") || "PREPAID",
     date: v("al_date") || v("dn_date") || dgdDate(),
     draft: document.getElementById("aw_draft") ? document.getElementById("aw_draft").checked : true,
-    signHtml: staffSignTag(staff, 11) + (dnataStamp() ? `<img src="${dnataStamp()}" style="height:13mm; object-fit:contain;">` : "")
+    signHtml: staffSignTag(staff, 10) + (dnataStamp() ? `<img src="${dnataStamp()}" style="height:12mm; object-fit:contain;">` : "")
   });
 }
 /* ---- HOUSE AWBs ---- */
@@ -5985,59 +6035,81 @@ function hbRender(){
 function hbPrint(i){
   const x = HAWBS[i]; if(!x) return;
   const staff = v("al_staff") || v("dn_staff") || "";
-  document.getElementById("hb_doc").innerHTML = mawbLayout({
-    title: "HOUSE AIR WAYBILL", subtitle: "Issued under MAWB " + (v("aw_no") || v("f_awb") || ""),
-    no: x.no, issuer: "JFS LOGISTICS FZCO\nDUBAI, U.A.E.",
+  const mawb = v("aw_no") || v("f_awb") || "";
+  out = document.getElementById("hb_doc");
+  out.innerHTML = mawbLayout({
+    title: "House Air Waybill",
+    no: x.no, topNo: mawb, orgCode: x.org,
+    carrier: "", issuer: JFS_AGENT,
     shipper: x.shipper, consignee: x.consignee,
-    dep: x.org, dest: x.dest, to1: x.dest, by1: (v("aw_by1")||"").toUpperCase(),
-    flight: (v("aw_flight")||"").toUpperCase(),
+    depFull: _apFull(x.org), destFull: _apFull(x.dest),
+    to1: x.dest, by1: (v("aw_by1") || "").toUpperCase(),
+    flight: (v("aw_flight") || "").toUpperCase(),
     pcs: x.pcs, gross: x.wt, chwt: x.wt, rate: "",
-    goods: x.goods, dims: "", handl: (v("aw_handl")||"").toUpperCase(), pc: v("aw_pc") || "PREPAID",
+    goods: x.goods, dims: "", handl: (v("aw_handl") || "").toUpperCase(), pc: v("aw_pc") || "PREPAID",
     date: v("al_date") || dgdDate(), draft: false,
-    signHtml: staffSignTag(staff, 11) + (dnataStamp() ? `<img src="${dnataStamp()}" style="height:13mm; object-fit:contain;">` : "")
+    copy: "Original 1 (for Issuing Carrier)",
+    signHtml: staffSignTag(staff, 10) + (dnataStamp() ? `<img src="${dnataStamp()}" style="height:12mm; object-fit:contain;">` : "")
   });
   printAlt("hb_doc");
 }
-/* ---- CONSOL MANIFEST ---- */
+/* ---- CONSOL MANIFEST — AWBeditor report style ---- */
 function mfRender(){
   const out = document.getElementById("mf_doc"); if(!out) return;
   const n = _awNums();
-  const TD = "border:1px solid #000; padding:1.8mm 2.5mm; font-size:9.5pt;";
-  const TH = TD + " font-weight:bold; background:#eee; text-align:center;";
-  let rows = "", tp = 0, tw = 0;
-  HAWBS.forEach((x, i) => {
+  const mawb = v("aw_no") || v("f_awb") || "";
+  const M = "font-family:'Courier New', monospace; font-size:9pt; white-space:pre-line; line-height:1.35;";
+  let tp = 0, tw = 0, rows = "";
+  HAWBS.forEach(x => {
     tp += parseInt(x.pcs) || 0; tw += parseFloat(x.wt) || 0;
-    rows += `<tr><td style="${TD} text-align:center;">${i+1}</td><td style="${TD} font-weight:bold;">${esc(x.no)}</td>
-      <td style="${TD} text-align:center;">${esc(x.pcs)}</td><td style="${TD} text-align:center;">${esc(x.wt)}</td>
-      <td style="${TD}">${esc(x.goods)}</td><td style="${TD}">${esc((x.shipper||"").split("\n")[0])}</td>
-      <td style="${TD}">${esc((x.consignee||"").split("\n")[0])}</td><td style="${TD} text-align:center;">${esc(x.dest)}</td></tr>`;
+    rows += `<tr style="vertical-align:top;">
+      <td style="${M} padding:2mm 0; width:12%;">${esc(x.no)}</td>
+      <td style="${M} padding:2mm 0; width:7%; text-align:center;">${esc(x.pcs)}</td>
+      <td style="${M} padding:2mm 0; width:8%; text-align:right;">${esc(x.wt)}K</td>
+      <td style="${M} padding:2mm 0 2mm 3mm; width:11%;">${esc(x.org)}/${esc(x.dest)}</td>
+      <td style="${M} padding:2mm 0; width:8%; text-align:center;">${esc((v("aw_pc")||"PPD").slice(0,4))}</td>
+      <td style="padding:2mm 0; width:38%;">
+        <table style="width:100%;"><tr><td style="font-size:8.5pt; font-weight:bold; width:20mm; vertical-align:top;">Shipper</td><td style="${M}">${esc(x.shipper)}</td></tr>
+        <tr><td style="font-size:8.5pt; font-weight:bold; vertical-align:top; padding-top:2mm;">Consignee</td><td style="${M} padding-top:2mm;">${esc(x.consignee)}</td></tr></table></td>
+      <td style="${M} padding:2mm 0; vertical-align:top;">${esc(x.goods)}</td></tr>
+      <tr><td colspan="7" style="border-bottom:1px solid #ccc;"></td></tr>`;
   });
-  const staff = v("al_staff") || v("dn_staff") || "";
   out.innerHTML = `<div class="sheet" style="min-height:285mm; padding:12mm 14mm; font-family:Arial, sans-serif; color:#000;">
     <table style="width:100%;"><tr>
-      <td><div class="dgwm" style="font-size:22px; font-weight:800;"><span style="color:#0f2b4c;">JFS</span> <span style="color:#3ec9a7;">LOGISTICS FZCO</span></div>
-        <div style="font-size:9pt;">P.O.Box: 54782, DAFZA - DUBAI, U.A.E. &nbsp;|&nbsp; IATA: 8645305</div></td>
-      <td style="text-align:right; font-size:15pt; font-weight:bold;">CONSOLIDATION MANIFEST</td></tr></table>
-    <table style="border-collapse:collapse; width:100%; margin-top:5mm;">
-      <tr><td style="${TH}">MAWB</td><td style="${TH}">FLIGHT / DATE</td><td style="${TH}">ORIGIN</td><td style="${TH}">DESTINATION</td><td style="${TH}">TOTAL HAWBS</td></tr>
-      <tr><td style="${TD} text-align:center; font-weight:bold; font-size:11pt;">${esc(v("aw_no") || v("f_awb") || "")}</td>
-          <td style="${TD} text-align:center;">${esc((v("aw_flight")||"").toUpperCase())}</td>
-          <td style="${TD} text-align:center;">${esc(iata3(v("f_dep"))||"")}</td>
-          <td style="${TD} text-align:center;">${esc(iata3(v("f_dest"))||"")}</td>
-          <td style="${TD} text-align:center; font-weight:bold;">${HAWBS.length}</td></tr>
+      <td style="font-family:'Courier New',monospace; font-weight:bold; font-size:12.5pt;">Consolidation Manifest</td>
+      <td style="font-family:'Courier New',monospace; font-weight:bold; font-size:12.5pt; text-align:center;">${esc(mawb)}</td>
+      <td style="font-family:'Courier New',monospace; font-size:9pt; text-align:right;">JFS LOGISTICS FZCO</td></tr></table>
+    <table style="width:100%; margin-top:5mm;"><tr style="vertical-align:top;">
+      <td style="width:55%;">
+        <table><tr><td style="font-size:9pt; width:22mm; vertical-align:top;">Carrier</td><td style="${M}">${esc((v("aw_flight")||"").split("/")[0].replace(/[0-9]/g,"") ? "" : "")}</td></tr>
+        <tr><td style="font-size:9pt; vertical-align:top; padding-top:2mm;">Shipper</td><td style="${M} padding-top:2mm;">${esc(v("f_shipper"))}</td></tr>
+        <tr><td style="font-size:9pt; vertical-align:top; padding-top:2mm;">Consignee</td><td style="${M} padding-top:2mm;">${esc(v("f_consignee"))}</td></tr></table>
+      </td>
+      <td>
+        <table style="${M}">
+          <tr><td style="width:26mm;">Date</td><td>${esc(v("al_date") || dgdDate())}</td></tr>
+          <tr><td>Reference</td><td>${esc(v("f_ref"))}</td></tr>
+          <tr><td>Flight</td><td>${esc((v("aw_flight")||"").toUpperCase())}</td></tr>
+          <tr><td>Origin</td><td>${esc(iata3(v("f_dep"))||"")}</td></tr>
+          <tr><td>Destination</td><td>${esc(iata3(v("f_dest"))||"")}</td></tr>
+          <tr><td>Pieces</td><td>${tp || esc(String(n.pcs||""))}</td></tr>
+          <tr><td>Weight</td><td>${tw ? ptR3(tw) : esc(String(n.gross||""))}K</td></tr>
+          <tr><td>HAWBs</td><td>${HAWBS.length}</td></tr>
+        </table>
+      </td></tr></table>
+    <table style="width:100%; border-collapse:collapse; margin-top:5mm;">
+      <tr style="font-size:9pt; font-weight:bold; border-bottom:1.5px solid #000;">
+        <td style="border-bottom:1.5px solid #000; padding-bottom:1mm;">HAWB</td><td style="border-bottom:1.5px solid #000; text-align:center;">Pieces</td>
+        <td style="border-bottom:1.5px solid #000; text-align:right;">Weight</td><td style="border-bottom:1.5px solid #000; padding-left:3mm;">Orig/Dest</td>
+        <td style="border-bottom:1.5px solid #000; text-align:center;">PPD/COLL</td><td style="border-bottom:1.5px solid #000;"></td>
+        <td style="border-bottom:1.5px solid #000;">Details</td></tr>
+      ${rows || `<tr><td colspan="7" style="${M} color:#888; padding:4mm 0;">No house AWBs added</td></tr>`}
+      <tr style="font-weight:bold;">
+        <td style="${M} border-top:1.5px solid #000; padding-top:1.5mm;"><b>Total</b></td>
+        <td style="${M} border-top:1.5px solid #000; text-align:center; padding-top:1.5mm;"><b>${tp || esc(String(n.pcs||""))}</b></td>
+        <td style="${M} border-top:1.5px solid #000; text-align:right; padding-top:1.5mm;"><b>${tw ? ptR3(tw) : esc(String(n.gross||""))}K</b></td>
+        <td style="border-top:1.5px solid #000;" colspan="4"></td></tr>
     </table>
-    <table style="border-collapse:collapse; width:100%; margin-top:5mm;">
-      <tr><td style="${TH} width:6%;">SL</td><td style="${TH} width:16%;">HAWB NO</td><td style="${TH} width:8%;">PCS</td><td style="${TH} width:10%;">WT (KG)</td>
-          <td style="${TH}">NATURE OF GOODS</td><td style="${TH} width:17%;">SHIPPER</td><td style="${TH} width:17%;">CONSIGNEE</td><td style="${TH} width:8%;">DEST</td></tr>
-      ${rows || `<tr><td style="${TD} text-align:center; color:#888;" colspan="8">No house AWBs added</td></tr>`}
-      <tr><td style="${TD} font-weight:bold; text-align:right;" colspan="2">TOTAL</td>
-          <td style="${TD} text-align:center; font-weight:bold;">${tp || esc(String(n.pcs||""))}</td>
-          <td style="${TD} text-align:center; font-weight:bold;">${tw ? ptR3(tw) : esc(String(n.gross||""))}</td>
-          <td style="${TD}" colspan="4"></td></tr>
-    </table>
-    <table style="width:100%; margin-top:12mm;"><tr>
-      <td style="font-size:10pt;">Prepared by: <b>${esc((staff||"").toUpperCase())}</b><br>Date: <b>${esc(v("al_date") || dgdDate())}</b></td>
-      <td style="text-align:right;">${staffSignTag(staff, 13)}${dnataStamp() ? `<img src="${dnataStamp()}" style="height:24mm; object-fit:contain;">` : ""}</td></tr></table>
   </div>`;
 }
 function exportAll(){
