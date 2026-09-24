@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-D</span></span>
           </div>
         </div>
       </div>
@@ -1126,23 +1126,33 @@
         <div style="display:flex; gap:10px; margin:8px 0; flex-wrap:wrap;">
           <button class="btn btn-save" style="background:#7b2d8b;" onclick="invImportText()">&#129302; AI IMPORT (paste)</button>
           <button class="btn btn-save" style="background:#1a5fb4;" onclick="aiHsPrice()">&#129302; AI: HS CODES + MARKET PRICES</button>
-          <button class="smallbtn sb-green" onclick="INVITEMS.push({desc:'',hs:'',origin:'',qty:'',unit:'PCS',price:'',ctns:'',net:'',gross:''}); invRenderTable();">+ Add row</button>
+          <button class="smallbtn sb-green" onclick="INVITEMS.push({desc:'',hs:'',origin:'',qty:'',unit:'PCS',price:'',ctns:'',net:'',gross:'',extra:{}}); invRenderTable();">+ Add row</button>
+          <button class="smallbtn sb-blue" onclick="invAddCol()">+ Add column</button>
           <button class="smallbtn sb-red" onclick="if(confirm('Clear all items?')){INVITEMS=[]; invRenderTable();}">Clear</button>
         </div>
         <div style="overflow-x:auto;"><table class="dtable" id="inv_table"></table></div>
       </div></div>
 
-      <div class="card" style="border-left:5px solid #1d6b34;"><h2>&#129534; COMMERCIAL INVOICE &amp; PACKING LIST</h2><div class="body">
+      <div class="card" style="border-left:5px solid #1d6b34;"><h2>&#129534; INVOICE &amp; PACKING LIST</h2><div class="body">
+        <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap; margin-bottom:10px;">
+          <button class="btn btn-save" style="background:#0f2b4c;" onclick="invNew()">&#10133; NEW INVOICE</button>
+          <div><label>Invoice type</label>
+            <select id="inv_type" onchange="invAutoNo(true); invRenderAll();">
+              <option value="SI">SHIPMENT INVOICE</option>
+              <option value="GP">GATE PASS INVOICE</option>
+            </select></div>
+          <div><label>Invoice No (auto &mdash; editable)</label><input type="text" id="inv_no" style="width:150px;" oninput="invRenderAll()"></div>
+          <div><label>Date (auto &mdash; editable)</label><input type="text" id="inv_date" style="width:100px;" oninput="invRenderAll()"></div>
+        </div>
         <div class="grid g4">
-          <div><label>Invoice No / Date</label>
-            <div style="display:flex; gap:5px;"><input type="text" id="inv_no" placeholder="INV-2026-001" style="flex:1;" oninput="invRenderAll()"><input type="text" id="inv_date" style="width:95px;" oninput="invRenderAll()"></div></div>
           <div><label>Currency / Incoterms</label>
-            <div style="display:flex; gap:5px;"><select id="inv_cur" onchange="invRenderAll()"><option>USD</option><option>AED</option><option>EUR</option></select>
+            <div style="display:flex; gap:5px;"><select id="inv_cur" onchange="invRenderAll()"><option>USD</option><option>AED</option><option>EUR</option><option>GBP</option><option>SAR</option><option>INR</option><option>CNY</option></select>
             <input type="text" id="inv_terms" placeholder="e.g. CIF HANOI" style="flex:1;" oninput="invRenderAll()"></div></div>
-          <div><label>Consignee / Buyer (auto from job)</label><textarea id="inv_cons" style="min-height:56px;" oninput="invRenderAll()"></textarea></div>
-          <div><label>Notes &nbsp;&bull;&nbsp; DRAFT mark</label>
+          <div><label>Consignee / Buyer <span style="color:#b02020;">(REQUIRED)</span></label><textarea id="inv_cons" style="min-height:56px;" oninput="invRenderAll()"></textarea></div>
+          <div><label>Notes &nbsp;&bull;&nbsp; Options</label>
             <input type="text" id="inv_note" placeholder="e.g. FOR CUSTOMS PURPOSE ONLY" oninput="invRenderAll()">
-            <label style="font-size:12px; font-weight:normal;"><input type="checkbox" id="inv_draft" checked onchange="invRenderAll()"> DRAFT (untick for final)</label></div>
+            <label style="font-size:12px; font-weight:normal;"><input type="checkbox" id="inv_draft" checked onchange="invRenderAll()"> DRAFT (untick for final)</label>
+            <label style="font-size:12px; font-weight:normal;"><input type="checkbox" id="inv_words" onchange="invRenderAll()"> Show total in words</label></div>
           <div style="align-self:end;">
             <button class="btn btn-save" style="background:#1d6b34;" onclick="invRenderAll()">&#8635; GENERATE</button>
             <button class="btn btn-print" onclick="invoiceRender(); printAlt('inv_doc');">&#128424; PRINT INVOICE</button>
@@ -1731,7 +1741,9 @@ function snapshot(){
     hawbs: (typeof HAWBS !== "undefined" ? HAWBS : []),
     aw: {no:v("aw_no"), flight:v("aw_flight"), to1:v("aw_to1"), by1:v("aw_by1"), chwt:v("aw_chwt"), rate:v("aw_rate"), dims:v("aw_dims"), handl:v("aw_handl"), pc:v("aw_pc")},
     invitems: (typeof INVITEMS !== "undefined" ? INVITEMS : []),
-    inv: {no:v("inv_no"), date:v("inv_date"), cur:v("inv_cur"), terms:v("inv_terms"), cons:v("inv_cons"), note:v("inv_note"), lh:v("lh_sel")},
+    invcols: (typeof INVCOLS !== "undefined" ? INVCOLS : []),
+    inv: {no:v("inv_no"), date:v("inv_date"), cur:v("inv_cur"), terms:v("inv_terms"), cons:v("inv_cons"), note:v("inv_note"), lh:v("lh_sel"), type:v("inv_type"),
+      words: (document.getElementById("inv_words") ? document.getElementById("inv_words").checked : false)},
     stampsign: (document.getElementById("f_stampsign") ? document.getElementById("f_stampsign").checked : true) };
 }
 function applySnapshot(s){
@@ -1769,8 +1781,10 @@ function applySnapshot(s){
   if(s.aw){ Object.entries({aw_no:s.aw.no, aw_flight:s.aw.flight, aw_to1:s.aw.to1, aw_by1:s.aw.by1, aw_chwt:s.aw.chwt, aw_rate:s.aw.rate, aw_dims:s.aw.dims, aw_handl:s.aw.handl, aw_pc:s.aw.pc}).forEach(([id,val]) => { const e = document.getElementById(id); if(e && val !== undefined) e.value = val || (id==="aw_pc"?"PREPAID":""); }); }
   if(typeof hbRender === "function") hbRender();
   if(typeof INVITEMS !== "undefined"){ INVITEMS = Array.isArray(s.invitems) ? s.invitems : []; }
+  if(typeof INVCOLS !== "undefined"){ INVCOLS = Array.isArray(s.invcols) ? s.invcols : []; }
   if(s.inv){ if(typeof lhFill === "function") lhFill();
-    Object.entries({inv_no:s.inv.no, inv_date:s.inv.date, inv_cur:s.inv.cur, inv_terms:s.inv.terms, inv_cons:s.inv.cons, inv_note:s.inv.note, lh_sel:s.inv.lh}).forEach(([id,val]) => { const e = document.getElementById(id); if(e && val !== undefined) e.value = val || (id==="inv_cur"?"USD":""); }); }
+    Object.entries({inv_no:s.inv.no, inv_date:s.inv.date, inv_cur:s.inv.cur, inv_terms:s.inv.terms, inv_cons:s.inv.cons, inv_note:s.inv.note, lh_sel:s.inv.lh, inv_type:s.inv.type}).forEach(([id,val]) => { const e = document.getElementById(id); if(e && val !== undefined) e.value = val || (id==="inv_cur"?"USD":(id==="inv_type"?"SI":"")); });
+    const w = document.getElementById("inv_words"); if(w) w.checked = !!s.inv.words; }
   if(typeof invRenderTable === "function") invRenderTable();
   const ss = document.getElementById("f_stampsign"); if(ss) ss.checked = (s.stampsign !== false);
   if(s.jobtype && typeof setJobType === "function") setJobType(s.jobtype);   // only when the snapshot carries a type
@@ -4724,7 +4738,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log","jfs_inv_counters"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
@@ -6218,6 +6232,47 @@ function mfRender(){
 }
 /* ================= INVOICE & PACKING LIST — letterhead, AI items, HS codes, market prices ================= */
 let INVITEMS = [];
+let INVCOLS = [];   // user-added custom columns (Excel style)
+/* ---- new invoice / auto numbering (separate series per type) ---- */
+function invTypeName(){ return v("inv_type") === "GP" ? "GATE PASS INVOICE" : "SHIPMENT INVOICE"; }
+function invNextNo(commit){
+  const type = v("inv_type") || "SI";
+  const yr = new Date().getFullYear();
+  let c; try{ c = JSON.parse(localStorage.getItem("jfs_inv_counters") || "{}"); }catch(e){ c = {}; }
+  if(!c[type] || c[type].year !== yr) c[type] = {year: yr, n: 0};
+  const next = c[type].n + 1;
+  if(commit){ c[type].n = next; localStorage.setItem("jfs_inv_counters", JSON.stringify(c)); if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_inv_counters"); }
+  return type + "-" + yr + "-" + String(next).padStart(3, "0");
+}
+function invAutoNo(force){
+  const e = document.getElementById("inv_no");
+  if(force || !e.value.trim()) e.value = invNextNo(false);
+}
+function invToday(){ const d = new Date(); return String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear(); }
+function invNew(){
+  if(INVITEMS.length && !confirm("Start a NEW invoice? Current items will be cleared.")) return;
+  INVITEMS = []; INVCOLS = [];
+  document.getElementById("inv_no").value = invNextNo(true);   // commits the series number
+  document.getElementById("inv_date").value = invToday();
+  ["inv_cons","inv_note","inv_terms"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("inv_draft").checked = true;
+  invRenderTable();
+  document.getElementById("inv_msg").textContent = "New " + invTypeName().toLowerCase() + " started — " + v("inv_no") + ". Add items, consignee is required.";
+  if(typeof autosaveCurrent === "function") autosaveCurrent();
+}
+/* ---- custom columns (Excel style) ---- */
+function invAddCol(){
+  const n = (prompt("New column name (e.g. BATCH NO, EXP DATE):") || "").trim().toUpperCase();
+  if(!n) return;
+  if(INVCOLS.includes(n) || ["SL","DESCRIPTION","HS CODE","ORIGIN","QTY","UNIT","UNIT PRICE","AMOUNT","CTNS","NET KG","GROSS KG"].includes(n)){ alert("Column already exists."); return; }
+  INVCOLS.push(n); invRenderTable();
+}
+function invDelCol(i){
+  if(!confirm("Remove column \"" + INVCOLS[i] + "\"?")) return;
+  const n = INVCOLS[i]; INVCOLS.splice(i, 1);
+  INVITEMS.forEach(x => { if(x.extra) delete x.extra[n]; });
+  invRenderTable();
+}
 /* ---- shipper letterheads (company-wide) ---- */
 function lhAll(){ try{ const p = JSON.parse(localStorage.getItem("jfs_letterheads") || "null"); return Array.isArray(p) ? p : []; }catch(e){ return []; } }
 async function lhStore(list){
@@ -6307,8 +6362,10 @@ function hsHistRender(){
 function invRenderTable(){
   const tb = document.getElementById("inv_table"); if(!tb) return;
   const IN = "border:1px solid #c9d4e2; border-radius:4px; padding:4px 5px; font-size:12px;";
-  let h = "<tr><th>SL</th><th>DESCRIPTION</th><th>HS CODE</th><th>ORIGIN</th><th>QTY</th><th>UNIT</th><th>UNIT PRICE</th><th>AMOUNT</th><th>CTNS</th><th>NET KG</th><th>GROSS KG</th><th></th></tr>";
+  const xcols = INVCOLS.map((c, ci) => `<th>${esc(c)} <span style="color:#b02020; cursor:pointer;" onclick="invDelCol(${ci})">&times;</span></th>`).join("");
+  let h = `<tr><th>SL</th><th>DESCRIPTION</th><th>HS CODE</th><th>ORIGIN</th><th>QTY</th><th>UNIT</th><th>UNIT PRICE</th><th>AMOUNT</th><th>CTNS</th><th>NET KG</th><th>GROSS KG</th>${xcols}<th></th></tr>`;
   INVITEMS.forEach((x, i) => {
+    if(!x.extra) x.extra = {};
     const amt = (parseFloat(x.qty) && parseFloat(x.price)) ? (parseFloat(x.qty) * parseFloat(x.price)).toFixed(2) : "";
     h += `<tr><td>${i+1}</td>
       <td><input style="${IN} width:200px;" value="${esc(x.desc||"")}" oninput="INVITEMS[${i}].desc=this.value; invAuto();"></td>
@@ -6321,9 +6378,10 @@ function invRenderTable(){
       <td><input style="${IN} width:50px;" value="${esc(String(x.ctns||""))}" oninput="INVITEMS[${i}].ctns=this.value; invAuto();"></td>
       <td><input style="${IN} width:60px;" value="${esc(String(x.net||""))}" oninput="INVITEMS[${i}].net=this.value; invAuto();"></td>
       <td><input style="${IN} width:60px;" value="${esc(String(x.gross||""))}" oninput="INVITEMS[${i}].gross=this.value; invAuto();"></td>
+      ${INVCOLS.map(c => `<td><input style="${IN} width:80px;" value="${esc(String(x.extra[c]||""))}" oninput="INVITEMS[${i}].extra[${JSON.stringify(c).replace(/"/g,"&quot;")}]=this.value; invAuto();"></td>`).join("")}
       <td><button class="smallbtn sb-red" onclick="INVITEMS.splice(${i},1); invRenderTable();">x</button></td></tr>`;
   });
-  tb.innerHTML = h + (INVITEMS.length ? "" : `<tr><td colspan="12" style="color:#8a97a5;">No items — import with AI or add rows.</td></tr>`);
+  tb.innerHTML = h + (INVITEMS.length ? "" : `<tr><td colspan="${12 + INVCOLS.length}" style="color:#8a97a5;">No items — click NEW INVOICE, then import with AI or add rows.</td></tr>`);
   invRenderAll();
 }
 let _invT = null;
@@ -6503,13 +6561,18 @@ function _invBuildDoc(kind){
   const shipName = p ? p.name : ((v("f_shipper") || "").split("\n")[0] || "");
   const TD = "border:1px solid #000; padding:1.6mm 2mm; font-size:9pt;";
   const TH = TD + " font-weight:bold; background:#f0f0f0; text-align:center;";
-  const title = kind === "inv" ? "COMMERCIAL INVOICE" : "PACKING LIST";
+  const title = kind === "inv" ? invTypeName() : "PACKING LIST";
+  if(!(v("inv_cons") || "").trim()){
+    return `<div class="sheet" style="min-height:80mm; display:flex; align-items:center; justify-content:center;">
+      <div style="color:#b02020; font-weight:bold; font-size:13pt; text-align:center;">&#9888; CONSIGNEE / BUYER is required.<br>
+      <span style="font-size:10pt; font-weight:normal;">Fill the consignee box, then GENERATE again.</span></div></div>`;
+  }
   const head = `
     ${p && p.img ? "" : `<div style="font-size:14pt; font-weight:bold;">${esc(shipName)}</div>`}
     <div style="text-align:center; font-size:14pt; font-weight:bold; text-decoration:underline; letter-spacing:1px;">${title}</div>
     <table style="width:100%; margin-top:4mm; font-size:9.5pt;">
       <tr><td style="width:58%; vertical-align:top;">
-        <b>SHIPPER / EXPORTER:</b><br><span style="white-space:pre-line;">${esc(p ? p.name : v("f_shipper"))}</span><br><br>
+        ${p && p.img ? "" : `<b>SHIPPER / EXPORTER:</b><br><span style="white-space:pre-line;">${esc(p ? p.name : v("f_shipper"))}</span><br><br>`}
         <b>CONSIGNEE / BUYER:</b><br><span style="white-space:pre-line;">${esc(v("inv_cons") || v("f_consignee"))}</span></td>
       <td style="vertical-align:top;">
         <table style="font-size:9.5pt;">
@@ -6524,16 +6587,18 @@ function _invBuildDoc(kind){
   const contHead = `<div style="font-size:10pt; font-weight:bold; padding-top:1mm;">${title} — ${esc(v("inv_no"))} <span style="float:right; font-weight:normal; font-size:9pt;">(continued)</span></div>`;
   let colHeader, rows = [], totalRow;
   if(kind === "inv"){
-    colHeader = `<tr><td style="${TH} width:6%;">SL</td><td style="${TH}">DESCRIPTION OF GOODS</td><td style="${TH} width:11%;">HS CODE</td>
-      <td style="${TH} width:11%;">ORIGIN</td><td style="${TH} width:11%;">QTY</td><td style="${TH} width:11%;">UNIT PRICE<br>${cur}</td><td style="${TH} width:13%;">AMOUNT<br>${cur}</td></tr>`;
+    const xh = INVCOLS.map(c => `<td style="${TH} width:9%;">${esc(c)}</td>`).join("");
+    colHeader = `<tr><td style="${TH} width:6%;">SL</td><td style="${TH}">DESCRIPTION OF GOODS</td><td style="${TH} width:10%;">HS CODE</td>
+      <td style="${TH} width:10%;">ORIGIN</td><td style="${TH} width:10%;">QTY</td>${xh}<td style="${TH} width:10%;">UNIT PRICE<br>${cur}</td><td style="${TH} width:12%;">AMOUNT<br>${cur}</td></tr>`;
     INVITEMS.forEach((x, i) => {
       const amt = (parseFloat(x.qty) && parseFloat(x.price)) ? (parseFloat(x.qty) * parseFloat(x.price)).toFixed(2) : "";
+      const xc = INVCOLS.map(c => `<td style="${TD} text-align:center;">${esc(String((x.extra||{})[c]||""))}</td>`).join("");
       rows.push(`<tr><td style="${TD} text-align:center;">${i+1}</td><td style="${TD}">${esc(x.desc)}</td>
         <td style="${TD} text-align:center;">${esc(x.hs)}</td><td style="${TD} text-align:center;">${esc(x.origin)}</td>
-        <td style="${TD} text-align:center;">${esc(String(x.qty))} ${esc(x.unit||"")}</td>
+        <td style="${TD} text-align:center;">${esc(String(x.qty))} ${esc(x.unit||"")}</td>${xc}
         <td style="${TD} text-align:right;">${esc(String(x.price))}</td><td style="${TD} text-align:right; font-weight:bold;">${amt}</td></tr>`);
     });
-    totalRow = `<tr><td style="${TD} text-align:right; font-weight:bold;" colspan="6">TOTAL ${cur}</td>
+    totalRow = `<tr><td style="${TD} text-align:right; font-weight:bold;" colspan="${6 + INVCOLS.length}">TOTAL ${cur}</td>
       <td style="${TD} text-align:right; font-weight:bold; font-size:10.5pt;">${t.amt}</td></tr>`;
   } else {
     colHeader = `<tr><td style="${TH} width:6%;">SL</td><td style="${TH}">DESCRIPTION OF GOODS</td><td style="${TH} width:12%;">HS CODE</td>
@@ -6552,7 +6617,7 @@ function _invBuildDoc(kind){
   if(!rows.length) rows.push(`<tr><td style="${TD} text-align:center; color:#888;" colspan="7">No items</td></tr>`);
   /* professional signature + stamp block */
   const foot = `
-    ${kind === "inv" ? `<div style="font-size:9.5pt; margin-top:2.5mm;"><b>AMOUNT IN WORDS:</b> ${cur} ${numWords(t.amt)} ONLY</div>` : `<div style="font-size:9.5pt; margin-top:2.5mm;">Total packages: <b>${t.ctns || ""}</b></div>`}
+    ${kind === "inv" ? (document.getElementById("inv_words") && document.getElementById("inv_words").checked ? `<div style="font-size:9.5pt; margin-top:2.5mm;"><b>AMOUNT IN WORDS:</b> ${cur} ${numWords(t.amt)} ONLY</div>` : "") : `<div style="font-size:9.5pt; margin-top:2.5mm;">Total packages: <b>${t.ctns || ""}</b></div>`}
     ${kind === "inv" && v("inv_note") ? `<div style="font-size:9.5pt; margin-top:1.5mm;"><b>${esc(v("inv_note").toUpperCase())}</b></div>` : ""}
     <table style="width:100%; margin-top:5mm;"><tr>
       <td style="font-size:9.5pt; vertical-align:bottom; padding-bottom:2mm;">We certify that this ${kind === "inv" ? "invoice" : "packing list"} is true and correct.</td>
@@ -6593,8 +6658,8 @@ function packingRender(){
 function invRenderAll(){ invoiceRender(); packingRender(); }
 function invFill(){
   lhFill(); hsHistRender();
-  if(!v("inv_date")){ const d = new Date(); document.getElementById("inv_date").value = String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear(); }
-  if(!v("inv_no")) document.getElementById("inv_no").value = "INV-" + (v("f_job") || new Date().getFullYear() + "-" + String(Date.now()).slice(-4));
+  if(!v("inv_date")) document.getElementById("inv_date").value = invToday();
+  invAutoNo(false);
   if(!v("inv_cons") && v("f_consignee")) document.getElementById("inv_cons").value = v("f_consignee");
   invRenderTable();
   lhPull();
