@@ -337,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-N</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-O</span></span>
           </div>
         </div>
       </div>
@@ -353,15 +353,10 @@
     </div>
 
     <div class="nav">
-      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai &nbsp;&bull;&nbsp; v24.09-N</span></div>
-      <div class="navstart">
-        <div class="nslabel">NEW JOB</div>
-        <button class="ns-dg" onclick="jgOpen('DG')">&#129513; DG SHIPMENT</button>
-        <button class="ns-gc" onclick="jgOpen('GC')">&#128230; GENERAL CARGO</button>
-      </div>
+      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai</span></div>
       <button id="nav-dash" class="on" onclick="showTab('dash')">&#128202; DASHBOARD</button>
-      <button id="nav-gc" style="display:none;" onclick="showTab('gc')">&#128230; GENERAL CARGO</button>
-      <button id="nav-dgd" onclick="showTab('dgd')">&#128203; DGD PREPARE</button>
+      <button id="nav-dgd" onclick="if(typeof setJobType==='function')setJobType('DG'); showTab('dgd');">&#129513; DG SHIPMENT</button>
+      <button id="nav-gc" onclick="if(typeof setJobType==='function')setJobType('GC'); showTab('gc');">&#128230; GENERAL CARGO</button>
       <button id="nav-pl" onclick="showTab('pl')">&#128196; PACKING LIST</button>
       <button id="nav-checklist" onclick="showTab('checklist')">&#9989; CHECKLIST</button>
       <button id="nav-stickers" onclick="showTab('stickers')">&#127991; STICKERS</button>
@@ -406,6 +401,10 @@
     <!-- ================= GENERAL CARGO TAB ================= -->
     <div class="tab" id="tab-gc">
       <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#128230; GENERAL CARGO JOB &mdash; <span id="gc_jobno"></span></h2><div class="body">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+          <button class="btn btn-save" style="background:#1d6b34;" onclick="jobNew()">&#10133; NEW JOB (auto number)</button>
+          <span style="font-size:12px; color:#5b6b7d;">Job number fills automatically &mdash; edit it in the DG SHIPMENT page field if needed.</span>
+        </div>
         <div class="warnbar" style="margin-top:0;">Type the AWB, paste the AWB text, or upload the AWB PDF &mdash; the airline is detected automatically. Then use the buttons below for LABELS, AIRLINE DOCUMENTS and DNATA. No DGD needed.</div>
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
           <label style="margin:0;">AWB PDF upload:</label>
@@ -3521,7 +3520,11 @@ function jobNextNo(commit){
 function jobNew(){
   _acceptRow = null;
   document.getElementById("jg_job").value = jobNextNo(true);
-  jobStart(typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG");
+  // type follows the page the button was clicked on
+  const t = document.getElementById("tab-gc").classList.contains("on") ? "GC"
+          : (document.getElementById("tab-dgd").classList.contains("on") ? "DG"
+          : (typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG"));
+  jobStart(t);
 }
 function jobLogPrint(){
   const s = snapshot();
