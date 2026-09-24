@@ -337,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-Q</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-R</span></span>
           </div>
         </div>
       </div>
@@ -379,12 +379,6 @@
         <div id="dashkpi" style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px;"></div>
         <div style="font-weight:bold; color:var(--navy); font-size:13.5px; margin:6px 0;">MONTH-WISE &mdash; DGD PRINTED</div>
         <div id="dashbars" style="max-width:640px;"></div>
-        <div style="display:flex; gap:12px; align-items:center; margin:18px 0 8px; flex-wrap:wrap;">
-          <div style="font-weight:bold; color:var(--navy); font-size:13.5px;">JOB REPORT</div>
-          <input type="text" id="dash_search" placeholder="Search job / AWB / customer..." style="width:250px;" oninput="renderDash()">
-          <button class="smallbtn sb-green" onclick="dashReport()">&#11015; DOWNLOAD REPORT (Excel)</button>
-        </div>
-        <div style="overflow-x:auto;"><table id="dash_table" style="border-collapse:collapse; width:100%;"></table></div>
       </div></div>
 
       <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128229; INBOX &mdash; packing lists sent by the warehouse</h2><div class="body">
@@ -393,6 +387,14 @@
           <button class="smallbtn sb-blue" onclick="inboxPoll()">&#8635; Refresh</button>
         </div>
         <div style="overflow-x:auto;"><table id="inbox_table" style="border-collapse:collapse; width:100%;"></table></div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #1a5fb4;"><h2>&#128203; JOB REPORT</h2><div class="body">
+        <div style="display:flex; gap:12px; align-items:center; margin:0 0 8px; flex-wrap:wrap;">
+          <input type="text" id="dash_search" placeholder="Search job / AWB / customer..." style="width:250px;" oninput="renderDash()">
+          <button class="smallbtn sb-green" onclick="dashReport()">&#11015; DOWNLOAD REPORT (Excel)</button>
+        </div>
+        <div style="overflow-x:auto;"><table id="dash_table" style="border-collapse:collapse; width:100%;"></table></div>
       </div></div>
     </div>
 
