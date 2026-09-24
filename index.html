@@ -337,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-O</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-P</span></span>
           </div>
         </div>
       </div>
@@ -375,14 +375,6 @@
 
     <!-- ============ DASHBOARD TAB ============ -->
     <div class="tab on" id="tab-dash">
-      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128229; INBOX &mdash; packing lists sent by the warehouse</h2><div class="body">
-        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
-          <span style="font-size:12.5px; color:#5b6b7d;">Accept a packing list to start the DGD job — shipper, consignee and pallets fill automatically.</span>
-          <button class="smallbtn sb-blue" onclick="inboxPoll()">&#8635; Refresh</button>
-        </div>
-        <div style="overflow-x:auto;"><table id="inbox_table" style="border-collapse:collapse; width:100%;"></table></div>
-      </div></div>
-
       <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#128202; DGD DASHBOARD &mdash; jobs &amp; printed declarations</h2><div class="body">
         <div id="dashkpi" style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px;"></div>
         <div style="font-weight:bold; color:var(--navy); font-size:13.5px; margin:6px 0;">MONTH-WISE &mdash; DGD PRINTED</div>
@@ -395,6 +387,14 @@
         </div>
         <div style="overflow-x:auto;"><table id="dash_table" style="border-collapse:collapse; width:100%;"></table></div>
       </div></div>
+
+      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128229; INBOX &mdash; packing lists sent by the warehouse</h2><div class="body">
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <span style="font-size:12.5px; color:#5b6b7d;">Accept a packing list to start the DGD job — shipper, consignee and pallets fill automatically.</span>
+          <button class="smallbtn sb-blue" onclick="inboxPoll()">&#8635; Refresh</button>
+        </div>
+        <div style="overflow-x:auto;"><table id="inbox_table" style="border-collapse:collapse; width:100%;"></table></div>
+      </div></div>
     </div>
 
     <!-- ============ JFS PACKING LIST TAB (editable document) ============ -->
@@ -402,8 +402,9 @@
     <div class="tab" id="tab-gc">
       <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#128230; GENERAL CARGO JOB &mdash; <span id="gc_jobno"></span></h2><div class="body">
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+          <select id="job_type_gc" style="width:250px;"></select>
           <button class="btn btn-save" style="background:#1d6b34;" onclick="jobNew()">&#10133; NEW JOB (auto number)</button>
-          <span style="font-size:12px; color:#5b6b7d;">Job number fills automatically &mdash; edit it in the DG SHIPMENT page field if needed.</span>
+          <span style="font-size:12px; color:#5b6b7d;">Job number fills automatically from the type (e.g. GEN-C00001) &mdash; editable.</span>
         </div>
         <div class="warnbar" style="margin-top:0;">Type the AWB, paste the AWB text, or upload the AWB PDF &mdash; the airline is detected automatically. Then use the buttons below for LABELS, AIRLINE DOCUMENTS and DNATA. No DGD needed.</div>
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
@@ -543,7 +544,8 @@
     <!-- JOB NUMBER BAR -->
     <div class="card" style="border-left:5px solid #0f2b4c;"><div class="body" style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap;">
       <div><label>JFS JOB NUMBER (required to start &amp; print)</label>
-        <input type="text" id="f_job" placeholder="e.g. JFS-2026-0451" style="width:210px; font-weight:bold;"></div>
+        <input type="text" id="f_job" placeholder="e.g. DGS-C00032" style="width:210px; font-weight:bold;"></div>
+      <div><label>Job type</label><select id="job_type_dg" style="width:250px;"></select></div>
       <button class="btn btn-save" style="background:#0f2b4c;" onclick="jobNew()">&#10133; NEW DGD (new job)</button>
       <span id="jobmsg" style="font-size:12.5px; color:#5b6b7d;"></span>
     </div></div>
@@ -3507,25 +3509,51 @@ function jobContinue(){
   document.getElementById("jobgate").style.display = "none";
   showTab("dgd");
 }
-/* auto job number series — JFS-YYYY-NNNN (year-wise, cloud-synced, editable after) */
-function jobNextNo(commit){
-  const yr = new Date().getFullYear();
-  let c; try{ c = JSON.parse(localStorage.getItem("jfs_job_counter") || "{}"); }catch(e){ c = {}; }
-  if(c.year !== yr) c = {year: yr, n: 0};
-  const next = c.n + 1;
-  if(commit){ c.n = next; localStorage.setItem("jfs_job_counter", JSON.stringify(c)); if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_job_counter"); }
-  return "JFS-" + yr + "-" + String(next).padStart(4, "0");
+/* JFS job types (official list) — job no format: CODE-C00031 */
+const JFS_JOB_TYPES = {
+  "ACCL":"AIR CUSTOMS CLEARANCE","ACEX":"AIR COURIER EXPORT","ACIM":"AIR COURIER IMPORT","AEXP":"AIR EXPORT",
+  "AIMP":"AIR IMPORT","AIO":"AIR IN OUT","ATA":"AIR TO AIR","BOE":"BILL OF ENTRY","CRT":"CROSS TRADE",
+  "DGS":"DANGEROUS GOODS","DPA":"DUBAI PORTS APPROVAL AUTHORITY","ELI":"ELI GOODS","ELM":"METAL BATTERY",
+  "GEN":"GENERAL/OTHER","LEDT":"LAND EXPORT DOOR TO DOOR","LEXP":"LAND EXPORT","LIDT":"LAND IMPORT DOOR TO DOOR",
+  "LIMP":"LAND IMPORT","SCCL":"SEA CUSTOMS CLEARANCE","SCRT":"SEA CROSS TRADE","SEFC":"SEA EXPORT FULL CONTAINER",
+  "SELC":"SEA EXPORT LESS CONTAINER","SIFC":"SEA IMPORT FULL CONTAINER","SILC":"SEA IMPORT LESS CONTAINER",
+  "STR":"STORAGE","TC":"TRANSFER CHARGES","WH":"WAREHOUSE STORAGE"
+};
+function jobTypeOptions(sel){
+  return Object.entries(JFS_JOB_TYPES).map(([c, n]) => `<option value="${c}"${c === sel ? " selected" : ""}>${c} — ${n}</option>`).join("");
 }
-/* NEW JOB button on the page: auto number, start immediately — no popup */
+/* per-type continuous counters (cloud-synced): DGS-C00032, ELI-C00001 ... */
+function jobNextNo(commit, code){
+  code = code || "DGS";
+  let c; try{ c = JSON.parse(localStorage.getItem("jfs_job_counter") || "{}"); }catch(e){ c = {}; }
+  if(typeof c !== "object" || Array.isArray(c) || c.year !== undefined) c = {};   // migrate from old shape
+  // also learn from the job log: never go below the highest number already used for this code
+  let base = c[code] || 0;
+  try{
+    store("jfs_joblog").forEach(e => {
+      const m = (e.job || "").toUpperCase().match(new RegExp("^" + code + "-C(\\d+)$"));
+      if(m) base = Math.max(base, parseInt(m[1]));
+    });
+  }catch(e){}
+  const next = base + 1;
+  if(commit){ c[code] = next; localStorage.setItem("jfs_job_counter", JSON.stringify(c)); if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_job_counter"); }
+  return code + "-C" + String(next).padStart(5, "0");
+}
+/* NEW JOB button on the page: auto number from the picked job type, start immediately — no popup */
 function jobNew(){
   _acceptRow = null;
-  document.getElementById("jg_job").value = jobNextNo(true);
-  // type follows the page the button was clicked on
-  const t = document.getElementById("tab-gc").classList.contains("on") ? "GC"
-          : (document.getElementById("tab-dgd").classList.contains("on") ? "DG"
-          : (typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG"));
-  jobStart(t);
+  const onGc = document.getElementById("tab-gc").classList.contains("on");
+  const selId = onGc ? "job_type_gc" : "job_type_dg";
+  const sel = document.getElementById(selId);
+  const code = sel ? sel.value : (onGc ? "GEN" : "DGS");
+  document.getElementById("jg_job").value = jobNextNo(true, code);
+  jobStart(onGc ? "GC" : (document.getElementById("tab-dgd").classList.contains("on") ? "DG" : (typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG")));
 }
+function jobTypeFill(){
+  const d = document.getElementById("job_type_dg"); if(d && !d.options.length) d.innerHTML = jobTypeOptions("DGS");
+  const g = document.getElementById("job_type_gc"); if(g && !g.options.length) g.innerHTML = jobTypeOptions("GEN");
+}
+document.addEventListener("DOMContentLoaded", jobTypeFill);
 function jobLogPrint(){
   const s = snapshot();
   const key = (s.job||"").trim().toUpperCase();
