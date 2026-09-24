@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-G</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-H</span></span>
           </div>
         </div>
       </div>
@@ -1056,8 +1056,9 @@
           <div><label>To / By first carrier</label>
             <div style="display:flex; gap:5px;"><input type="text" id="aw_to1" placeholder="JFK" style="width:70px;" oninput="mawbRender()"><input type="text" id="aw_by1" placeholder="EK" style="width:60px;" oninput="mawbRender()"></div></div>
           <div><label>Chargeable wt / Rate per kg</label>
-            <div style="display:flex; gap:5px;"><input type="text" id="aw_chwt" placeholder="920" style="width:80px;" oninput="mawbRender()"><input type="text" id="aw_rate" placeholder="4.50" style="width:80px;" oninput="mawbRender()"></div></div>
-          <div><label>Dimensions (prints under goods)</label><input type="text" id="aw_dims" placeholder="DIMS: 4 PLT @ 120X100X110 CM" oninput="mawbRender()"></div>
+            <div style="display:flex; gap:5px;"><input type="text" id="aw_chwt" placeholder="920" style="width:80px;" oninput="mawbRender()"><input type="text" id="aw_rate" placeholder="4.50" style="width:80px;" oninput="mawbRender()"></div>
+            <div id="aw_chnote" style="font-size:11px; color:#1a5fb4; font-weight:bold;"></div></div>
+          <div><label>Dimensions (prints under goods &mdash; chargeable wt auto-calculates)</label><input type="text" id="aw_dims" placeholder="e.g. 4 PLT @ 120X100X110 CM  or  120X100X110X4" oninput="awChwAuto(); mawbRender();"></div>
           <div><label>Handling information &nbsp;<span style="font-weight:normal; color:#5b6b7d;">(pick shipment type &rarr; statement auto-fills)</span></label>
             <div style="display:flex; gap:5px;">
               <select id="aw_shc" style="width:150px;" onchange="awShcApply()">
@@ -6008,6 +6009,35 @@ function _awNums(){
   const pcs = PT.length || parseInt(v("f_opcount")) || "";
   const gross = PT.length ? ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)) : (v("gc_wt") || "");
   return {pcs, gross};
+}
+/* ---- chargeable weight auto-calc from dimensions (IATA: cm3 / 6000, vs gross, round UP to 0.5 kg) ---- */
+function _parseDimsCm3(txt){
+  let total = 0, pieces = 0;
+  const t = (txt || "").toUpperCase();
+  // pattern: [N x / N PLT / N @] L x W x H [x N]
+  const re = /(?:(\d+)\s*(?:PLT|PLTS|PALLET|PALLETS|PKG|PKGS|PCS|BOX|BOXES|CTN|CTNS|COLLI|@)\s*@?\s*)?(\d+(?:\.\d+)?)\s*[X×*]\s*(\d+(?:\.\d+)?)\s*[X×*]\s*(\d+(?:\.\d+)?)(?:\s*(?:CM)?\s*[X×*@\/]\s*(\d+)\s*(?:PLT|PLTS|PKG|PKGS|PCS|CTN|CTNS)?\b)?/g;
+  let m;
+  while((m = re.exec(t)) !== null){
+    const L = parseFloat(m[2]), W = parseFloat(m[3]), H = parseFloat(m[4]);
+    if(!L || !W || !H) continue;
+    const q = parseInt(m[5]) || parseInt(m[1]) || 1;
+    total += L * W * H * q;
+    pieces += q;
+  }
+  return {cm3: total, pieces};
+}
+function awChwAuto(){
+  const note = document.getElementById("aw_chnote");
+  const d = _parseDimsCm3(v("aw_dims"));
+  if(!d.cm3){ if(note) note.textContent = ""; return; }
+  const vol = d.cm3 / 6000;
+  const gross = parseFloat(_awNums().gross) || 0;
+  const higher = Math.max(vol, gross);
+  const ch = Math.ceil(higher * 2) / 2;                 // round UP to next 0.5 kg
+  document.getElementById("aw_chwt").value = ch % 1 === 0 ? String(ch) : ch.toFixed(1);
+  if(note) note.textContent = "AUTO: VOL " + vol.toFixed(2) + " KG (" + (d.cm3/1000000).toFixed(3) + " CBM, /6000)" +
+    (gross ? " vs GROSS " + gross + " KG" : "") + " → chargeable " + document.getElementById("aw_chwt").value + " KG (" + (vol >= gross ? "volumetric" : "gross") + ")";
+  if(typeof autosaveCurrent === "function") autosaveCurrent();
 }
 /* shared IATA-style AWB layout — matched to the AWBeditor sample */
 const CARRIER_HQ = {
