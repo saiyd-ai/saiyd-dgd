@@ -235,6 +235,50 @@
     .item{padding:10px 8px;}
     h1{font-size:20px;}
   }
+
+  /* ============ COMMAND CENTER THEME — marble background + dark sidebar (desktop) ============ */
+  body{
+    background-color:#e8ebf1;
+    background-image:
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200"><filter id="m"><feTurbulence type="fractalNoise" baseFrequency="0.0035 0.008" numOctaves="5" seed="11"/><feColorMatrix type="matrix" values="0 0 0 0 0.52  0 0 0 0 0.57  0 0 0 0 0.66  0.9 0.9 0.9 0 -0.62"/></filter><rect width="1200" height="1200" fill="%23edf0f5"/><rect width="1200" height="1200" filter="url(%23m)" opacity="0.5"/></svg>'),
+      radial-gradient(ellipse at 15% 8%, rgba(255,255,255,.95), transparent 55%),
+      radial-gradient(ellipse at 85% 92%, rgba(186,197,214,.5), transparent 60%),
+      linear-gradient(160deg,#f2f4f8 0%,#e6eaf1 45%,#eef1f6 100%);
+    background-attachment:fixed;
+  }
+  @media screen and (min-width:901px){
+    .app{max-width:none; padding:16px 26px 24px 248px;}
+    .nav{position:fixed; left:14px; top:14px; bottom:14px; width:218px; z-index:600;
+      display:flex; flex-direction:column; flex-wrap:nowrap; gap:4px; margin:0; padding:16px 12px;
+      background:linear-gradient(168deg,#0c1a3c 0%,#14306b 52%,#0c1a3c 100%);
+      border-radius:18px; overflow-y:auto; box-shadow:0 16px 44px rgba(12,26,60,.4);
+      scrollbar-width:thin; scrollbar-color:#2a4a8f transparent;}
+    .nav::before{content:"dgdoc"; display:block; font-size:26px; font-weight:800; letter-spacing:.5px;
+      color:#3ec9a7; padding:2px 8px 12px; border-bottom:1px solid rgba(255,255,255,.12); margin-bottom:8px;}
+    .nav button{background:transparent; color:#aebbe4; text-align:left; width:100%;
+      border-radius:10px; padding:10px 10px 10px 12px; font-size:12.5px; border-left:4px solid transparent;
+      transition:background .15s, color .15s;}
+    .nav button:hover{background:rgba(255,255,255,.09); color:#fff;}
+    .nav button.on{background:rgba(255,255,255,.16); color:#fff; border-left-color:var(--acc,#3ec9a7);}
+    /* colour variety per module */
+    #nav-dash{--acc:#3ec9a7;} #nav-dgd{--acc:#e5484d;} #nav-gc{--acc:#30a46c;} #nav-pl{--acc:#f5a623;}
+    #nav-checklist{--acc:#8e4ec6;} #nav-stickers{--acc:#f76808;} #nav-labels{--acc:#e5484d;}
+    #nav-customers{--acc:#0091ff;} #nav-items{--acc:#12a594;} #nav-wh{--acc:#ad7f58;}
+    #nav-docs{--acc:#ffc53d;} #nav-dnata{--acc:#3e63dd;} #nav-alforms{--acc:#00b3c2;}
+    #nav-awb{--acc:#6e56cf;} #nav-inv{--acc:#86c332;} #nav-skyd{--acc:#3ec9a7; background:linear-gradient(120deg,rgba(62,201,167,.25),rgba(37,71,201,.25));}
+    #nav-settings{--acc:#8a97a5;}
+    .topbar{background:linear-gradient(120deg,#0c1a3c 0%,#173a80 55%,#0c1a3c 100%); border-radius:16px;
+      box-shadow:0 10px 30px rgba(12,26,60,.25);}
+    .card{border-radius:14px; border-color:#e2e8f2; background:rgba(255,255,255,.94);
+      box-shadow:0 8px 26px rgba(13,44,84,.10);}
+    .card>h2{background:linear-gradient(90deg,#f5f8fc,#ebf1f9);}
+    .previewwrap{border-radius:14px;}
+  }
+  @media print{
+    body{background:#fff !important; background-image:none !important;}
+    .nav{display:none !important;}
+    .app{padding:0 !important;}
+  }
 </style>
 </head>
 <body>
@@ -276,7 +320,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-H</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-I</span></span>
           </div>
         </div>
       </div>
