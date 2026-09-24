@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-E</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-F</span></span>
           </div>
         </div>
       </div>
@@ -1387,13 +1387,23 @@
     <div style="background:#fff; border-radius:14px; padding:28px 30px; width:min(430px, 92vw); box-shadow:0 20px 60px rgba(0,0,0,.4); text-align:center;">
       <div class="dgwm" style="font-size:30px; font-weight:800;"><span class="b1">dg</span><span class="b2">doc</span></div>
       <div style="font-weight:bold; color:#0f2b4c; font-size:16px; margin:10px 0 2px;">START NEW JOB</div>
-      <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:12px;">Enter the JFS Job Number, then pick the job type &mdash; every job is counted on the dashboard.</div>
       <div id="jg_note" style="font-size:12px; color:#b45309; font-weight:bold; margin-bottom:8px;"></div>
-      <input type="text" id="jg_job" placeholder="JFS JOB NUMBER — e.g. JFS-2026-0451" style="width:100%; text-align:center; font-weight:bold; font-size:15px; padding:10px;" onkeydown="if(event.key==='Enter') jobStart('DG')">
-      <button class="btn btn-save" style="background:#a40000; width:100%; margin-top:12px;" onclick="jobStart('DG')">&#129513; START DG SHIPMENT</button>
-      <button class="btn btn-save" style="background:#1d6b34; width:100%; margin-top:8px;" onclick="jobStart('GC')">&#128230; START GENERAL CARGO</button>
-      <button class="btn btn-load" id="jg_cont" style="width:100%; margin-top:8px;" onclick="jobContinue()">&#8617; CONTINUE LAST WORK</button>
-      <button class="smallbtn sb-blue" style="margin-top:10px;" onclick="_acceptRow=null; document.getElementById('jobgate').style.display='none'; showTab('dash');">&#128202; Open dashboard</button>
+      <!-- STEP 1 — pick the job type -->
+      <div id="jg_step1">
+        <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:12px;">Pick the job type &mdash; the job number comes next.</div>
+        <button class="btn btn-save" style="background:#a40000; width:100%; margin-top:4px; font-size:15px; padding:13px;" onclick="jgPick('DG')">&#129513; DG SHIPMENT</button>
+        <button class="btn btn-save" style="background:#1d6b34; width:100%; margin-top:10px; font-size:15px; padding:13px;" onclick="jgPick('GC')">&#128230; GENERAL CARGO</button>
+        <button class="btn btn-load" id="jg_cont" style="width:100%; margin-top:10px;" onclick="jobContinue()">&#8617; CONTINUE LAST WORK</button>
+        <button class="smallbtn sb-blue" style="margin-top:10px;" onclick="_acceptRow=null; document.getElementById('jobgate').style.display='none'; showTab('dash');">&#128202; Open dashboard</button>
+      </div>
+      <!-- STEP 2 — job number for the picked type -->
+      <div id="jg_step2" style="display:none;">
+        <div id="jg_typechip" style="display:inline-block; font-weight:800; font-size:13px; color:#fff; border-radius:20px; padding:5px 16px; margin-bottom:10px;"></div>
+        <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:10px;">Enter the JFS Job Number to start.</div>
+        <input type="text" id="jg_job" placeholder="JFS JOB NUMBER — e.g. JFS-2026-0451" style="width:100%; text-align:center; font-weight:bold; font-size:15px; padding:10px;" onkeydown="if(event.key==='Enter') jgGo()">
+        <button class="btn btn-save" id="jg_gobtn" style="width:100%; margin-top:12px; font-size:15px; padding:12px;" onclick="jgGo()">&#9654; START JOB</button>
+        <button class="smallbtn" style="margin-top:10px;" onclick="jgBack()">&#8592; Back</button>
+      </div>
       <div style="font-size:11px; color:#8a97a5; margin-top:10px;">Powered by <b>s<span style="color:#3ec9a7;">Ai</span>yd.ai</b></div>
     </div>
   </div>
@@ -3319,8 +3329,24 @@ function jobGateShow(){
   let hasCur = false;
   try{ const s = JSON.parse(localStorage.getItem("jfs_dgd_current")||"null"); hasCur = !!(s && (s.job || s.awb || s.shipper)); }catch(e){}
   document.getElementById("jg_cont").style.display = hasCur ? "" : "none";
+  jgBack();                                            // always open on the type-pick step
   g.style.display = "flex";
-  setTimeout(() => { const el = document.getElementById("jg_job"); if(el) el.focus(); }, 250);
+}
+/* two-step job gate: pick DG / GC first, then ask the job number */
+let _jgType = "DG";
+function jgPick(type){
+  _jgType = type;
+  document.getElementById("jg_step1").style.display = "none";
+  document.getElementById("jg_step2").style.display = "";
+  const chip = document.getElementById("jg_typechip"), btn = document.getElementById("jg_gobtn");
+  if(type === "GC"){ chip.textContent = "📦 GENERAL CARGO"; chip.style.background = "#1d6b34"; btn.style.background = "#1d6b34"; btn.innerHTML = "&#9654; START GENERAL CARGO"; }
+  else { chip.textContent = "🧨 DG SHIPMENT"; chip.style.background = "#a40000"; btn.style.background = "#a40000"; btn.innerHTML = "&#9654; START DG SHIPMENT"; }
+  setTimeout(() => { const el = document.getElementById("jg_job"); if(el) el.focus(); }, 100);
+}
+function jgGo(){ jobStart(_jgType); }
+function jgBack(){
+  const s1 = document.getElementById("jg_step1"), s2 = document.getElementById("jg_step2");
+  if(s1) s1.style.display = ""; if(s2) s2.style.display = "none";
 }
 function jobStart(type){
   const j = document.getElementById("jg_job").value.trim().toUpperCase();
