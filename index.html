@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-F</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-G</span></span>
           </div>
         </div>
       </div>
@@ -1058,7 +1058,19 @@
           <div><label>Chargeable wt / Rate per kg</label>
             <div style="display:flex; gap:5px;"><input type="text" id="aw_chwt" placeholder="920" style="width:80px;" oninput="mawbRender()"><input type="text" id="aw_rate" placeholder="4.50" style="width:80px;" oninput="mawbRender()"></div></div>
           <div><label>Dimensions (prints under goods)</label><input type="text" id="aw_dims" placeholder="DIMS: 4 PLT @ 120X100X110 CM" oninput="mawbRender()"></div>
-          <div><label>Handling information</label><input type="text" id="aw_handl" placeholder="e.g. GENERAL CARGO — NOTIFY CONSIGNEE ON ARRIVAL" oninput="mawbRender()"></div>
+          <div><label>Handling information &nbsp;<span style="font-weight:normal; color:#5b6b7d;">(pick shipment type &rarr; statement auto-fills)</span></label>
+            <div style="display:flex; gap:5px;">
+              <select id="aw_shc" style="width:150px;" onchange="awShcApply()">
+                <option value="">— shipment type —</option>
+                <option value="ELM">ELM</option>
+                <option value="RMD">RMD</option>
+                <option value="VEH">VEH</option>
+                <option value="ELI">ELI</option>
+                <option value="GCR">GCR</option>
+                <option value="MAG">MAG</option>
+              </select>
+              <input type="text" id="aw_handl" style="flex:1;" placeholder="e.g. GENERAL CARGO — NOTIFY CONSIGNEE ON ARRIVAL" oninput="mawbRender()">
+            </div></div>
           <div><label>Prepaid / Collect &nbsp;&bull;&nbsp; DRAFT mark</label>
             <div style="display:flex; gap:8px; align-items:center;">
               <select id="aw_pc" onchange="mawbRender()"><option>PREPAID</option><option>COLLECT</option></select>
@@ -5973,6 +5985,21 @@ function dvPrint(){
 /* ================= AWB / MANIFEST — draft MAWB, multiple HAWBs, consol manifest ================= */
 let HAWBS = [];
 let _hbEdit = -1;
+/* handling-information statements per shipment type (SHC) */
+const AWB_SHC = {
+  "ELM": "GCAA-DG-CERT #342. 24 HOURS EMERGENCY CONTACT NUMBER: +971501383146. THIS SHIPMENT DOES NOT CONTAIN USED, DAMAGED OR REFURBISHED LITHIUM OR SODIUM BATTERIES/BATTERY POWERED EQUIPMENT OR VEHICLES.",
+  "RMD": "RMD//EAW/DANGEROUS GOODS AS PER ASSOCIATED SHIPPER'S DECLARATION. GCAA-DG-CERT#342. 24 HOURS EMERGENCY CONTACT NUMBER +971501383146.",
+  "VEH": "SHC-RVF/EAW/ECC/VEH/DANGEROUS GOODS AS PER ASSOCIATED SHIPPER'S DECLARATION GCAA-DG-CERT#342. 24 HOURS EMERGENCY CONTACT NUMBER +971501383146.",
+  "ELI": "SHC-ELI/EAP/GCAA-DG-CERT #342. 24 HOURS EMERGENCY CONTACT NUMBER: +971501383146.",
+  "GCR": "ALL PACKAGES MARKED AND LABELLED. PLEASE INFORM CONSIGNEE UPON ARRIVAL.",
+  "MAG": "SHC-MAG/EAP/ECC/GCAA-DG-CERT NO #342. 24 HOURS EMERGENCY CONTACT NUMBER: +971501383146."
+};
+function awShcApply(){
+  const t = v("aw_shc");
+  if(t && AWB_SHC[t]){ document.getElementById("aw_handl").value = AWB_SHC[t]; }
+  mawbRender();
+  if(typeof autosaveCurrent === "function") autosaveCurrent();
+}
 function awbFill(){
   if(!v("aw_no") && v("f_awb")) document.getElementById("aw_no").value = v("f_awb");
   mawbRender(); hbRender(); mfRender();
