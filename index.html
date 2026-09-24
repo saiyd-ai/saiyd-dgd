@@ -271,8 +271,10 @@
     #nav-docs{--acc:#ffc53d;} #nav-dnata{--acc:#3e63dd;} #nav-alforms{--acc:#00b3c2;}
     #nav-awb{--acc:#6e56cf;} #nav-inv{--acc:#86c332;} #nav-skyd{--acc:#3ec9a7; background:linear-gradient(120deg,rgba(62,201,167,.25),rgba(37,71,201,.25));}
     #nav-settings{--acc:#8a97a5;}
-    .topbar{background:linear-gradient(120deg,#0c1a3c 0%,#173a80 55%,#0c1a3c 100%); border-radius:16px;
-      box-shadow:0 10px 30px rgba(12,26,60,.25);}
+    .topbar{background:linear-gradient(120deg,#0c1a3c 0%,#173a80 55%,#0c1a3c 100%) !important; border-radius:16px;
+      box-shadow:0 10px 30px rgba(12,26,60,.25); padding:12px 22px;}
+    #tb_brand{display:none !important;}                    /* logo lives in the sidebar — no duplicate */
+    #tb_greet{display:block !important;}
     .card{border-radius:14px; border-color:#e2e8f2; background:rgba(255,255,255,.94);
       box-shadow:0 8px 26px rgba(13,44,84,.10);}
     .card>h2{background:linear-gradient(90deg,#f5f8fc,#ebf1f9);}
@@ -319,15 +321,16 @@
 
   <div class="screenonly">
     <div class="topbar" style="background:linear-gradient(135deg,#1c1c4e 0%,#2d2d6e 100%);">
-      <div style="display:flex; align-items:center; gap:16px;">
+      <div style="display:flex; align-items:center; gap:16px;" id="tb_brand">
         <div>
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-J</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-K</span></span>
           </div>
         </div>
       </div>
+      <div id="tb_greet" style="display:none; font-size:15px; font-weight:bold; color:#fff; letter-spacing:.3px;"></div>
       <div style="display:flex; align-items:center; gap:12px;">
         <div class="userchip" id="userchip" style="display:none;">
           <span id="syncdot" title="Cloud sync"></span>
@@ -339,10 +342,10 @@
     </div>
 
     <div class="nav">
-      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai</span></div>
-      <button id="nav-dash" onclick="showTab('dash')">&#128202; DASHBOARD</button>
+      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai &nbsp;&bull;&nbsp; v24.09-K</span></div>
+      <button id="nav-dash" class="on" onclick="showTab('dash')">&#128202; DASHBOARD</button>
       <button id="nav-gc" style="display:none;" onclick="showTab('gc')">&#128230; GENERAL CARGO</button>
-      <button id="nav-dgd" class="on" onclick="showTab('dgd')">&#128203; DGD PREPARE</button>
+      <button id="nav-dgd" onclick="showTab('dgd')">&#128203; DGD PREPARE</button>
       <button id="nav-pl" onclick="showTab('pl')">&#128196; PACKING LIST</button>
       <button id="nav-checklist" onclick="showTab('checklist')">&#9989; CHECKLIST</button>
       <button id="nav-stickers" onclick="showTab('stickers')">&#127991; STICKERS</button>
@@ -360,7 +363,7 @@
     </div>
 
     <!-- ============ DASHBOARD TAB ============ -->
-    <div class="tab" id="tab-dash">
+    <div class="tab on" id="tab-dash">
       <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128229; INBOX &mdash; packing lists sent by the warehouse</h2><div class="body">
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
           <span style="font-size:12.5px; color:#5b6b7d;">Accept a packing list to start the DGD job — shipper, consignee and pallets fill automatically.</span>
@@ -520,7 +523,7 @@
       </div></div>
     </div>
 
-    <div class="tab on" id="tab-dgd">
+    <div class="tab" id="tab-dgd">
 
     <!-- JOB NUMBER BAR -->
     <div class="card" style="border-left:5px solid #0f2b4c;"><div class="body" style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap;">
@@ -1316,7 +1319,7 @@
   </div>
 
   <!-- ================= DGD SHEET (preview + print) ================= -->
-  <div class="previewwrap">
+  <div class="previewwrap" style="display:none;">
     <div class="plabel">LIVE PREVIEW &mdash; this is exactly what prints (A4)</div>
     <div class="sheet" id="sheet">
       <div class="hatch l"></div><div class="hatch r"></div>
@@ -6990,6 +6993,14 @@ async function enterApp(user){
   document.getElementById("authgate").style.display = "none";
   document.getElementById("userchip").style.display = "flex";
   document.getElementById("uc_email").textContent = user.email;
+  // slim topbar greeting (desktop) + dashboard is the landing tab
+  try{
+    const h = new Date().getHours();
+    const g = h < 12 ? "Good morning" : (h < 17 ? "Good afternoon" : "Good evening");
+    const nm = (user.email || "").split("@")[0].split(".")[0].toUpperCase();
+    document.getElementById("tb_greet").textContent = g + ", " + nm + " — " + new Date().toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"long"});
+    if(document.getElementById("tab-dash").classList.contains("on")) renderDash();
+  }catch(e){}
   try{
     const { data: prof } = await sb.from("profiles").select("plan,active").eq("user_id", user.id).single();
     if(prof){
