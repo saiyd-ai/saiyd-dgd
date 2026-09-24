@@ -281,7 +281,7 @@
     #nav-customers{--acc:#0091ff;} #nav-items{--acc:#12a594;} #nav-wh{--acc:#ad7f58;}
     #nav-docs{--acc:#ffc53d;} #nav-dnata{--acc:#3e63dd;} #nav-alforms{--acc:#00b3c2;}
     #nav-awb{--acc:#6e56cf;} #nav-inv{--acc:#86c332;} #nav-skyd{--acc:#3ec9a7; background:linear-gradient(120deg,rgba(62,201,167,.25),rgba(37,71,201,.25));}
-    #nav-settings{--acc:#8a97a5;} #nav-msds{--acc:#b45309;}
+    #nav-settings{--acc:#8a97a5;} #nav-msds{--acc:#b45309;} #nav-rpt{--acc:#1a5fb4;} #nav-whrep{--acc:#b45309;}
     .topbar{background:linear-gradient(120deg,#0c1a3c 0%,#173a80 55%,#0c1a3c 100%) !important; border-radius:16px;
       box-shadow:0 10px 30px rgba(12,26,60,.25); padding:12px 22px;}
     #tb_brand{display:none !important;}                    /* logo lives in the sidebar — no duplicate */
@@ -337,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-U</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-V</span></span>
           </div>
         </div>
       </div>
@@ -366,6 +366,8 @@
       <button id="nav-items" onclick="showTab('items')">&#128218; ITEM DATABASE</button>
       <button id="nav-wh" onclick="showTab('wh')">&#127981; WAREHOUSE</button>
       <button id="nav-docs" onclick="showTab('docs')">&#128193; DOCUMENTS</button>
+      <button id="nav-rpt" onclick="showTab('rpt')">&#128209; DOCUMENT REPORT</button>
+      <button id="nav-whrep" onclick="showTab('whrep')">&#128666; WAREHOUSE REPORT</button>
       <button id="nav-dnata" onclick="showTab('dnata')">&#9992; DNATA</button>
       <button id="nav-alforms" onclick="showTab('alforms')">&#128745; AIRLINE FORMS</button>
       <button id="nav-awb" onclick="showTab('awb')">&#128459; AWB / MANIFEST</button>
@@ -382,20 +384,47 @@
         <div id="dashbars" style="max-width:640px;"></div>
       </div></div>
 
-      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128229; INBOX &mdash; packing lists sent by the warehouse</h2><div class="body">
-        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
-          <span style="font-size:12.5px; color:#5b6b7d;">Accept a packing list to start the DGD job — shipper, consignee and pallets fill automatically.</span>
-          <button class="smallbtn sb-blue" onclick="inboxPoll()">&#8635; Refresh</button>
-        </div>
-        <div style="overflow-x:auto;"><table id="inbox_table" style="border-collapse:collapse; width:100%;"></table></div>
-      </div></div>
-
-      <div class="card" style="border-left:5px solid #1a5fb4;"><h2>&#128203; JOB REPORT</h2><div class="body">
+      <div class="card" style="border-left:5px solid #1a5fb4;"><h2>&#128203; JOB REPORT <span style="font-weight:normal; font-size:11px; color:#8a97a5;">(last 10 &mdash; full list in DOCUMENT REPORT)</span></h2><div class="body">
         <div style="display:flex; gap:12px; align-items:center; margin:0 0 8px; flex-wrap:wrap;">
           <input type="text" id="dash_search" placeholder="Search job / AWB / customer..." style="width:250px;" oninput="renderDash()">
           <button class="smallbtn sb-green" onclick="dashReport()">&#11015; DOWNLOAD REPORT (Excel)</button>
+          <button class="smallbtn sb-blue" onclick="showTab('rpt')">&#128209; FULL DOCUMENT REPORT</button>
         </div>
         <div style="overflow-x:auto;"><table id="dash_table" style="border-collapse:collapse; width:100%;"></table></div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128229; INBOX &mdash; packing lists from the warehouse <span id="inbox_badge"></span> <span style="font-weight:normal; font-size:11px; color:#8a97a5;">(last 10 &mdash; full list in WAREHOUSE REPORT)</span></h2><div class="body">
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <span style="font-size:12.5px; color:#5b6b7d;">Accept a packing list to start the DGD job — shipper, consignee and pallets fill automatically.</span>
+          <button class="smallbtn sb-blue" onclick="inboxPoll()">&#8635; Refresh</button>
+          <button class="smallbtn sb-blue" onclick="showTab('whrep')">&#127981; FULL WAREHOUSE REPORT</button>
+        </div>
+        <div style="overflow-x:auto;"><table id="inbox_table" style="border-collapse:collapse; width:100%;"></table></div>
+      </div></div>
+    </div>
+
+    <!-- ================= DOCUMENT REPORT TAB (full, DG / NON-DG split) ================= -->
+    <div class="tab" id="tab-rpt">
+      <div class="card" style="border-left:5px solid #1a5fb4;"><h2>&#128209; DOCUMENT REPORT &mdash; all jobs</h2><div class="body">
+        <div style="display:flex; gap:12px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+          <input type="text" id="rpt_search" placeholder="Search job / AWB / customer..." style="width:280px;" oninput="rptRender()">
+          <button class="smallbtn sb-green" onclick="dashReport()">&#11015; DOWNLOAD REPORT (Excel)</button>
+        </div>
+        <div style="font-weight:bold; color:#a40000; font-size:14px; margin:6px 0;">&#129513; DG CARGO &mdash; <span id="rpt_dg_n"></span> jobs</div>
+        <div style="overflow-x:auto;"><table id="rpt_dg_table" style="border-collapse:collapse; width:100%;"></table></div>
+        <div style="font-weight:bold; color:#1d6b34; font-size:14px; margin:18px 0 6px;">&#128230; GENERAL CARGO (NON-DG) &mdash; <span id="rpt_gc_n"></span> jobs</div>
+        <div style="overflow-x:auto;"><table id="rpt_gc_table" style="border-collapse:collapse; width:100%;"></table></div>
+      </div></div>
+    </div>
+
+    <!-- ================= WAREHOUSE REPORT TAB (full inbox history) ================= -->
+    <div class="tab" id="tab-whrep">
+      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#127981; WAREHOUSE REPORT &mdash; every packing list sent</h2><div class="body">
+        <div style="display:flex; gap:12px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+          <input type="text" id="whrep_search" placeholder="Search job / shipper / consignee..." style="width:280px;" oninput="renderInbox()">
+          <button class="smallbtn sb-blue" onclick="inboxPoll()">&#8635; Refresh</button>
+        </div>
+        <div style="overflow-x:auto;"><table id="whrep_table" style="border-collapse:collapse; width:100%;"></table></div>
       </div></div>
     </div>
 
@@ -2225,6 +2254,8 @@ function showTab(name){
   if(name === "inv" && typeof invFill === "function") invFill();
   if(name === "skyd" && typeof skydFill === "function") skydFill();
   if(name === "msds" && typeof msdsHistRender === "function") msdsHistRender();
+  if(name === "rpt" && typeof rptRender === "function") rptRender();
+  if(name === "whrep"){ if(typeof renderInbox === "function") renderInbox(); if(typeof inboxPoll === "function") inboxPoll(); }
 }
 
 /* ---------- alt print (checklist / stickers / labels) ---------- */
@@ -3624,9 +3655,17 @@ function renderDash(){
   const q = (document.getElementById("dash_search").value||"").toLowerCase();
   const TH = "padding:6px 8px; font-size:11.5px; background:#0f2b4c; color:#fff; border:1px solid #0f2b4c; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #e2e8f0; font-size:12.5px;";
+  document.getElementById("dash_table").innerHTML = _jobRowsHtml(log, docs, q, 10);   // dashboard shows only the last 10
+}
+/* shared job-report rows (used by dashboard + DOCUMENT REPORT) */
+function _jobRowsHtml(log, docs, q, limit){
+  const TH = "padding:6px 8px; font-size:11.5px; background:#0f2b4c; color:#fff; border:1px solid #0f2b4c; text-align:left;";
+  const TD = "padding:5px 8px; border:1px solid #e2e8f0; font-size:12.5px;";
   let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">LAST PRINT</th><th style="${TH}">AWB</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
-  log.slice().sort((a,b) => (b.last||0) - (a.last||0)).forEach(e => {
-    if(q && !((e.job||"")+" "+(e.awb||"")+" "+(e.shipper||"")+" "+(e.consignee||"")).toLowerCase().includes(q)) return;
+  let rows = log.slice().sort((a,b) => (b.last||0) - (a.last||0))
+    .filter(e => !q || ((e.job||"")+" "+(e.awb||"")+" "+(e.shipper||"")+" "+(e.consignee||"")).toLowerCase().includes(q));
+  if(limit && !q) rows = rows.slice(0, limit);
+  rows.forEach(e => {
     const di = docs.findIndex(d => (d.job||"") === e.job);
     h += `<tr><td style="${TD} font-weight:bold;">${e.type === "GC" ? "&#128230; " : "&#129513; "}${esc(e.job)}</td>
       <td style="${TD}">${e.last ? new Date(e.last).toLocaleString("en-GB") : ""}</td>
@@ -3636,7 +3675,20 @@ function renderDash(){
       <td style="${TD} text-align:center; font-weight:bold; color:#0f2b4c;">${e.prints||0}</td>
       <td style="${TD}">${di >= 0 ? `<button class="smallbtn sb-green" onclick="loadDoc(${di})">Open</button>` : ""}</td></tr>`;
   });
-  document.getElementById("dash_table").innerHTML = h;
+  if(rows.length === 0) h += `<tr><td colspan="9" style="${TD} color:#8a97a5;">No jobs.</td></tr>`;
+  return h;
+}
+/* DOCUMENT REPORT — full list, DG and NON-DG split */
+function rptRender(){
+  const log = store("jfs_joblog"), docs = store("jfs_documents");
+  const q = (v("rpt_search") || "").toLowerCase();
+  const dg = log.filter(e => e.type !== "GC");
+  const gc = log.filter(e => e.type === "GC");
+  const dgT = document.getElementById("rpt_dg_table"), gcT = document.getElementById("rpt_gc_table");
+  if(dgT) dgT.innerHTML = _jobRowsHtml(dg, docs, q, 0);
+  if(gcT) gcT.innerHTML = _jobRowsHtml(gc, docs, q, 0);
+  const dn = document.getElementById("rpt_dg_n"), gn = document.getElementById("rpt_gc_n");
+  if(dn) dn.textContent = dg.length; if(gn) gn.textContent = gc.length;
 }
 async function dashReport(){
   const log = store("jfs_joblog");
@@ -3955,20 +4007,20 @@ async function inboxPoll(){
   const nav = document.getElementById("nav-dash");
   if(nav) nav.innerHTML = "&#128202; DASHBOARD" + (n ? ` <span style="background:#e03a3a; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px;">${n}</span>` : "");
 }
-function renderInbox(){
-  const tb = document.getElementById("inbox_table"); if(!tb) return;
+function _inboxRowsHtml(rows){
   const TH = "padding:5px 8px; font-size:11.5px; background:#b45309; color:#fff; border:1px solid #b45309; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #f0e6d8; font-size:12.5px;";
   let h = `<tr><th style="${TH}">RECEIVED</th><th style="${TH}">JOB</th><th style="${TH}">AWB</th><th style="${TH}">CUSTOMER</th><th style="${TH}">FROM</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">GROSS</th><th style="${TH}">NOTES</th><th style="${TH}">STATUS</th></tr>`;
-  if(!INBOX.length) h += `<tr><td colspan="11" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
-  INBOX.forEach(r => {
+  if(!rows.length) h += `<tr><td colspan="11" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
+  rows.forEach(r => {
     const p = r.payload || {};
     const st = r.status === "NEW"
       ? `<button class="smallbtn sb-green" onclick="inboxAccept('${r.id}')">&#10004; ACCEPT &amp; START</button>
          <button class="smallbtn sb-blue" onclick="inboxAccept('${r.id}','pl')">&#128196; CONVERT &rarr; PL</button>`
       : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}</span>
          <button class="smallbtn sb-blue" onclick="inboxOpenPl('${r.id}')">&#128196; PL</button>`;
-    h += `<tr${r.status === "NEW" ? ' style="background:#fffaf0;"' : ""}>
+    // NEW = amber, ACCEPTED = green tint — easy to tell apart
+    h += `<tr style="background:${r.status === "NEW" ? "#fff3d6" : "#e9f6ec"};">
       <td style="${TD}">${new Date(r.created_at).toLocaleString("en-GB")}</td>
       <td style="${TD} font-weight:bold;">${esc(p.job || r.job_no || "")}</td>
       <td style="${TD}">${esc(p.awb || "")}</td>
@@ -3981,7 +4033,21 @@ function renderInbox(){
       <td style="${TD}">${esc((p.notes||"").slice(0,60))}</td>
       <td style="${TD}">${st}</td></tr>`;
   });
-  tb.innerHTML = h;
+  return h;
+}
+function renderInbox(){
+  const tb = document.getElementById("inbox_table");
+  if(tb) tb.innerHTML = _inboxRowsHtml(INBOX.slice(0, 10));          // dashboard: last 10 only
+  const bd = document.getElementById("inbox_badge");
+  if(bd){ const n = INBOX.filter(r => r.status === "NEW").length;
+    bd.innerHTML = n ? `<span style="background:#e03a3a; color:#fff; border-radius:10px; padding:1px 8px; font-size:11px;">&#128276; ${n} NEW</span>` : ""; }
+  const wt = document.getElementById("whrep_table");                 // WAREHOUSE REPORT: full list + search
+  if(wt){
+    const q = (v("whrep_search") || "").toLowerCase();
+    const rows = q ? INBOX.filter(r => { const p = r.payload || {};
+      return ((p.job||r.job_no||"") + " " + (p.shipper||"") + " " + (p.consignee||"") + " " + (p.awb||"") + " " + (r.sender_email||"")).toLowerCase().includes(q); }) : INBOX;
+    wt.innerHTML = _inboxRowsHtml(rows);
+  }
 }
 function inboxAccept(id, after){
   const row = INBOX.find(r => r.id === id);
