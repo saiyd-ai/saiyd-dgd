@@ -276,7 +276,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-A</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-B</span></span>
           </div>
         </div>
       </div>
@@ -306,6 +306,7 @@
       <button id="nav-alforms" onclick="showTab('alforms')">&#128745; AIRLINE FORMS</button>
       <button id="nav-awb" onclick="showTab('awb')">&#128459; AWB / MANIFEST</button>
       <button id="nav-inv" onclick="showTab('inv')">&#129534; INVOICE</button>
+      <button id="nav-skyd" onclick="showTab('skyd')" style="background:linear-gradient(135deg,#12224d,#2547c9); color:#fff; border-color:#2547c9;">&#129302; SKYD AGENT</button>
       <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
     </div>
 
@@ -1158,6 +1159,22 @@
       </div></div>
     </div>
 
+    <div class="tab" id="tab-skyd">
+      <div class="card">
+        <h3 style="display:flex; align-items:center; gap:8px;">&#129302; SKYD — AI CARGO AGENT
+          <span style="font-size:10px; background:#12224d; color:#ffd76b; border-radius:10px; padding:2px 8px;">DRAFT-ONLY &bull; NEVER SUBMITS</span></h3>
+        <div style="font-size:12px; color:#5a6572; margin-bottom:8px;">One command prepares the whole job: checks the data, builds AWB draft, House AWBs, Manifest, stickers, airline documents and DNATA forms — then gives you a report. You review and print / submit yourself.</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <button class="btn" style="background:linear-gradient(135deg,#12224d,#2547c9); font-size:15px; padding:10px 22px;" onclick="skydRun()">&#9889; RUN SKYD ON THIS JOB</button>
+          <span id="skyd_job" style="font-size:12px; color:#2547c9; font-weight:bold;"></span>
+        </div>
+        <div id="skyd_report" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <h3>&#128220; SKYD RUN LOG</h3>
+        <table class="dtable" id="skyd_log"></table>
+      </div>
+    </div>
     <div class="tab" id="tab-settings">
       <div class="card"><h2>&#128444; DGD CORNER LOGO (top-right of the printed DGD)</h2><div class="body">
         <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">Upload the logo image that must appear on the DGD's top-right corner
@@ -2086,6 +2103,7 @@ function showTab(name){
   if(name === "gc") gcSyncFromMain();
   if(name === "awb") awbFill();
   if(name === "inv" && typeof invFill === "function") invFill();
+  if(name === "skyd" && typeof skydFill === "function") skydFill();
 }
 
 /* ---------- alt print (checklist / stickers / labels) ---------- */
@@ -4706,7 +4724,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
@@ -6550,6 +6568,71 @@ function invFill(){
   if(!v("inv_cons") && v("f_consignee")) document.getElementById("inv_cons").value = v("f_consignee");
   invRenderTable();
   lhPull();
+}
+/* ================= SKYD — AI CARGO AGENT (STEP 1: one-command job preparation) ================= */
+function skydLogAdd(entry){
+  const l = store("jfs_skyd_log"); l.unshift(entry); if(l.length > 100) l.pop();
+  setStore("jfs_skyd_log", l); skydLogRender();
+}
+function skydLogRender(){
+  const tb = document.getElementById("skyd_log"); if(!tb) return;
+  let h = "<tr><th>WHEN</th><th>JOB</th><th>TYPE</th><th>AIRLINE</th><th>RESULT</th></tr>";
+  store("jfs_skyd_log").forEach(e => {
+    h += `<tr><td>${esc(e.when)}</td><td><b>${esc(e.job)}</b></td><td>${esc(e.type)}</td><td>${esc(e.airline)}</td>
+      <td style="color:${e.warns ? "#b8860b" : "#1d6b34"};">${e.warns ? e.warns + " warning(s)" : "&#10004; all clear"} — ${esc(String(e.docs))} docs prepared</td></tr>`;
+  });
+  tb.innerHTML = h + (store("jfs_skyd_log").length ? "" : `<tr><td colspan="5" style="color:#8a97a5;">No runs yet.</td></tr>`);
+}
+function skydFill(){
+  const j = v("f_job") || "(no job number)";
+  const el = document.getElementById("skyd_job");
+  if(el) el.textContent = "Current job: " + j + "  |  " + ((typeof JOBTYPE !== "undefined" && JOBTYPE === "GC") ? "GENERAL CARGO" : "DG SHIPMENT");
+  skydLogRender();
+}
+async function skydRun(){
+  const rep = document.getElementById("skyd_report");
+  rep.innerHTML = `<div style="font-size:13px; color:#2547c9;">&#129302; SKYD working...</div>`;
+  const gc = (typeof JOBTYPE !== "undefined" && JOBTYPE === "GC");
+  const awb = v("f_awb"), pfx = awb.replace(/\D/g, "").slice(0, 3);
+  const airline = (typeof PREFIX_AIRLINES !== "undefined" && PREFIX_AIRLINES[pfx]) ? PREFIX_AIRLINES[pfx][1] : (pfx ? "prefix " + pfx : "");
+  /* 1 — data check */
+  const checks = [
+    ["Job number", v("f_job")], ["AWB number (11 digits)", awb.replace(/\D/g,"").length === 11 ? awb : ""],
+    ["Shipper", v("f_shipper")], ["Consignee", v("f_consignee")],
+    ["Origin", v("f_dep")], ["Destination", v("f_dest")],
+    ["Airline detected", airline]
+  ];
+  if(gc) checks.push(["Pieces / weight", (v("gc_wt") || (typeof PT !== "undefined" && PT.length)) ? "ok" : ""]);
+  else { checks.push(["DG items", (typeof getItems === "function" && getItems().length) ? "ok" : ""]);
+         checks.push(["Packing list attached", (typeof PL !== "undefined" && PL && PL.name) ? PL.name : ""]); }
+  const warns = checks.filter(c => !c[1]);
+  /* 2 — prepare everything (existing engines) */
+  const done = [];
+  try{ if(!gc){ refresh(); done.push(["DGD (Shipper's Declaration)", "dgd"]); } }catch(e){}
+  try{ if(!gc && typeof buildChecklist === "function"){ buildIata(); buildChecklist(); done.push(["Acceptance Checklist", "checklist"]); } }catch(e){}
+  try{ if(typeof awbFill === "function"){ awbFill(); done.push(["Master AWB draft", "awb"]); } }catch(e){}
+  try{ if(typeof HAWBS !== "undefined" && HAWBS.length && typeof mfRender === "function"){ mfRender(); done.push(["House AWBs (" + HAWBS.length + ") + Consolidation Manifest", "awb"]); } }catch(e){}
+  try{ if(awb.replace(/\D/g,"").length === 11 && typeof buildAwbLabels === "function"){ buildAwbLabels(); done.push(["Airline barcode stickers", "stickers"]); } }catch(e){}
+  try{ if(!gc && typeof buildStickers === "function"){ buildStickers(); buildOpStickers(); done.push(["DG package stickers", "stickers"]); } }catch(e){}
+  try{ if(typeof airlineFormFill === "function"){ airlineFormFill(); await airlineFormRender(); done.push(["Airline document pack — " + (airline || "standard"), "alforms"]); } }catch(e){}
+  try{ if(typeof dnataFill === "function"){ dnataFill(); done.push(["DNATA forms", "dnata"]); } }catch(e){}
+  /* 3 — report */
+  let h = `<div style="border:1.5px solid #2547c9; border-radius:10px; overflow:hidden;">
+    <div style="background:#12224d; color:#fff; padding:8px 12px; font-weight:bold; font-size:13px;">SKYD REPORT — ${esc(v("f_job") || "no job no.")} &nbsp;|&nbsp; ${gc ? "GENERAL CARGO" : "DG SHIPMENT"} &nbsp;|&nbsp; ${esc(airline || "airline not detected")}</div>
+    <div style="padding:10px 12px;">`;
+  if(warns.length){
+    h += `<div style="font-size:12px; font-weight:bold; color:#b02020; margin-bottom:4px;">&#9888; MISSING — fix these before printing:</div>`;
+    warns.forEach(w => h += `<div style="font-size:12px; color:#b02020;">&nbsp;&nbsp;&bull; ${esc(w[0])}</div>`);
+    h += `<div style="height:8px;"></div>`;
+  }
+  h += `<div style="font-size:12px; font-weight:bold; color:#1d6b34; margin-bottom:4px;">&#10004; PREPARED (${done.length} document sets):</div>`;
+  done.forEach(d => h += `<div style="display:flex; align-items:center; gap:8px; font-size:12.5px; padding:3px 0;">
+    <span style="color:#1d6b34;">&#10004;</span> <span style="flex:1;">${esc(d[0])}</span>
+    <button class="smallbtn sb-blue" onclick="showTab('${d[1]}')">OPEN</button></div>`);
+  h += `<div style="margin-top:10px; font-size:11.5px; color:#5a6572; border-top:1px dashed #c9d4e2; padding-top:6px;">
+    SKYD stops here — review each document and print / submit yourself. SkyCargo portal auto-fill is STEP 2 (coming next).</div></div></div>`;
+  rep.innerHTML = h;
+  skydLogAdd({when: new Date().toLocaleString("en-GB"), job: v("f_job") || "-", type: gc ? "GC" : "DG", airline: airline || "-", warns: warns.length, docs: done.length});
 }
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
