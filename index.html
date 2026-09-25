@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-L</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-M</span></span>
           </div>
         </div>
       </div>
@@ -1829,7 +1829,8 @@ function goodsRowsArr(split, qfs){
     <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.pi) : ""}</td>
     <td class="center" style="${S}">${withId ? esc(r.auth) : ""}</td></tr>`;
       };
-      arr.push({lines, html: mk(ci === 0, ci > 0), fullHtml: mk(true, false)});
+      // no dividing line after a UN item — the next item's row starts with no top border too
+      arr.push({lines, html: mk(ci === 0, ci > 0 || idx > 0), fullHtml: mk(true, false)});
     });
     if(r.op){
       anyOp = true;
