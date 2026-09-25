@@ -362,7 +362,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-G</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-H</span></span>
           </div>
         </div>
       </div>
@@ -809,7 +809,13 @@
           <input type="text" id="f_emergency" placeholder="+971 5X XXX XXXX"></div>
       </div>
       <div class="grid g3" style="margin-top:10px;">
-        <div><label>Name / Title of Signatory</label><input type="text" id="f_signname" placeholder="Name, Designation">
+        <div><label>Name / Title of Signatory (DG staff)</label>
+          <select id="f_signsel" style="margin-bottom:4px;" onchange="if(this.value){ document.getElementById('f_signname').value=this.value; refresh(); }">
+            <option value="">— select DG staff —</option>
+            <option>MUHAMMED HAFEEL</option>
+            <option>MURSHID MOHAMED</option>
+          </select>
+          <input type="text" id="f_signname" placeholder="Name, Designation">
           <label style="display:block; font-size:12px; font-weight:normal; margin-top:5px;"><input type="checkbox" id="f_stampsign" checked onchange="refresh()"> Print with company <b>SIGN</b> (stamp goes on manually)</label></div>
         <div><label>Place</label><input type="text" id="f_place" placeholder="Dubai"></div>
         <div><label>Date</label><input type="text" id="f_date"></div>
@@ -3700,6 +3706,7 @@ function jobStart(type){
   if(JOBTYPE === "GC" && !_acceptRow) _afterStartTab = "gc";
   applySnapshot({items:[null]});                       // fresh form (no confirm)
   if(typeof loadDefaults === "function") loadDefaults();
+  if(typeof signAutoSelect === "function") signAutoSelect();   // DGD signatory = logged-in DG staff
   document.getElementById("f_date").value = dgdDate();
   if(!v("f_emergency").trim()) document.getElementById("f_emergency").value = "00971 50 138 3146";   // JFS standard 24-hr number
   document.getElementById("f_job").value = j;
@@ -7398,7 +7405,16 @@ async function doLogout(){
   document.getElementById("userchip").style.display = "none";
   document.getElementById("authgate").style.display = "flex";
 }
-const USER_NAMES = { "ms@jfslogistics.com": "MUHAMMED SAYID", "murshid@jfslogistics.com": "MURSHID" };
+const USER_NAMES = { "ms@jfslogistics.com": "MUHAMMED SAYID", "murshid@jfslogistics.com": "MURSHID MOHAMED" };
+const DGD_STAFF = ["MUHAMMED HAFEEL", "MURSHID MOHAMED"];
+/* auto-pick the DGD signatory from the logged-in user (only when the field is empty) */
+function signAutoSelect(){
+  const e = document.getElementById("f_signname");
+  if(!e || e.value.trim()) return;
+  const nm = userDisplayName(sbUser ? sbUser.email : "");
+  const hit = DGD_STAFF.find(s => s === nm || (nm && nm.split(" ")[0] === s.split(" ")[0]));
+  if(hit){ e.value = hit; const sel = document.getElementById("f_signsel"); if(sel) sel.value = hit; }
+}
 function userDisplayName(email){
   const e = (email || "").toLowerCase();
   try{ const p = staffAll().find(x => (x.email || "").toLowerCase() === e); if(p && p.name) return p.name.toUpperCase(); }catch(x){}
