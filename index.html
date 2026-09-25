@@ -337,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-X</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-Y</span></span>
           </div>
         </div>
       </div>
@@ -2850,14 +2850,30 @@ function plFromText(){
 async function aiPalletRows(imgs, hintText){
   const sys = `You read WAREHOUSE PACKING LISTS for a freight forwarder. They may be typed or HANDWRITTEN — read like an expert.
 Extract every pallet row into clean columns.
-Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15}],"tare":pallet tare kg if stated else null}
+Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15,"remark":"item name from the REMARK/REMARKS column, else empty"}],"tare":pallet tare kg if stated else null}
 "weight" = GROSS weight of that pallet in kg (number). "qty" = cartons on that pallet (integer). "dims" = dimensions text.
+IMPORTANT — REMARKS: the REMARK column often uses MERGED cells: one remark (e.g. "AIR FRESHNER" or "PERFUME id8000") covers a GROUP of consecutive pallets. Assign the correct remark to EVERY pallet in its group. Different remarks = different DG items.
 Sanity-check unclear digits (pallet usually 50–999 kg, qty 1–60). Keep the printed order. NEVER invent pallets.`;
   const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
   content.push({type:"text", text: "Packing list" + (hintText && hintText.trim().length > 30 ? " — extracted text as an extra hint, trust the image(s) first:\n\n" + hintText.slice(0, 8000) : " — read the page image(s) carefully.")});
   const j = aiJson(await aiCall(sys, content, 1800));
-  const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0})).filter(r => r.w && r.q);
+  const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0, rm: String(p.remark || "").trim().toUpperCase()})).filter(r => r.w && r.q);
   return {rows, tare: (j.tare && parseFloat(j.tare) > 0) ? String(j.tare) : null};
+}
+/* REMARKS check — different remarks = different DG items = SEPARATE DGD LINES */
+function ptRemarkCheck(rows){
+  const groups = {};
+  (rows || []).forEach(r => { const k = (r.rm || "").trim().toUpperCase(); if(k) groups[k] = (groups[k] || 0) + 1; });
+  const names = Object.keys(groups);
+  if(names.length > 1){
+    const txt = "⚠ REMARKS COLUMN: " + names.length + " DIFFERENT ITEMS — " +
+      names.map(n => n + " (" + groups[n] + " PLT)").join("  +  ") +
+      "\n\nEach item needs its OWN line on the DGD (different DG rules per item, e.g. ID8000 vs AIR FRESHNER). Split the goods accordingly!";
+    alert(txt);
+    return `<div style="border:1.5px solid #a40000; background:#fdecec; color:#a40000; border-radius:8px; padding:8px 12px; margin-top:8px; font-size:12.5px; font-weight:bold;">
+      &#9888; REMARKS: ${names.length} different items — ${names.map(n => esc(n) + " (" + groups[n] + " PLT)").join(" + ")}. SEPARATE DGD LINES needed for each item.</div>`;
+  }
+  return "";
 }
 async function readPlPdf(){
   const f = document.getElementById("plfile").files[0];
@@ -2882,9 +2898,10 @@ async function readPlPdf(){
         try{
           const res = await aiPalletRows([], text);
           if(res.rows.length){
-            PT = res.rows.map(r => ({w:r.w, d:r.d, q:r.q}));
+            PT = res.rows;
             if(res.tare) document.getElementById("pt_tare").value = res.tare;
             ptRender(); refresh();
+            _ptRemarkBanner(res.rows);
           }
           st.innerHTML = keep + " — ✓ pallets filled from Excel";
         }catch(e){ st.innerHTML = keep; }
@@ -2934,6 +2951,7 @@ async function readPlPdf(){
           PT = res.rows;
           if(res.tare) document.getElementById("pt_tare").value = res.tare;
           ptRender();
+          _ptRemarkBanner(res.rows);
           st.innerHTML = keep + " — 🤖 " + res.rows.length + " pallet(s) fetched into the calculator ✓ (check, then AVERAGE / FILL DGD)";
         } else st.innerHTML = keep;
       }catch(e){ st.innerHTML = keep; }
@@ -3393,8 +3411,17 @@ function _ptApply(res, msg, srcLabel){
   if(res.tare) document.getElementById("pt_tare").value = res.tare;
   ptRender();
   msg.textContent = "✓ " + res.rows.length + " pallet(s) extracted from the " + srcLabel + " — check each row.";
+  _ptRemarkBanner(res.rows);
   if(typeof refresh === "function") refresh();
   return true;
+}
+function _ptRemarkBanner(rows){
+  const old = document.getElementById("pt_remwarn"); if(old) old.remove();
+  const warn = ptRemarkCheck(rows);
+  if(warn){
+    const tb = document.getElementById("pt_table");
+    if(tb) tb.insertAdjacentHTML("beforebegin", `<div id="pt_remwarn">${warn}</div>`);
+  }
 }
 /* pallets from a pasted / attached PHOTO */
 async function ptFromImage(file){
