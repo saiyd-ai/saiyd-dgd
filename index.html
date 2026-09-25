@@ -348,7 +348,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-A</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-B</span></span>
           </div>
         </div>
       </div>
@@ -660,8 +660,8 @@
       </div>
     </div></div>
 
-    <!-- PACKING LIST (required) -->
-    <div class="card" style="border-left:5px solid #1a5fb4;"><h2 style="background:#e3ecf7; color:#1a5fb4;">&#128230; PACKING LIST &mdash; optional (attach for cross-checking)</h2><div class="body">
+    <!-- PACKING LIST card hidden — the PALLET/OVERPACK CALCULATOR attach covers it (elements kept for the print gate) -->
+    <div class="card" style="display:none; border-left:5px solid #1a5fb4;"><h2 style="background:#e3ecf7; color:#1a5fb4;">&#128230; PACKING LIST &mdash; optional (attach for cross-checking)</h2><div class="body">
       <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
         <label style="margin:0;">Attach Packing List (PDF / Excel):</label>
         <input type="file" id="plfile" accept=".pdf,.xlsx,.xls,.csv" style="font-size:12.5px;">
@@ -3468,13 +3468,14 @@ function ptFillDgd(){
     "\u2713 DGD filled \u2014 " + PT.length + " overpack(s), " + ptGroups().length + " group(s) in official format. Check the preview!";
 }
 /* apply extracted pallet rows to the calculator */
-function _ptApply(res, msg, srcLabel){
+function _ptApply(res, msg, srcLabel, fname){
   if(!res.rows.length){ msg.textContent = "AI found no pallet rows in the " + srcLabel + " — paste them manually below."; return false; }
   PT = res.rows;
   if(res.tare) document.getElementById("pt_tare").value = res.tare;
   ptRender();
   msg.textContent = "✓ " + res.rows.length + " pallet(s) extracted from the " + srcLabel + " — check each row.";
   _ptRemarkBanner(res.rows);
+  if(typeof plSet === "function") plSet(fname || (srcLabel + " packing list"));   // unlocks DGD printing too
   if(typeof refresh === "function") refresh();
   return true;
 }
@@ -3494,7 +3495,7 @@ async function ptFromImage(file){
   try{
     const b64 = await imgFileToB64(file, 1600);
     const res = await aiPalletRows([b64], "");
-    _ptApply(res, msg, "photo");
+    _ptApply(res, msg, "photo", file.name || "Packing list photo");
   }catch(e){ msg.textContent = "Photo read failed: " + (e.message||e).slice(0,80); }
 }
 /* Ctrl+V photo paste box */
@@ -3524,7 +3525,7 @@ async function ptReadPdf(){
       let text = "";
       wb.SheetNames.slice(0, 4).forEach(n => { text += "SHEET " + n + ":\n" + XLSX.utils.sheet_to_csv(wb.Sheets[n]) + "\n\n"; });
       const res = await aiPalletRows([], text.slice(0, 12000));
-      _ptApply(res, msg, "Excel");
+      _ptApply(res, msg, "Excel", f.name);
     }catch(e){ msg.textContent = "Excel read failed: " + (e.message||e).slice(0,80); }
     return;
   }
