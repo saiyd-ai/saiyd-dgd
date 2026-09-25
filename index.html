@@ -279,8 +279,16 @@
     .navlogo{display:block !important; font-size:28px; padding:4px 8px 12px;
       border-bottom:1px solid rgba(255,255,255,.12); margin-bottom:8px; text-align:center;
       text-shadow:0 2px 10px rgba(62,201,167,.35);}
-    .navlogo .navpw{display:block; font-family:Arial, sans-serif; font-weight:normal; font-size:9.5px;
-      color:#8fa3d9; letter-spacing:1.2px; margin-top:5px; text-transform:uppercase; text-shadow:none;}
+    .navlogo .navpw{display:block; font-family:Arial, sans-serif; font-weight:normal; font-size:8.5px;
+      color:#8fa3d9; letter-spacing:2.2px; margin-top:7px; text-transform:uppercase; text-shadow:none;}
+    /* official sAiyd.ai wordmark — same font & colours as the logo */
+    .saiydwm{display:block; font-family:'Poppins', Arial, sans-serif; font-weight:800; font-size:21px;
+      letter-spacing:.3px; margin-top:1px; text-shadow:none; line-height:1.1;}
+    .saiydwm i{font-style:normal;}
+    .saiydwm .s1{color:#9d9ddb;}                             /* s  — lavender  */
+    .saiydwm .s2{color:#3ec9a7;}                             /* Ai — teal      */
+    .saiydwm .s3{color:#8787cd;}                             /* yd — deep lav. */
+    .saiydwm .s4{color:#b9b9e8; font-weight:300; font-size:15px; letter-spacing:1px;}  /* .ai — thin  */
     .nav button{background:transparent; color:#aebbe4; text-align:left; width:100%;
       border-radius:10px; padding:10px 10px 10px 12px; font-size:12.5px; border-left:4px solid transparent;
       transition:background .15s, color .15s;}
@@ -348,7 +356,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-B</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-C</span></span>
           </div>
         </div>
       </div>
@@ -367,7 +375,9 @@
     </div>
 
     <div class="nav">
-      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span><span class="navpw">Powered by s<b style="color:#3ec9a7;">Ai</b>yd.ai</span></div>
+      <div class="navlogo dgwm"><span class="b1">dg</span><span class="b2">doc</span>
+        <span class="navpw">POWERED BY</span>
+        <span class="saiydwm"><i class="s1">s</i><i class="s2">Ai</i><i class="s3">yd</i><i class="s4">.ai</i></span></div>
       <button id="nav-dash" class="on" onclick="showTab('dash')">&#128202; DASHBOARD</button>
       <button id="nav-dgd" onclick="if(typeof setJobType==='function')setJobType('DG'); showTab('dgd');">&#129513; DG SHIPMENT</button>
       <button id="nav-gc" onclick="if(typeof setJobType==='function')setJobType('GC'); showTab('gc');">&#128230; GENERAL CARGO</button>
