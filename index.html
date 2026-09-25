@@ -356,7 +356,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-D</span></span>
           </div>
         </div>
       </div>
@@ -804,7 +804,7 @@
       </div>
       <div class="grid g3" style="margin-top:10px;">
         <div><label>Name / Title of Signatory</label><input type="text" id="f_signname" placeholder="Name, Designation">
-          <label style="display:block; font-size:12px; font-weight:normal; margin-top:5px;"><input type="checkbox" id="f_stampsign" checked onchange="refresh()"> Print with company <b>STAMP + SIGN</b> (from Settings)</label></div>
+          <label style="display:block; font-size:12px; font-weight:normal; margin-top:5px;"><input type="checkbox" id="f_stampsign" checked onchange="refresh()"> Print with company <b>SIGN</b> (stamp goes on manually)</label></div>
         <div><label>Place</label><input type="text" id="f_place" placeholder="Dubai"></div>
         <div><label>Date</label><input type="text" id="f_date"></div>
       </div>
@@ -1861,15 +1861,13 @@ function refresh(){
   if(handTxt) lines.push(handTxt);
   document.getElementById("p_handling").textContent = lines.join("\n");
   document.getElementById("p_signname").textContent = v("f_signname");
-  // Signature box: company STAMP + SIGN (from Settings/DNATA), when the checkbox is on
+  // Signature box: SIGN only when the checkbox is on — NO auto stamp (the stamp goes on manually)
   const sbx = document.getElementById("p_signbox");
   if(sbx){
     const on = document.getElementById("f_stampsign") ? document.getElementById("f_stampsign").checked : false;
-    const stp = (typeof dnataStamp === "function") ? dnataStamp() : "";
     const sgn = (typeof dgdSign === "function") ? dgdSign() : "";
-    sbx.innerHTML = (on && (stp || sgn))
-      ? (stp ? `<img src="${stp}" style="height:16mm; object-fit:contain; margin-right:5mm; vertical-align:middle;">` : "") +
-        (sgn ? `<img src="${sgn}" style="height:13mm; object-fit:contain; vertical-align:middle;">` : "")
+    sbx.innerHTML = (on && sgn)
+      ? `<img src="${sgn}" style="height:13mm; object-fit:contain; vertical-align:middle;">`
       : "";
   }
   document.getElementById("p_placedate").textContent = [v("f_place"), v("f_date")].filter(Boolean).join(", ");
