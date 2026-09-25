@@ -356,7 +356,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-E</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-F</span></span>
           </div>
         </div>
       </div>
@@ -4157,19 +4157,29 @@ async function whPlPhoto(){
   try{
     const imgs = await filesToImgs(src, 2);
     const sys = `You read WAREHOUSE PACKING LISTS for a freight forwarder. They are often HANDWRITTEN by warehouse staff with imperfect, rushed writing — read like an expert who knows the context.
-Extract every pallet row into clean columns.
-Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15}],"tare":pallet tare kg if written else null}
+Extract every pallet row into clean columns, AND the HEADER details when present (AWB NO, JOB NO, route like DWC-JFK).
+Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15}],"tare":pallet tare kg if written else null,
+"awb":"AWB number from the header, else empty","job":"JOB NO from the header (e.g. DGS-C00402), else empty","org":"origin airport code from the route, else empty","dest":"destination airport code, else empty"}
 "weight" = GROSS weight of that pallet in kg (number). "qty" = number of cartons on that pallet (integer). "dims" = dimensions text like 120*100*135.
 Sanity-check unclear digits from context: a loaded pallet is usually 50–999 kg, qty usually 1–60 cartons, dims in cm. Keep the written order. NEVER invent pallets that are not on the paper.`;
     const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
-    content.push({type:"text", text:"Extract the pallet table from the packing list photo(s) above."});
+    content.push({type:"text", text:"Extract the pallet table AND the header (AWB NO, JOB NO, route) from the packing list photo(s) above."});
     const j = aiJson(await aiCall(sys, content, 1800));
     const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0})).filter(r => r.w && r.q);
     if(!rows.length){ msg.textContent = "AI found no pallet rows — type them below."; return; }
     WH = rows;
     if(j.tare && parseFloat(j.tare) > 0) document.getElementById("wh_tare").value = String(j.tare);
     whRender();
-    msg.textContent = "✓ " + rows.length + " pallet(s) read — CHECK every weight & qty against the paper before sending!";
+    // header → warehouse fields (only when empty; reference always = JOB NO)
+    const hFilled = [];
+    const hset = (id, val, always) => { const e = document.getElementById(id); const vv = String(val||"").trim().toUpperCase();
+      if(e && vv && (always || !e.value.trim())){ e.value = id === "wh_awb" ? String(val).trim() : vv; hFilled.push(id.replace("wh_","").toUpperCase()); } };
+    hset("wh_awb", j.awb);
+    hset("wh_job", j.job);
+    hset("wh_ref", j.job, true);
+    hset("wh_org", j.org);
+    hset("wh_dest", j.dest);
+    msg.textContent = "✓ " + rows.length + " pallet(s) read" + (hFilled.length ? " • header filled: " + hFilled.join(", ") : "") + " — CHECK every weight & qty against the paper before sending!";
   }catch(e){ msg.textContent = "AI failed: " + e.message.slice(0,70); }
 }
 async function whRefreshSent(){
