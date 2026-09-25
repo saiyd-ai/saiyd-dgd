@@ -337,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-V</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-W</span></span>
           </div>
         </div>
       </div>
@@ -650,8 +650,8 @@
     <!-- PACKING LIST (required) -->
     <div class="card" style="border-left:5px solid #1a5fb4;"><h2 style="background:#e3ecf7; color:#1a5fb4;">&#128230; PACKING LIST &mdash; optional (attach for cross-checking)</h2><div class="body">
       <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
-        <label style="margin:0;">Attach Packing List PDF:</label>
-        <input type="file" id="plfile" accept=".pdf" style="font-size:12.5px;">
+        <label style="margin:0;">Attach Packing List (PDF / Excel):</label>
+        <input type="file" id="plfile" accept=".pdf,.xlsx,.xls,.csv" style="font-size:12.5px;">
         <button class="btn btn-load" onclick="readPlPdf()">&#128206; ATTACH &amp; EXTRACT</button>
         <span style="font-size:12px; color:#5b6b7d;">or paste the packing list text below:</span>
       </div>
@@ -2857,7 +2857,37 @@ Sanity-check unclear digits (pallet usually 50–999 kg, qty 1–60). Keep the p
 }
 async function readPlPdf(){
   const f = document.getElementById("plfile").files[0];
-  if(!f){ alert("Choose the packing list PDF first."); return; }
+  if(!f){ alert("Choose the packing list PDF or Excel first."); return; }
+  // ---- EXCEL / CSV packing list ----
+  if(/\.(xlsx|xls|csv)$/i.test(f.name)){
+    try{
+      await loadSheetJs();
+      const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
+      let text = "";
+      wb.SheetNames.slice(0, 4).forEach(n => { text += "SHEET " + n + ":\n" + XLSX.utils.sheet_to_csv(wb.Sheets[n]) + "\n\n"; });
+      if(text.trim().length < 10){ alert("The Excel file looks empty."); return; }
+      if(!plCrossCheck(text)){ alert("Packing list NOT attached — please attach the correct one."); return; }
+      document.getElementById("f_pl").value = text;
+      if(plUNs(text).length) plExtractItems(text);
+      plSet(f.name);
+      refresh();
+      if(aiKey()){
+        const st = document.getElementById("plstatus");
+        const keep = st.innerHTML;
+        st.innerHTML = keep + " — 🤖 fetching pallets...";
+        try{
+          const res = await aiPalletRows([], text);
+          if(res.rows.length){
+            PT = res.rows.map(r => ({w:r.w, d:r.d, q:r.q}));
+            if(res.tare) document.getElementById("pt_tare").value = res.tare;
+            ptRender(); refresh();
+          }
+          st.innerHTML = keep + " — ✓ pallets filled from Excel";
+        }catch(e){ st.innerHTML = keep; }
+      }
+    }catch(e){ alert("Could not read the Excel file: " + (e.message||e).slice(0,80)); }
+    return;
+  }
   try{
     await loadPdfjs();
     const buf = await f.arrayBuffer();
