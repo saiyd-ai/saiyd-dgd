@@ -362,7 +362,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-H</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-I</span></span>
           </div>
         </div>
       </div>
@@ -7411,8 +7411,13 @@ const DGD_STAFF = ["MUHAMMED HAFEEL", "MURSHID MOHAMED"];
 function signAutoSelect(){
   const e = document.getElementById("f_signname");
   if(!e || e.value.trim()) return;
-  const nm = userDisplayName(sbUser ? sbUser.email : "");
-  const hit = DGD_STAFF.find(s => s === nm || (nm && nm.split(" ")[0] === s.split(" ")[0]));
+  const email = (sbUser && sbUser.email || "").toLowerCase();
+  const nm = userDisplayName(email);
+  // match on distinctive words (ignore the very common MUHAMMED/MOHAMED); email prefix counts too
+  const generic = ["MUHAMMED", "MOHAMED", "MOHAMMED", "MUHAMMAD"];
+  const words = (nm + " " + email.split("@")[0].replace(/[._]/g, " ")).toUpperCase().split(/\s+/).filter(w => w.length > 2 && !generic.includes(w));
+  let hit = DGD_STAFF.find(s => s === nm);
+  if(!hit) hit = DGD_STAFF.find(s => s.split(/\s+/).some(w => !generic.includes(w) && words.includes(w)));
   if(hit){ e.value = hit; const sel = document.getElementById("f_signsel"); if(sel) sel.value = hit; }
 }
 function userDisplayName(email){
