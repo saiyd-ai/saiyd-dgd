@@ -337,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-W</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-X</span></span>
           </div>
         </div>
       </div>
@@ -670,10 +670,14 @@
         Paste the PLT / WEIGHT / DIMENSIONS / QTY rows from the customer packing list, or type them.
       </div>
       <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
-        <label style="margin:0;">Attach Packing List PDF:</label>
-        <input type="file" id="pt_file" accept=".pdf" style="font-size:12.5px;">
-        <button class="btn btn-save" style="background:#7b2d8b;" onclick="ptReadPdf()">&#129302; AI EXTRACT PALLETS FROM PDF</button>
+        <label style="margin:0;">Attach Packing List (PDF / Excel / photo):</label>
+        <input type="file" id="pt_file" accept=".pdf,.xlsx,.xls,.csv,image/*" style="font-size:12.5px;">
+        <button class="btn btn-save" style="background:#7b2d8b;" onclick="ptReadPdf()">&#129302; AI EXTRACT PALLETS</button>
         <span id="pt_pdfmsg" style="font-size:12px; color:#7a4b00;"></span>
+      </div>
+      <div id="pt_photobox" tabindex="0" onclick="this.focus()"
+        style="border:2px dashed #b45309; border-radius:10px; background:#fffaf0; padding:14px; text-align:center; color:#7a4b00; font-size:12.5px; font-weight:bold; cursor:pointer; margin-bottom:10px; outline:none;">
+        &#128247; PASTE A PHOTO / SCREENSHOT OF THE PACKING LIST HERE &mdash; click this box, then Ctrl+V &rarr; AI extracts the pallets
       </div>
       <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:8px;">
         <div><label>Pallet tare (kg)</label><input type="text" id="pt_tare" value="16" style="width:80px;" oninput="ptRecalc()"></div>
@@ -3382,11 +3386,58 @@ function ptFillDgd(){
   document.getElementById("pt_summary").textContent =
     "✓ DGD filled — " + PT.length + " overpack(s), " + ptGroups().length + " group(s) in official format. Check the preview!";
 }
+/* apply extracted pallet rows to the calculator */
+function _ptApply(res, msg, srcLabel){
+  if(!res.rows.length){ msg.textContent = "AI found no pallet rows in the " + srcLabel + " — paste them manually below."; return false; }
+  PT = res.rows;
+  if(res.tare) document.getElementById("pt_tare").value = res.tare;
+  ptRender();
+  msg.textContent = "✓ " + res.rows.length + " pallet(s) extracted from the " + srcLabel + " — check each row.";
+  if(typeof refresh === "function") refresh();
+  return true;
+}
+/* pallets from a pasted / attached PHOTO */
+async function ptFromImage(file){
+  const msg = document.getElementById("pt_pdfmsg");
+  if(!aiKey()){ msg.textContent = "Add the Claude API key in SETTINGS → AI first."; return; }
+  msg.textContent = "🤖 AI reading the photo...";
+  try{
+    const b64 = await imgFileToB64(file, 1600);
+    const res = await aiPalletRows([b64], "");
+    _ptApply(res, msg, "photo");
+  }catch(e){ msg.textContent = "Photo read failed: " + (e.message||e).slice(0,80); }
+}
+/* Ctrl+V photo paste box */
+document.addEventListener("DOMContentLoaded", () => {
+  const box = document.getElementById("pt_photobox");
+  if(box) box.addEventListener("paste", e => {
+    const items = (e.clipboardData || {}).items || [];
+    for(const it of items){
+      if(it.type && it.type.startsWith("image/")){ e.preventDefault(); ptFromImage(it.getAsFile()); return; }
+    }
+    document.getElementById("pt_pdfmsg").textContent = "No image in the clipboard — copy a screenshot/photo first, then Ctrl+V here.";
+  });
+});
 async function ptReadPdf(){
   const f = document.getElementById("pt_file").files[0];
   const msg = document.getElementById("pt_pdfmsg");
-  if(!f){ alert("Choose the packing list PDF first."); return; }
-  if(!aiKey()){ msg.textContent = "Add your Claude API key in SETTINGS → AI to extract pallets from PDF. (You can still paste the rows manually.)"; return; }
+  if(!f){ alert("Choose the packing list PDF, Excel or photo first."); return; }
+  if(!aiKey()){ msg.textContent = "Add your Claude API key in SETTINGS → AI to extract pallets. (You can still paste the rows manually.)"; return; }
+  // photo attached
+  if((f.type || "").startsWith("image/")){ ptFromImage(f); return; }
+  // Excel / CSV attached
+  if(/\.(xlsx|xls|csv)$/i.test(f.name)){
+    msg.textContent = "🤖 AI reading the Excel...";
+    try{
+      await loadSheetJs();
+      const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
+      let text = "";
+      wb.SheetNames.slice(0, 4).forEach(n => { text += "SHEET " + n + ":\n" + XLSX.utils.sheet_to_csv(wb.Sheets[n]) + "\n\n"; });
+      const res = await aiPalletRows([], text.slice(0, 12000));
+      _ptApply(res, msg, "Excel");
+    }catch(e){ msg.textContent = "Excel read failed: " + (e.message||e).slice(0,80); }
+    return;
+  }
   msg.textContent = "Reading PDF...";
   try{
     await loadPdfjs();
