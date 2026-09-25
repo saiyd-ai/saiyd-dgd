@@ -238,6 +238,17 @@
 
   /* ============ COMMAND CENTER THEME — marble background + dark sidebar (desktop) ============ */
   .navlogo{display:none;}   /* logo lives in the sidebar — desktop only */
+  /* SKYD topbar button — animated gradient + glow */
+  .skydbtn{border:0; cursor:pointer; color:#fff; font-weight:800; font-size:13.5px; letter-spacing:.6px;
+    padding:10px 18px; border-radius:24px; display:flex; align-items:center; gap:7px;
+    background:linear-gradient(120deg,#3ec9a7,#2547c9,#8e4ec6,#3ec9a7); background-size:300% 100%;
+    animation:skydflow 6s linear infinite; box-shadow:0 0 14px rgba(62,201,167,.55), 0 4px 14px rgba(0,0,0,.35);
+    transition:transform .15s;}
+  .skydbtn:hover{transform:scale(1.06);}
+  .skydbtn .skydbot{font-size:17px; animation:skydbob 2.2s ease-in-out infinite;}
+  .skydbtn .skydai{background:rgba(255,255,255,.22); border-radius:10px; padding:2px 8px; font-size:10px; letter-spacing:1.2px;}
+  @keyframes skydflow{0%{background-position:0% 0;}100%{background-position:300% 0;}}
+  @keyframes skydbob{0%,100%{transform:translateY(0);}50%{transform:translateY(-2px);}}
   .navstart{display:flex; gap:6px; align-items:center;}
   .navstart .nslabel{display:none;}
   .navstart button{border:0; cursor:pointer; font-weight:bold; border-radius:8px; padding:10px 12px; font-size:12px; color:#fff;}
@@ -337,12 +348,15 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-Z</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-A</span></span>
           </div>
         </div>
       </div>
       <div id="tb_greet" style="display:none; font-size:15px; font-weight:bold; color:#fff; letter-spacing:.3px;"></div>
       <div style="display:flex; align-items:center; gap:12px;">
+        <button class="skydbtn" onclick="showTab('skyd')" title="SKYD — AI Cargo Agent">
+          <span class="skydbot">&#129302;</span> SKYD <span class="skydai">AI AGENT</span>
+        </button>
         <div class="userchip" id="userchip" style="display:none;">
           <span id="syncdot" title="Cloud sync"></span>
           <span><b id="uc_email"></b><span style="display:none;"> &bull; <span id="uc_plan">trial</span></span></span>
@@ -372,7 +386,6 @@
       <button id="nav-alforms" onclick="showTab('alforms')">&#128745; AIRLINE FORMS</button>
       <button id="nav-awb" onclick="showTab('awb')">&#128459; AWB / MANIFEST</button>
       <button id="nav-inv" onclick="showTab('inv')">&#129534; INVOICE</button>
-      <button id="nav-skyd" onclick="showTab('skyd')" style="background:linear-gradient(135deg,#12224d,#2547c9); color:#fff; border-color:#2547c9;">&#129302; SKYD AGENT</button>
       <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
     </div>
 
@@ -384,15 +397,6 @@
         <div id="dashbars" style="max-width:640px;"></div>
       </div></div>
 
-      <div class="card" style="border-left:5px solid #1a5fb4;"><h2>&#128203; JOB REPORT <span style="font-weight:normal; font-size:11px; color:#8a97a5;">(last 10 &mdash; full list in DOCUMENT REPORT)</span></h2><div class="body">
-        <div style="display:flex; gap:12px; align-items:center; margin:0 0 8px; flex-wrap:wrap;">
-          <input type="text" id="dash_search" placeholder="Search job / AWB / customer..." style="width:250px;" oninput="renderDash()">
-          <button class="smallbtn sb-green" onclick="dashReport()">&#11015; DOWNLOAD REPORT (Excel)</button>
-          <button class="smallbtn sb-blue" onclick="showTab('rpt')">&#128209; FULL DOCUMENT REPORT</button>
-        </div>
-        <div style="overflow-x:auto;"><table id="dash_table" style="border-collapse:collapse; width:100%;"></table></div>
-      </div></div>
-
       <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128229; INBOX &mdash; packing lists from the warehouse <span id="inbox_badge"></span> <span style="font-weight:normal; font-size:11px; color:#8a97a5;">(last 10 &mdash; full list in WAREHOUSE REPORT)</span></h2><div class="body">
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
           <span style="font-size:12.5px; color:#5b6b7d;">Accept a packing list to start the DGD job — shipper, consignee and pallets fill automatically.</span>
@@ -400,6 +404,15 @@
           <button class="smallbtn sb-blue" onclick="showTab('whrep')">&#127981; FULL WAREHOUSE REPORT</button>
         </div>
         <div style="overflow-x:auto;"><table id="inbox_table" style="border-collapse:collapse; width:100%;"></table></div>
+      </div></div>
+
+      <div class="card" style="border-left:5px solid #1a5fb4;"><h2>&#128203; JOB REPORT <span style="font-weight:normal; font-size:11px; color:#8a97a5;">(last 10 &mdash; full list in DOCUMENT REPORT)</span></h2><div class="body">
+        <div style="display:flex; gap:12px; align-items:center; margin:0 0 8px; flex-wrap:wrap;">
+          <input type="text" id="dash_search" placeholder="Search job / AWB / customer..." style="width:250px;" oninput="renderDash()">
+          <button class="smallbtn sb-green" onclick="dashReport()">&#11015; DOWNLOAD REPORT (Excel)</button>
+          <button class="smallbtn sb-blue" onclick="showTab('rpt')">&#128209; FULL DOCUMENT REPORT</button>
+        </div>
+        <div style="overflow-x:auto;"><table id="dash_table" style="border-collapse:collapse; width:100%;"></table></div>
       </div></div>
     </div>
 
@@ -2233,7 +2246,7 @@ function showTab(name){
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("on"));
   document.querySelectorAll(".nav button").forEach(b => b.classList.remove("on"));
   document.getElementById("tab-"+name).classList.add("on");
-  document.getElementById("nav-"+name).classList.add("on");
+  const nb = document.getElementById("nav-"+name); if(nb) nb.classList.add("on");
   document.querySelector(".previewwrap").style.display = (name === "dgd") ? "" : "none";
   if(name === "dash"){ renderDash(); inboxPoll(); }
   if(name === "pl") plvRender();
