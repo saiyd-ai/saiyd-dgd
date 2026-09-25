@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-M</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-N</span></span>
           </div>
         </div>
       </div>
@@ -2892,6 +2892,7 @@ Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":
 "awb":"AWB number from the header, else empty","job":"JOB NO from the header (e.g. DGS-C00402), else empty","org":"origin airport code from the route, else empty","dest":"destination airport code, else empty"}
 "weight" = GROSS weight of that pallet in kg (number). "qty" = cartons on that pallet (integer). "dims" = dimensions text.
 IMPORTANT — REMARKS: the REMARK column often uses MERGED cells: one remark (e.g. "AIR FRESHNER" or "PERFUME id8000") covers a GROUP of consecutive pallets. Assign the correct remark to EVERY pallet in its group. Different remarks = different DG items.
+LOOSE CARTON lists: when the list has columns like "Qty (Boxes)" and "Box Weight" with remarks "OVER PACKED" / "AVERAGE WT", each row is CARTONS not pallets: weight = the BOX weight per carton (kg), qty = the number of boxes in that row, remark = the exact text ("OVER PACKED" or "AVERAGE WT"). Keep every OVER PACKED row separate (qty 1 each), in order.
 Sanity-check unclear digits (pallet usually 50–999 kg, qty 1–60). Keep the printed order. NEVER invent pallets.`;
   const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
   content.push({type:"text", text: "Packing list" + (hintText && hintText.trim().length > 30 ? " — extracted text as an extra hint, trust the image(s) first:\n\n" + hintText.slice(0, 8000) : " — read the page image(s) carefully.")});
@@ -2915,7 +2916,8 @@ function _ptHeaderApply(res){
 /* REMARKS check — different remarks = different DG items = SEPARATE DGD LINES */
 function ptRemarkCheck(rows){
   const groups = {};
-  (rows || []).forEach(r => { const k = (r.rm || "").trim().toUpperCase(); if(k) groups[k] = (groups[k] || 0) + 1; });
+  (rows || []).forEach(r => { const k = (r.rm || "").trim().toUpperCase();
+    if(k && !/OVER\s?PACK|AVERAGE\s?WT|LOOSE/i.test(k)) groups[k] = (groups[k] || 0) + 1; });   // packing-style remarks are not items
   const names = Object.keys(groups);
   if(names.length > 1){
     const txt = "⚠ REMARKS COLUMN: " + names.length + " DIFFERENT ITEMS — " +
@@ -3321,6 +3323,11 @@ function ptModesDefaults(){
 function ptModesRender(){
   const el = document.getElementById("pt_modes"); if(!el) return;
   if(!PT.length){ el.innerHTML = ""; return; }
+  if(ptIsLoose()){
+    el.innerHTML = `<div style="margin:6px 0; padding:8px 12px; background:#fff8e6; border:1px solid #eadcb8; border-radius:8px; font-size:12px; color:#7a4b00;">
+      <b>&#128230; LOOSE CARTONS list detected</b> — "OVER PACKED" cartons become single overpacks with SC numbers; "AVERAGE WT" boxes print as one AVERAGE GROSS WEIGHT block (no overpack).</div>`;
+    return;
+  }
   const list = ptModesDefaults();
   el.innerHTML = `<div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin:6px 0; padding:8px 12px; background:#f3f6fb; border:1px solid #dde5f0; border-radius:8px;">
     <b style="font-size:12px; color:#0f2b4c;">QTY FORMAT:</b>` +
@@ -3350,6 +3357,61 @@ function ptGroupsFor(idxRows, netMode){
       : g.idx.map(sc).join(", ");
   });
   return groups;
+}
+/* ---- LOOSE CARTONS mode: remarks "OVER PACKED" (shrink-wrapped single cartons = 1 overpack each, SC no.)
+       and "AVERAGE WT" (plain loose cartons — NO overpack, NO SC, avg gross block only) ---- */
+function ptIsLoose(){ return PT.some(r => /OVER\s?PACK/i.test(r.rm || "") || /AVERAGE\s?WT/i.test(r.rm || "")); }
+function fmt1(x){
+  const n = Math.round(((typeof x === "number" ? x : parseFloat(x)) || 0) * 1000) / 1000;
+  const s = Number.isInteger(n) ? n + ".0" : String(n);
+  return s.replace(".", " . ");
+}
+function ptFillLoose(){
+  const box1 = "01 FIBREBOARD BOX";
+  const overIdx = []; const avgRows = [];
+  PT.forEach((r, i) => {
+    if(/OVER\s?PACK/i.test(r.rm || "")) overIdx.push([overIdx.length, r]);   // SC numbers count ONLY overpacked cartons
+    else avgRows.push(r);
+  });
+  const sc = n => "#SC" + String(n + 1).padStart(2, "0");
+  // group consecutive same-weight overpacked cartons
+  const groups = [];
+  overIdx.forEach(([i, r]) => {
+    const key = String(r.w);
+    const prev = groups[groups.length - 1];
+    if(prev && prev.key === key && prev.idx[prev.idx.length - 1] === i - 1) prev.idx.push(i);
+    else{
+      let g = groups.find(x => x.key === key);
+      if(g && g.idx[g.idx.length - 1] !== i - 1) g = null;                  // keep runs contiguous like the manual DGD
+      if(g) g.idx.push(i); else groups.push({key, w: r.w, idx: [i]});
+    }
+  });
+  const blocks = groups.map(g => {
+    const wf = fmt1(g.w);
+    const scList = g.idx.length === 1 ? sc(g.idx[0]) : sc(g.idx[0]) + " - " + sc(g.idx[g.idx.length - 1]);
+    return g.idx.length > 1
+      ? `${box1}\nx ${wf} kg G\nOVERPACK USED x ${g.idx.length}\n${scList}\nTOTAL QUANTITY PER\nOVERPACK ${wf} kg G`
+      : `${box1}\nx ${wf} kg G\nOVERPACK USED ${scList}\nTOTAL QUANTITY ${wf} kg G`;
+  });
+  // plain loose cartons — average gross block, NO overpack lines
+  if(avgRows.length){
+    const B = avgRows.reduce((a, r) => a + (parseInt(r.q) || 1), 0);
+    const totW = avgRows.reduce((a, r) => a + (parseFloat(r.w) || 0) * (parseInt(r.q) || 1), 0);
+    const avg = B ? ptTrunc3(totW / B) : 0;
+    blocks.push(`${B} FIBREBOARD BOXES\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(avg)} kg G`);
+  }
+  if(!document.querySelectorAll(".item").length) addItem();
+  const first = document.querySelector(".item");
+  first.querySelector(".i_qty").value = blocks.join("\n\n");
+  first.querySelector(".i_op").checked = false;
+  document.querySelector('input[name=f_overpack][value=Y]').checked = true;
+  document.getElementById("f_opcount").value = String(overIdx.length);
+  document.getElementById("f_opqty").value = "";
+  document.getElementById("op_start") && (document.getElementById("op_start").value = "1");
+  refresh();
+  document.getElementById("pt_summary").textContent =
+    "✓ LOOSE CARTONS DGD filled — " + overIdx.length + " overpacked carton(s) with SC numbers, " +
+    (avgRows.length ? avgRows.reduce((a,r)=>a+(parseInt(r.q)||1),0) + " loose box(es) as AVERAGE GROSS (no overpack)." : "no loose-average boxes.");
 }
 /* which DGD item + qty format a pallet row belongs to (for labels) */
 function ptRowMeta(r, itemsArr){
@@ -3526,6 +3588,7 @@ function _ptBlocks(groups, box, m){
 }
 function ptFillDgd(){
   if(!PT.length){ alert("Add or paste the pallet rows first."); return; }
+  if(ptIsLoose()){ ptFillLoose(); return; }                 // LOOSE CARTONS list → its own format
   ptCompute();
   ptModesDefaults();
   const box = (v("pt_boxtype") || "FIBREBOARD BOXES").toUpperCase();
@@ -3837,7 +3900,7 @@ function applyQueuePayload(p){
     if(pr[1]) document.getElementById("f_dest").value = pr[1].toUpperCase();
   }
   if(p.tare) document.getElementById("pt_tare").value = p.tare;
-  PT = (p.pallets || []).map(r => ({w: r.w, d: r.d, q: r.q}));
+  PT = (p.pallets || []).map(r => ({w: r.w, d: r.d, q: r.q, rm: String(r.rm || "").toUpperCase()}));
   ptRender();
   if(PT.length) plSet("Warehouse packing list" + (p.job ? " — job " + p.job : ""));   // warehouse data = packing list, DGD unlocked
 }
@@ -4252,14 +4315,15 @@ async function whPlPhoto(){
     const imgs = await filesToImgs(src, 2);
     const sys = `You read WAREHOUSE PACKING LISTS for a freight forwarder. They are often HANDWRITTEN by warehouse staff with imperfect, rushed writing — read like an expert who knows the context.
 Extract every pallet row into clean columns, AND the HEADER details when present (AWB NO, JOB NO, route like DWC-JFK).
-Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15}],"tare":pallet tare kg if written else null,
+Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15,"remark":""}],"tare":pallet tare kg if written else null,
 "awb":"AWB number from the header, else empty","job":"JOB NO from the header (e.g. DGS-C00402), else empty","org":"origin airport code from the route, else empty","dest":"destination airport code, else empty"}
-"weight" = GROSS weight of that pallet in kg (number). "qty" = number of cartons on that pallet (integer). "dims" = dimensions text like 120*100*135.
+"weight" = GROSS weight of that pallet in kg (number). "qty" = number of cartons on that pallet (integer). "dims" = dimensions text like 120*100*135. "remark" = the REMARK column text for that row (MERGED cells cover a group of rows — repeat the remark on every row of its group), else "".
+LOOSE CARTON lists: when the list has columns like "Qty (Boxes)" and "Box Weight" with remarks "OVER PACKED" / "AVERAGE WT", each row is CARTONS not pallets: weight = the BOX weight per carton (kg), qty = the boxes in that row, remark = the exact text ("OVER PACKED" or "AVERAGE WT"). Keep every OVER PACKED row separate, in order.
 Sanity-check unclear digits from context: a loaded pallet is usually 50–999 kg, qty usually 1–60 cartons, dims in cm. Keep the written order. NEVER invent pallets that are not on the paper.`;
     const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
     content.push({type:"text", text:"Extract the pallet table AND the header (AWB NO, JOB NO, route) from the packing list photo(s) above."});
     const j = aiJson(await aiCall(sys, content, 1800));
-    const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0})).filter(r => r.w && r.q);
+    const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0, rm: String(p.remark || "").trim().toUpperCase()})).filter(r => r.w && r.q);
     if(!rows.length){ msg.textContent = "AI found no pallet rows — type them below."; return; }
     WH = rows;
     if(j.tare && parseFloat(j.tare) > 0) document.getElementById("wh_tare").value = String(j.tare);
@@ -4656,7 +4720,10 @@ async function xlDownload(){
     c.font = Object.assign({bold:true, size:size, name:"Arial"}, (opts&&opts.font)||{});
     c.alignment = {wrapText:true, vertical:"middle", horizontal:(opts&&opts.center)?"center":"left"};
     wl.getRow(rowN).height = (opts&&opts.h)||undefined; rowN++; };
-  PT.forEach((r, i) => {
+  /* LOOSE CARTONS list → labels ONLY for OVER PACKED cartons (AVERAGE WT boxes get none) */
+  const lblLoose = typeof ptIsLoose === "function" && ptIsLoose();
+  const lblRows = lblLoose ? PT.filter(r => /OVER\s?PACK/i.test(r.rm || "")) : PT;
+  lblRows.forEach((r, i) => {
     const startRow = rowN;
     put("   SHIPPER  :", 12);
     shipLines.forEach(l => put(l, 13));
@@ -4664,13 +4731,14 @@ async function xlDownload(){
     put("  CONSIGNEE :", 12);
     consLines.forEach(l => put(l, 13));
     put("", 8);
-    const meta = ptRowMeta(r, getItems().filter(x => x.un));
+    const meta = lblLoose ? {mode:{mode:"GROSS"}, item:null} : ptRowMeta(r, getItems().filter(x => x.un));
     const rowItem = meta.item || item;
-    const isNet = meta.mode.mode === "NET" && meta.mode.net > 0;
+    const isNet = !lblLoose && meta.mode.mode === "NET" && meta.mode.net > 0;
     put((rowItem.un||"").replace(/^(UN|ID)/, "$1 "), 46, {center:true, h:58});
     put((rowItem.psn||"").toUpperCase(), 22, {center:true, h:30});
     put("OVERPACK#SC" + String(i+1).padStart(2,"0"), 26, {center:true, h:34});
-    put(isNet ? "TOTAL NET QUANTITY :  " + fmtNet(meta.mode.net * r.q) + " kg"
+    put(lblLoose ? "TOTAL QUANTITY :  " + fmt1(r.w) + " kg G"
+        : isNet ? "TOTAL NET QUANTITY :  " + fmtNet(meta.mode.net * r.q) + " kg"
               : "TOTAL QUANTITY :  " + fmtDot(r.sc) + " kg G", 16, {center:true, h:24});
     put("24 HOURS EMERGENCY", 13, {center:true});
     put("CONTACT NO: " + emg, 13, {center:true});
@@ -4681,7 +4749,7 @@ async function xlDownload(){
         top: rr===startRow ? {style:"medium"} : undefined,
         bottom: rr===rowN-1 ? {style:"medium"} : undefined};
     }
-    if(i < PT.length - 1){ wl.getRow(rowN - 1).addPageBreak(); rowN++; }
+    if(i < lblRows.length - 1){ wl.getRow(rowN - 1).addPageBreak(); rowN++; }
   });
 
   const buf = await wb.xlsx.writeBuffer();
@@ -5012,7 +5080,11 @@ function buildOpStickers(){
   if(!items.length){ out.innerHTML = "<p>No DG items on the DGD tab yet — add items first.</p>"; return; }
   const usePT = typeof PT !== "undefined" && PT.length > 0;      // pallet calculator drives the labels
   if(usePT) ptCompute();
-  const n = usePT ? Math.min(60, PT.length) : Math.max(1, Math.min(20, parseInt(v("f_opcount")) || 1));
+  /* LOOSE CARTONS: labels ONLY for the OVER PACKED cartons (AVERAGE WT boxes get no overpack label) */
+  const loose = usePT && typeof ptIsLoose === "function" && ptIsLoose();
+  const looseRows = loose ? PT.filter(r => /OVER\s?PACK/i.test(r.rm || "")) : [];
+  const rows = loose ? looseRows : (usePT ? PT : []);
+  const n = usePT ? Math.min(60, rows.length) : Math.max(1, Math.min(20, parseInt(v("f_opcount")) || 1));
   const prefix = (document.getElementById("op_prefix").value || "SC").toUpperCase();
   const start = parseInt(document.getElementById("op_start").value) || 1;
   const qtyOverride = document.getElementById("op_qty").value.trim();
@@ -5020,11 +5092,12 @@ function buildOpStickers(){
   for(let i = 0; i < n; i++){
     const opno = prefix + String(start + i).padStart(2, "0");
     // per-pallet item & format from the REMARKS (NET items print TOTAL NET QUANTITY in plain kg)
-    const meta = usePT ? ptRowMeta(PT[i], items) : {mode:{mode:"GROSS"}, item:null};
-    const isNet = usePT && meta.mode.mode === "NET" && meta.mode.net > 0;
-    const qty = qtyOverride || (usePT ? (isNet ? fmtNet(meta.mode.net * PT[i].q) + " kg" : fmtDot(PT[i].sc) + " kg G") : (s.opqty || ""));
+    const meta = (usePT && !loose) ? ptRowMeta(rows[i], items) : {mode:{mode:"GROSS"}, item:null};
+    const isNet = usePT && !loose && meta.mode.mode === "NET" && meta.mode.net > 0;
+    const qty = qtyOverride || (loose ? fmt1(rows[i].w) + " kg G"
+                : usePT ? (isNet ? fmtNet(meta.mode.net * rows[i].q) + " kg" : fmtDot(rows[i].sc) + " kg G") : (s.opqty || ""));
     const qtyLabel = isNet ? "TOTAL NET QUANTITY" : "TOTAL QUANTITY";
-    const showItems = (usePT && meta.item) ? [meta.item] : items;
+    const showItems = (usePT && !loose && meta.item) ? [meta.item] : items;
     h += `<div style="page-break-after:always; font-family:Arial; color:#000; background:#fff;
         border:4px double #000; padding:8mm 7mm; margin-bottom:14px; max-width:150mm;">
       <div style="font-size:13pt; font-weight:bold;">SHIPPER:</div>
