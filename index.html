@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-K</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-L</span></span>
           </div>
         </div>
       </div>
@@ -3311,7 +3311,7 @@ function ptModesDefaults(){
       const rows = k === "ALL" ? PT : PT.filter(r => (r.rm || "").trim().toUpperCase() === k);
       const gpc = rows.length ? rows[0].dgd : 0;                       // gross per carton
       const isNet = /UN\s?\d{4}/.test(k) && !/8000/.test(k);           // UN items (not ID8000) default to NET
-      PT_MODES[k] = {mode: isNet ? "NET" : "GROSS", net: Math.round((gpc * 8.5 / 22) * 2) / 2 || 8.5};   // JFS ratio 8.5/22, 0.5 steps
+      PT_MODES[k] = {mode: isNet ? "NET" : "GROSS", net: Math.ceil((gpc * 8.5 / 22) * 2) / 2 || 8.5};   // JFS ratio 8.5/22, rounded UP to 0.5 (21.066 → 8.5)
     }
   });
   Object.keys(PT_MODES).forEach(k => { if(!list.includes(k)) delete PT_MODES[k]; });
