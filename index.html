@@ -337,7 +337,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-Y</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v24.09-Z</span></span>
           </div>
         </div>
       </div>
@@ -3382,27 +3382,77 @@ function ptGroups(){
   });
   return groups;
 }
-function ptFillDgd(){
-  if(!PT.length){ alert("Add or paste the pallet rows first."); return; }
-  ptCompute();
-  const box = (v("pt_boxtype") || "FIBREBOARD BOXES").toUpperCase();
-  const blocks = ptGroups().map(g => {
+function _ptBlocks(groups, box){
+  return groups.map(g => {
     const head = `${g.q} ${box}\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(g.dgd)} kg G`;
     return g.idx.length > 1
       ? head + `\nOVERPACK USED x ${String(g.idx.length).padStart(2, "0")}\n${g.scList}\nTOTAL QUANTITY PER\nOVERPACK ${fmtDot(g.sc)} kg G`
       : head + `\nOVERPACK USED ${g.scList}\nTOTAL QUANTITY ${fmtDot(g.sc)} kg G`;
   });
+}
+function ptFillDgd(){
+  if(!PT.length){ alert("Add or paste the pallet rows first."); return; }
+  ptCompute();
+  const box = (v("pt_boxtype") || "FIBREBOARD BOXES").toUpperCase();
+  /* ---- REMARKS SEGREGATION: different remarks = different DG items, each gets its OWN quantity block ---- */
+  const rms = [...new Set(PT.map(r => (r.rm || "").trim().toUpperCase()).filter(Boolean))];
+  if(rms.length > 1){
+    const perItem = rms.map(rm => {
+      const groups = [];
+      PT.forEach((r, i) => {
+        if((r.rm || "").trim().toUpperCase() !== rm) return;
+        const key = r.q + "@" + r.dgd;
+        let g = groups.find(x => x.key === key);
+        if(!g){ g = {key, q: r.q, dgd: r.dgd, sc: r.sc, idx: []}; groups.push(g); }
+        g.idx.push(i);
+      });
+      groups.forEach(g => {
+        const contiguous = g.idx.every((n, j) => j === 0 || n === g.idx[j-1] + 1);
+        const sc = n => "#SC" + String(n + 1).padStart(2, "0");
+        g.scList = g.idx.length === 1 ? sc(g.idx[0])
+          : contiguous ? sc(g.idx[0]) + " - " + sc(g.idx[g.idx.length - 1])
+          : g.idx.map(sc).join(", ");
+      });
+      return {rm, blocks: _ptBlocks(groups, box), plts: groups.reduce((a,g) => a + g.idx.length, 0)};
+    });
+    while(document.querySelectorAll(".item").length < perItem.length) addItem();
+    const items = [...document.querySelectorAll(".item")];
+    const used = new Set();
+    const pick = (rm) => {   // ID8000 remark -> ID8000 item; else remark word in PSN; else next free item
+      let ix = items.findIndex((el, i) => !used.has(i) && /8000/.test(rm) && /8000/.test(el.querySelector(".i_un").value));
+      if(ix < 0) ix = items.findIndex((el, i) => !used.has(i) && rm.split(/\s+/).some(w => w.length > 3 && (el.querySelector(".i_psn").value || "").toUpperCase().includes(w)));
+      if(ix < 0) ix = items.findIndex((el, i) => !used.has(i));
+      used.add(ix); return items[ix];
+    };
+    const lines = [];
+    perItem.forEach(pp => {
+      const el = pick(pp.rm);
+      el.querySelector(".i_qty").value = pp.blocks.join("\n\n");
+      el.querySelector(".i_op").checked = false;
+      lines.push(pp.rm + " -> ITEM " + (items.indexOf(el) + 1) + " (" + pp.plts + " PLT)");
+    });
+    document.querySelector('input[name=f_overpack][value=Y]').checked = true;
+    document.getElementById("f_opcount").value = String(PT.length);
+    document.getElementById("f_opqty").value = "";
+    document.getElementById("op_start") && (document.getElementById("op_start").value = "1");
+    refresh();
+    document.getElementById("pt_summary").textContent =
+      "\u2713 DGD filled \u2014 SEGREGATED by remarks: " + lines.join("  |  ") + " \u2014 VERIFY each item got the right pallets!";
+    alert("\u2713 Pallets SEGREGATED by REMARKS:\n\n" + lines.join("\n") + "\n\nCheck the DGD preview \u2014 each item now has its own quantity block.");
+    return;
+  }
+  const blocks = _ptBlocks(ptGroups(), box);
   if(!document.querySelectorAll(".item").length) addItem();
   const first = document.querySelector(".item");
-  first.querySelector(".i_qty").value = blocks.join("\n\n").replace(/ kg G/g, " kg G");   // keep "kg G" glued to the number (no lonely wrap)
-  first.querySelector(".i_op").checked = false;   // overpack text already inside the quantity block
+  first.querySelector(".i_qty").value = blocks.join("\n\n").replace(/ kg G/g, " kg G");
+  first.querySelector(".i_op").checked = false;
   document.querySelector('input[name=f_overpack][value=Y]').checked = true;
   document.getElementById("f_opcount").value = String(PT.length);
   document.getElementById("f_opqty").value = "";
   document.getElementById("op_start") && (document.getElementById("op_start").value = "1");
   refresh();
   document.getElementById("pt_summary").textContent =
-    "✓ DGD filled — " + PT.length + " overpack(s), " + ptGroups().length + " group(s) in official format. Check the preview!";
+    "\u2713 DGD filled \u2014 " + PT.length + " overpack(s), " + ptGroups().length + " group(s) in official format. Check the preview!";
 }
 /* apply extracted pallet rows to the calculator */
 function _ptApply(res, msg, srcLabel){
