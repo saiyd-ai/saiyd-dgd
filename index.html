@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-N</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-O</span></span>
           </div>
         </div>
       </div>
@@ -3670,6 +3670,64 @@ function _ptRemarkBanner(rows){
   }
 }
 /* pallets from a pasted / attached PHOTO */
+/* deterministic reader for JFS packing-list Excels — finds the table by its header row and reads
+   every column EXACTLY (Box Weight / Qty (Boxes) / Remark = loose cartons; Weight/Qty = pallets).
+   Merged REMARK cells are spread down their group. Returns null when no known layout is found. */
+function ptParseJfsXlsx(wb){
+  for(const name of wb.SheetNames){
+    const ws = wb.Sheets[name];
+    const grid = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, blankrows:true});
+    if(!grid.length) continue;
+    // find the table header row
+    let hr = -1, ci = {};
+    for(let r = 0; r < Math.min(grid.length, 30); r++){
+      const cells = (grid[r] || []).map(x => String(x == null ? "" : x).trim().toUpperCase());
+      const find = re => cells.findIndex(c => re.test(c));
+      const qty = find(/^QTY|QUANTITY|BOXES$|CTNS|CARTONS/);
+      const wBox = find(/BOX\s*WEIGHT/);
+      const wAny = wBox >= 0 ? wBox : find(/GROSS\s*W|^WEIGHT|WT\s*\(|WEIGHT\s*\(KG/);
+      if(qty >= 0 && wAny >= 0){
+        hr = r;
+        ci = {qty, w: wAny, boxMode: wBox >= 0,
+          dims: find(/DIMENSION|DIMS|L\*W\*H|SIZE/),
+          rm:   find(/REMARK/),
+          tot:  find(/TOTAL\s*WEIGHT/)};
+        break;
+      }
+    }
+    if(hr < 0) continue;
+    // data rows until TOTAL / empty
+    const rows = []; let lastRm = "";
+    for(let r = hr + 1; r < grid.length; r++){
+      const row = grid[r] || [];
+      const first = String(row[0] == null ? "" : row[0]).trim().toUpperCase();
+      if(/^TOTAL/.test(first)) break;
+      const w = parseFloat(row[ci.w]); const q = parseInt(row[ci.qty]);
+      if(!w || !q){ if(rows.length) break; else continue; }
+      let rm = ci.rm >= 0 ? String(row[ci.rm] == null ? "" : row[ci.rm]).trim().toUpperCase() : "";
+      if(rm) lastRm = rm; else rm = lastRm;                      // merged remark cells cover the rows below
+      rows.push({w, d: ci.dims >= 0 ? String(row[ci.dims] || "") : "", q, rm});
+    }
+    if(!rows.length) continue;
+    // header details anywhere above/around the table (AWB No. / DGS Ref / Route "DXB TO KUL")
+    const hdr = {awb:"", job:"", org:"", dest:""};
+    for(let r = 0; r < Math.min(grid.length, hr + 2); r++){
+      const row = grid[r] || [];
+      for(let c = 0; c < row.length; c++){
+        const lab = String(row[c] == null ? "" : row[c]).trim().toUpperCase();
+        const val = () => { for(let k = c + 1; k < row.length; k++){ if(row[k] != null && String(row[k]).trim()) return String(row[k]).trim(); } return ""; };
+        if(/^AWB/.test(lab) && !hdr.awb) hdr.awb = val();
+        if(/(DGS\s*REF|JOB\s*NO|REF\s*NO)/.test(lab) && !hdr.job) hdr.job = val().toUpperCase();
+        if(/^ROUTE/.test(lab) && !hdr.org){
+          const m = val().toUpperCase().match(/([A-Z]{3})\s*(?:TO|-|–|>)+\s*([A-Z]{3})/);
+          if(m){ hdr.org = m[1]; hdr.dest = m[2]; }
+        }
+      }
+    }
+    return {rows, tare: null, hdr};
+  }
+  return null;
+}
 async function ptFromImage(file){
   const msg = document.getElementById("pt_pdfmsg");
   if(!aiKey()){ msg.textContent = "Add the Claude API key in SETTINGS → AI first."; return; }
@@ -3700,10 +3758,14 @@ async function ptReadPdf(){
   if((f.type || "").startsWith("image/")){ ptFromImage(f); return; }
   // Excel / CSV attached
   if(/\.(xlsx|xls|csv)$/i.test(f.name)){
-    msg.textContent = "🤖 AI reading the Excel...";
+    msg.textContent = "Reading the Excel...";
     try{
       await loadSheetJs();
       const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
+      // deterministic parse first — JFS packing-list layouts (loose cartons & pallets) read EXACTLY, no AI guessing
+      const det = ptParseJfsXlsx(wb);
+      if(det && det.rows.length){ _ptApply(det, msg, "Excel", f.name); return; }
+      msg.textContent = "🤖 AI reading the Excel...";
       let text = "";
       wb.SheetNames.slice(0, 4).forEach(n => { text += "SHEET " + n + ":\n" + XLSX.utils.sheet_to_csv(wb.Sheets[n]) + "\n\n"; });
       const res = await aiPalletRows([], text.slice(0, 12000));
