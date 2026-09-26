@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-X</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-Y</span></span>
           </div>
         </div>
       </div>
@@ -1984,14 +1984,14 @@ function refreshDraftList(){
   const sel = document.getElementById("draftsel"); const all = draftsAll();
   sel.innerHTML = Object.keys(all).length ? Object.keys(all).map(k=>`<option>${esc(k)}</option>`).join("") : "<option value=''>— no saved drafts —</option>";
 }
-function saveDraft(){
-  const name = prompt("Draft name (e.g. AWB or customer):", v("f_awb") || "Draft " + new Date().toLocaleDateString());
+function saveDraft(autoName){
+  const name = autoName || prompt("Draft name (e.g. AWB or customer):", v("f_awb") || "Draft " + new Date().toLocaleDateString());
   if(!name) return;
   const all = draftsAll(); all[name] = snapshot();
   localStorage.setItem("jfs_dgd_drafts", JSON.stringify(all));
   if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_dgd_drafts");
   refreshDraftList(); document.getElementById("draftsel").value = name;
-  alert("Saved: " + name);
+  if(!autoName) alert("Saved: " + name);
 }
 function loadDraft(){
   const name = document.getElementById("draftsel").value; const all = draftsAll();
@@ -5024,7 +5024,7 @@ function dgdStatusBadge(){
 function dgdSaveDraft(){
   const s = snapshot();
   if(!s.awb && !s.consignee && !(s.items||[]).length){ alert("Form is empty — fill the DGD first."); return; }
-  saveDraft();                              // named draft (Load box) as before
+  saveDraft(s.job || s.awb || "Draft " + new Date().toLocaleDateString());   // auto name — no popup
   saveDocument(false, "DRAFT");
   jobLogTouch();
   dgdStatusBadge();
