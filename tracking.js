@@ -306,9 +306,9 @@
     link.download = 'DGDOC_Shipment_Tracking_' + new Date().toISOString().slice(0,10) + '.csv';
     document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  function isVisible() { return !document.hidden && ['track','rpt'].some(name => node('tab-' + name) && node('tab-' + name).classList.contains('on')); }
+  function isVisible() { return !document.hidden && ['track','rpt','dash'].some(name => node('tab-' + name) && node('tab-' + name).classList.contains('on')); }
   function onTab(name) {
-    if (name === 'track' || name === 'rpt') { render(); refresh(); }
+    if (name === 'track' || name === 'rpt' || name === 'dash') { render(); refresh(); }
   }
   function init(config) {
     options = config || {};
