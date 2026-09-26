@@ -164,7 +164,7 @@
       row.manualStatus || 'No manual update', dateText(row.lastManualEntry), array(row.events).map(eventSummary).join('\n'), array(row.manualEvents).map(event => [event.source,event.code,event.note,'Recorded: '+dateText(event.ts),event.by,event.recordKey].filter(Boolean).join(' | ')).join('\n')
     ])].map(cells => cells.map(csvCell).join(',')).join('\r\n');
   }
-  const state = {configured:false, liveEnabled:false, shipments:[], loaded:false, loading:false, syncing:false, error:'', checkedAt:null, userId:null, generation:0};
+  const state = {configured:false, liveEnabled:false, shipments:[], loaded:false, loading:false, syncing:false, error:'', message:'', checkedAt:null, userId:null, generation:0};
   let options = {}, timer = null, detailId = null;
   function node(id) { return typeof document === 'undefined' ? null : document.getElementById(id); }
   function localData() {
@@ -201,8 +201,9 @@
     node('tracking-invalid').textContent = manualOnly || local.invalid.length ? 'CargoAi accepts an 11-digit master AWB with a valid check digit. ' + manualOnly + ' existing manual-only record(s) are retained below; house AWBs and invalid numbers are not sent to CargoAi.' : '';
     const connection = node('tracking-connection');
     connection.className = 'tracking-connection ' + (state.configured && !state.error ? 'ready' : 'pending');
-    node('tracking-connection-title').textContent = state.error ? 'Tracking temporarily unavailable' : state.loading && !state.loaded ? 'Checking tracking connection…' : !state.configured ? 'Tracking not connected' : state.liveEnabled ? 'Tracking service configured · live requests enabled' : 'Tracking service configured · live requests paused';
-    node('tracking-connection-text').textContent = state.error || (!state.configured ? 'Your saved AWBs and manual history remain available. An administrator needs to configure CargoCONNECT on the server before automatic shipment updates can appear.' : !state.liveEnabled ? 'Saved tracking updates can be viewed. An administrator must enable live requests and a Free-plan credit limit before new AWBs can be tracked.' : 'Only stored shipment updates are refreshed here. “Track next eligible AWB” starts at most one standard subscription (10 credits); Auto targets one selected AWB. The server enforces the configured Free-plan credit cap.');
+    node('tracking-connection-title').textContent = state.error ? 'Tracking temporarily unavailable' : state.loading && !state.loaded ? 'Checking tracking connection…' : !state.configured ? (state.loaded ? 'Automatic tracking setup incomplete' : 'Tracking not connected') : state.liveEnabled ? 'Tracking service configured · live requests enabled' : 'Tracking service configured · live requests paused';
+    const connectionText = !state.configured ? 'Your saved AWBs and manual history remain available. Automatic tracking requires completed server setup.' : !state.liveEnabled ? 'Saved tracking updates can be viewed. New tracking requests remain paused until an administrator enables them with an application credit cap.' : 'Only stored shipment updates are refreshed here. “Track next eligible AWB” starts at most one standard subscription (10 credits); Auto targets one selected AWB. The server enforces the configured application credit cap.';
+    node('tracking-connection-text').textContent = state.error || [connectionText, state.message].filter(Boolean).join(' ');
     node('tracking-checked').textContent = state.checkedAt ? 'Report refreshed: ' + dateText(state.checkedAt) : 'No tracking updates retrieved yet.';
     node('tracking-sync').disabled = !state.configured || !state.liveEnabled || !!state.error || state.loading || state.syncing || !all.some(row => normalizeAwb(row.awb));
     node('tracking-refresh').disabled = state.loading || state.syncing;
@@ -240,7 +241,7 @@
   }
   function clearState() {
     state.generation++;
-    Object.assign(state, {configured:false, liveEnabled:false, shipments:[], loaded:false, error:'', checkedAt:null, userId:null});
+    Object.assign(state, {configured:false, liveEnabled:false, shipments:[], loaded:false, error:'', message:'', checkedAt:null, userId:null});
     render();
     if (options.refreshReports) options.refreshReports();
   }
@@ -267,6 +268,7 @@
       if (!response.ok && !(response.status === 503 && payload && payload.configured === false)) throw new Error(response.status === 401 || response.status === 403 ? 'Your account cannot access tracking. Sign in again or contact your administrator.' : 'Stored tracking updates could not be refreshed. Try again shortly.');
       if (!payload || typeof payload.configured !== 'boolean' || !Array.isArray(payload.shipments)) throw new Error('The tracking service returned an unexpected response. Contact your administrator.');
       state.configured = payload.configured; state.liveEnabled = payload.liveEnabled === true;
+      state.message = typeof payload.message === 'string' ? payload.message.trim() : '';
       state.shipments = payload.shipments.filter(item => item && normalizeAwb(item.awb));
       state.error = response.status === 503 && typeof payload.error === 'string' ? payload.error : '';
       state.loaded = true;
@@ -279,7 +281,7 @@
     const targeted = typeof selectedAwb === 'string';
     const awb = targeted ? normalizeAwb(selectedAwb) : '';
     if (targeted && (!awb || !getRow(awb))) { node('tracking-action-message').textContent = 'Automatic tracking needs a valid master AWB already saved in this system.'; return; }
-    if (!window.confirm('Start tracking ' + (targeted ? displayAwb(awb) : 'the next eligible saved master AWB') + '? One request can start at most one standard subscription (10 CargoCONNECT credits), within the configured Free-plan cap. This sends the AWB to CargoAi. No paid plan will be purchased.')) return;
+    if (!window.confirm('Start tracking ' + (targeted ? displayAwb(awb) : 'the next eligible saved master AWB') + '? One request can start at most one standard subscription (10 CargoCONNECT credits), within the configured application credit cap. This sends the AWB to CargoAi and uses your existing CargoCONNECT allowance. This action does not change your plan.')) return;
     state.syncing = true; node('tracking-action-message').textContent = ''; render();
     const generation = state.generation;
     try {
