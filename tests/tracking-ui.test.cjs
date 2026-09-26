@@ -10,11 +10,11 @@ const TRACKCARGO_ENDPOINT = '/.netlify/functions/trackcargo-tracking';
 function trackcargoPayload() {
   const fetchedAt = '2026-09-27T01:00:00Z';
   return {configured:true,mode:'read_only',message:'Read existing TrackCargo orders only.',shipments:[
-    {awb:'02018224861',provider:'trackcargo',orderId:'existing-lh',orderStatus:'active',dataStatus:'AVAILABLE',status:'RCF',statusDescription:'Received from flight',statusScope:'latest_actual_event',origin:'DWC',destination:'JFK',currentLocation:'VIE',lastUpdate:'2026-09-24T22:03:00Z',fetchedAt,departedAt:'2026-09-23T04:58:00Z',arrivedAt:null,deliveredAt:null,plannedArrivalAt:'2026-09-28T00:05:00Z',plannedDeliveryAt:'2026-09-28T18:05:00Z',events:[
+    {awb:'02012345675',provider:'trackcargo',orderId:'existing-lh',orderStatus:'active',dataStatus:'AVAILABLE',status:'RCF',statusDescription:'Received from flight',statusScope:'latest_actual_event',origin:'DWC',destination:'JFK',currentLocation:'VIE',lastUpdate:'2026-09-24T22:03:00Z',fetchedAt,departedAt:'2026-09-23T04:58:00Z',arrivedAt:null,deliveredAt:null,plannedArrivalAt:'2026-09-28T00:05:00Z',plannedDeliveryAt:'2026-09-28T18:05:00Z',events:[
       {code:'RCF',description:'Received from flight',eventDate:'2026-09-24T22:03:00Z',eventLocation:'VIE',isPlanned:false,timeKind:'actual',pieces:7,weight:2721,flightNumber:'LH7562S',timezone:'Europe/Vienna'},
       {code:'DLV',description:'Delivered to consignee',eventDate:'2026-09-28T18:05:00Z',eventLocation:'JFK',isPlanned:true,timeKind:'planned',pieces:null,weight:null,timezone:'America/New_York'}
     ]},
-    ...['09832127141','09832123254'].map((awb,i)=>({awb,provider:'trackcargo',orderId:'existing-ai-'+i,orderStatus:'pending',dataStatus:'INCONCLUSIVE',status:'UNKNOWN',lastUpdate:null,fetchedAt,events:[]}))
+    ...['09812345675','09812345686'].map((awb,i)=>({awb,provider:'trackcargo',orderId:'existing-ai-'+i,orderStatus:'pending',dataStatus:'INCONCLUSIVE',status:'UNKNOWN',lastUpdate:null,fetchedAt,events:[]}))
   ]};
 }
 
@@ -619,8 +619,8 @@ test('CSV retains a manual-only shipment route when airport fields are unavailab
 });
 
 test('TrackCargo runs only on explicit refresh and keeps all five AWBs, CargoAi status and manual history separate', async () => {
-  const awbs = ['02018224861','09832127141','09832123254','14793884184','15505297176'];
-  const source = {jfs_joblog:awbs.map((awb,i)=>({awb,job:'JOB-'+i})),jfs_tracking:{'020-18224861':{awb:'020-18224861',milestones:[{code:'DEP',note:'Manual note',ts:1}]}}};
+  const awbs = ['02012345675','09812345675','09812345686','14712345675','15512345675'];
+  const source = {jfs_joblog:awbs.map((awb,i)=>({awb,job:'JOB-'+i})),jfs_tracking:{'020-12345675':{awb:'020-12345675',milestones:[{code:'DEP',note:'Manual note',ts:1}]}}};
   const f = fixture({configured:true,liveEnabled:false,shipments:awbs.map(awb=>({awb,status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}))},200,source);
   assert.match(f.element('trackcargo-panel').innerHTML,/Refresh TrackCargo/);
   assert.equal(f.requests.length,0);
@@ -630,7 +630,7 @@ test('TrackCargo runs only on explicit refresh and keeps all five AWBs, CargoAi 
   await new Promise(setImmediate);
   assert.equal(f.requests.length,2);
   assert.ok(f.requests.every(request=>request.url === '/.netlify/functions/cargoai-tracking'));
-  const primary = f.element('tracking-body').innerHTML, report = f.api.reportCells('02018224861',''), before = JSON.stringify(source), csv = f.api.toCsv(awbs.map(awb=>f.api.getRow(awb)));
+  const primary = f.element('tracking-body').innerHTML, report = f.api.reportCells('02012345675',''), before = JSON.stringify(source), csv = f.api.toCsv(awbs.map(awb=>f.api.getRow(awb)));
   f.setResponse(trackcargoPayload());
   await clickTrackcargo(f,'refresh');
   assert.equal(f.requests.length,3);
@@ -641,7 +641,7 @@ test('TrackCargo runs only on explicit refresh and keeps all five AWBs, CargoAi 
   assert.equal(f.element('tracking-delivered').textContent,0);
   assert.equal(f.element('tracking-body').innerHTML,primary);
   assert.equal((primary.match(/data-tracking-action="airline"/g)||[]).length,5);
-  assert.equal(f.api.reportCells('02018224861',''),report);
+  assert.equal(f.api.reportCells('02012345675',''),report);
   assert.equal(f.api.toCsv(awbs.map(awb=>f.api.getRow(awb))),csv);
   assert.equal(JSON.stringify(source),before);
   const panel = f.element('trackcargo-panel').innerHTML;
@@ -658,8 +658,8 @@ test('TrackCargo details label actual and planned events, escape provider text, 
   const payload = trackcargoPayload();
   payload.shipments[0].events[0].description = '<img src=x onerror=alert(1)>';
   payload.shipments[0].orderId = '<script>order</script>';
-  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02018224861',job:'LH'},{awb:'14793884184',job:'AT'}]});
-  f.api.renderDetail('02018224861');
+  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02012345675',job:'LH'},{awb:'14712345675',job:'AT'}]});
+  f.api.renderDetail('02012345675');
   f.element('trk_note').value = 'Unsaved note';
   f.element('trk_ms').value = 'DEP';
   f.element('trk_detail').querySelectorAll = () => ['manual','trackcargo'].map(detailSection=>({dataset:{detailSection}}));
@@ -679,17 +679,17 @@ test('TrackCargo details label actual and planned events, escape provider text, 
   assert.ok(!detail.includes('<img src=x'));
   assert.equal(f.element('trk_note').value,'Unsaved note');
   assert.equal(f.element('trk_ms').value,'DEP');
-  await clickTrackcargo(f,'detail','14793884184');
+  await clickTrackcargo(f,'detail','14712345675');
   assert.match(f.element('trk_detail').innerHTML,/No existing TrackCargo order was returned for this AWB/);
   assert.equal(f.requests.length,1,'Viewing details must not request TrackCargo again');
 });
 
 test('TrackCargo partial and network failures retain clearly marked prior results while a valid pending result replaces them', async () => {
-  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02018224861',job:'LH'}]});
+  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02012345675',job:'LH'}]});
   f.setResponse(trackcargoPayload());
   await f.api.refreshTrackcargo();
   const partial = trackcargoPayload();
-  partial.shipments[0] = {awb:'02018224861',provider:'trackcargo',orderId:'existing-lh',dataStatus:'ERROR',status:'UNKNOWN',message:'Carrier lookup unavailable',fetchedAt:'2026-09-27T02:00:00Z'};
+  partial.shipments[0] = {awb:'02012345675',provider:'trackcargo',orderId:'existing-lh',dataStatus:'ERROR',status:'UNKNOWN',message:'Carrier lookup unavailable',fetchedAt:'2026-09-27T02:00:00Z'};
   f.setResponse(partial);
   await f.api.refreshTrackcargo();
   let panel = f.element('trackcargo-panel').innerHTML;
@@ -703,7 +703,7 @@ test('TrackCargo partial and network failures retain clearly marked prior result
   assert.match(f.element('trackcargo-panel').innerHTML,/TrackCargo could not be refreshed/);
   assert.match(f.element('trackcargo-panel').innerHTML,/RCF/);
   const pending = trackcargoPayload();
-  pending.shipments[0] = {...pending.shipments[1],awb:'02018224861',orderId:'existing-lh'};
+  pending.shipments[0] = {...pending.shipments[1],awb:'02012345675',orderId:'existing-lh'};
   f.setResponse(pending);
   await f.api.refreshTrackcargo();
   panel = f.element('trackcargo-panel').innerHTML;
@@ -713,7 +713,7 @@ test('TrackCargo partial and network failures retain clearly marked prior result
 });
 
 test('TrackCargo logout clears prior data and a late response cannot overwrite or unlock the next account request', async () => {
-  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02018224861',job:'LH'}]});
+  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02012345675',job:'LH'}]});
   f.setResponse(trackcargoPayload());
   await f.api.refreshTrackcargo();
   const pending = [];

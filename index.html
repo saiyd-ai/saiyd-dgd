@@ -5566,7 +5566,7 @@ async function buildAwbLabels(){
   const out = document.getElementById("awblblArea");
   const digits = (s.awb||"").replace(/\D/g, "");
   if(digits.length !== 11){
-    alert("Enter a valid AWB number on the DGD tab first (11 digits, e.g. 147-93884184).\n\nAirline labels are generated AGAINST the DGD AWB.");
+    alert("Enter a valid AWB number on the DGD tab first (11 digits, e.g. 147-00000044).\n\nAirline labels are generated AGAINST the DGD AWB.");
     showTab("dgd"); document.getElementById("f_awb").focus(); return;
   }
   try{ await loadJsBarcode(); }catch(e){ alert("Could not load the barcode engine — check the internet connection."); return; }

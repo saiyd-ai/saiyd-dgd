@@ -2,7 +2,7 @@
 
 Status on 27 September 2026: the account shows **Pro — Active**, billed monthly for 27 September–27 October. The public Pro price is $19/month with 20 included trackings and $1 per additional tracking. Three shipments already exist from the trial. Six authenticated GET requests succeeded during the controlled API probe. The dashboard still showed **0/20 usage and zero overage** afterward; this observation is not a general guarantee about future retrieval billing.
 
-The client, normalized adapter, authenticated read-only controller, and separate frontend panel are implemented and locally tested. **Production deployment and the deployed browser check are pending.** The successful provider probe verifies API access and the observed response contract; it does not establish that the new DGDOC panel is live.
+The client, normalized adapter, authenticated read-only controller, and separate frontend panel are deployed. **Production commit `c1876a2` passed the authenticated browser check on 27 September 2026.** An explicit refresh returned one Lufthansa carrier result and two Air India pending results, separately from the five saved CargoAi shipments and manual history. The six Quick Print controls remained available.
 
 `TRACKCARGO_API_KEY` and `TRACKCARGO_ORDERS_JSON` are saved in Netlify's server environment. The latter holds the three exact observed AWB/order UUID mappings; real UUIDs are not included in this document. The temporary probe credential file was removed before the GET requests, and the setup's in-memory copy was cleared afterward. The durable secret is stored in Netlify. Never put its value in source files, browser storage, screenshots, logs, or public responses.
 
@@ -10,11 +10,11 @@ The client, normalized adapter, authenticated read-only controller, and separate
 
 The initial integration is restricted to the following existing shipments. The probe verified each configured order UUID and AWB against the response. Server configuration uses an array of objects with exactly `awb` and `orderId` fields. Canonical, unique mappings are required, with a maximum of five orders; tests use synthetic UUIDs.
 
-| Canonical AWB | Carrier | Verified probe result |
+| Existing order | Carrier | Verified probe result |
 | --- | --- | --- |
-| `020-18224861` | Lufthansa Cargo | AVAILABLE; latest actual event RCF at VIE |
-| `098-32127141` | Air India | INCONCLUSIVE; pending carrier data |
-| `098-32123254` | Air India | INCONCLUSIVE; pending carrier data |
+| Lufthansa test order | Lufthansa Cargo | AVAILABLE; latest actual event RCF at VIE |
+| Air India test order A | Air India | INCONCLUSIVE; pending carrier data |
+| Air India test order B | Air India | INCONCLUSIVE; pending carrier data |
 
 The live carrier directory listed prefixes 020 and 098. Prefix searches for 147 and 155 returned no match; generic DHL coverage is not evidence of support for 155. No additional tracking order should be created by this integration stage.
 
@@ -42,7 +42,7 @@ The adapter accepts at most 2,000 events and bounds the exposed fields. An event
 
 **Do not use `date_iso.date` as UTC.** In the observed response it contains local wall time with a misleading `Z`. Only the explicit validated UTC event field drives actual timestamps. Timezone is retained separately; planned arrival and delivery dates are kept separate from actual events.
 
-For `020-18224861`, RCF at Vienna on 25 September at 00:03 local time becomes **24 September 2026 at 22:03 UTC**, matching the official Lufthansa record. Planned JFK arrival on 27 September at 20:05 local becomes **28 September at 00:05 UTC**. The 16 events include ten actual and six planned events. Future JFK ARR/DLV entries do not establish actual arrival or delivery. Both Air India INCONCLUSIVE records normalize to UNKNOWN with no invented route or events.
+For the Lufthansa test order, RCF at Vienna on 25 September at 00:03 local time becomes **24 September 2026 at 22:03 UTC**, matching the official Lufthansa record. Planned JFK arrival on 27 September at 20:05 local becomes **28 September at 00:05 UTC**. The 16 events include ten actual and six planned events. Future JFK ARR/DLV entries do not establish actual arrival or delivery. Both Air India INCONCLUSIVE records normalize to UNKNOWN with no invented route or events.
 
 The booking event reports 108 pieces while acceptance reports seven. The observed schema does not establish a trustworthy whole-shipment total. Therefore `departedAt` is labelled an **origin departure event**, and full-shipment `arrivedAt` / `deliveredAt` remain null. Individual actual ARR/DLV events retain their reported quantities and event meaning.
 
@@ -64,13 +64,13 @@ Numerical API rate limits, general retrieval usage accounting, and webhook authe
 
 ## Verification and deployment status
 
-All **27 TrackCargo tests pass**: client 10, adapter 9, controller 8. Tests use synthetic credentials and mocked/redacted data; the separately authorized six-GET probe verifies the real API. The adapter also normalized all three captured probe records successfully without returning raw records publicly.
+All **93 relevant tests pass**, including 27 TrackCargo backend tests: client 10, adapter 9, controller 8. Tests use synthetic AWBs and credentials with mocked/redacted response shapes; the separately authorized six-GET probe verifies the real API. The adapter also normalized all three captured probe records successfully without returning raw records publicly.
 
 ```text
 node --test --test-isolation=none tests/backend/trackcargo-client.test.mjs tests/backend/trackcargo.test.mjs tests/backend/trackcargo-tracking.test.mjs
 ```
 
-Deployment is still pending at this documentation update. Publish through the normal Netlify function build, then verify unauthenticated access is denied, an allowed active staff session can explicitly refresh the three mapped records, actual/planned UTC times render correctly, and CargoAi sending remains paused. Do not describe the frontend connection as live until that deployed check succeeds.
+The [production deployment](https://app.netlify.com/projects/dgdoc/deploys/6ab82f022ecf4200080dbfa6) is published. An allowed active staff session explicitly refreshed the three mapped records. Actual/planned UTC times rendered separately, CargoAi sending remained paused, and returning to Tracking retained the existing TrackCargo retrieval time without a new request. Authentication rejection and access checks are covered by the controller tests.
 
 ## Primary references
 
@@ -78,4 +78,4 @@ Deployment is still pending at this documentation update. Publish through the no
 - [OpenAPI reference](https://trackcargo.co/developer/openapi) — the embedded reference rendered blank during inspection; request/response schemas could not be read there.
 - [Pricing](https://trackcargo.co/pricing)
 - [Supported airlines](https://trackcargo.co/carriers/airlines)
-- [Official Lufthansa comparison](https://www.lufthansa-cargo.com/en/eservices/etracking/tracking/-/awb/020/18224861?searchFilter=awb)
+- [Official Lufthansa tracking](https://www.lufthansa-cargo.com/en/eservices/etracking)
