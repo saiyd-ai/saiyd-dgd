@@ -87,8 +87,9 @@ test('existing tracker object contributes valid saved AWBs without changing manu
   assert.deepEqual(extractSavedAwbs([{ key: 'jfs_tracking', value: [{ awb: awb(3) }] }]).awbs, []);
 });
 
-test('configuration defaults fail closed and cannot raise the 50-credit ceiling', () => {
+test('configuration defaults fail closed with a 50-credit allowance and zero cap', () => {
   assert.equal(getConfig({}).liveEnabled, false);
+  assert.equal(getConfig({}).planAllowance, 50);
   assert.equal(getConfig({ ...env, CARGOAI_MONTHLY_CREDIT_CAP: undefined }).budget, 0);
   assert.equal(getConfig({ ...env, CARGOAI_MONTHLY_CREDIT_CAP: undefined }).liveEnabled, false);
   assert.equal(getConfig({ ...env, CONTEXT: 'deploy-preview' }).liveEnabled, false);
@@ -161,6 +162,28 @@ test('POST rejects arbitrary URLs, invalid actions, and cross-site writes', asyn
   assert.equal(store.state.claimCalls, 0);
 });
 
+test('paid allowance is explicit, bounded at 3000, and never enables live calls by itself', () => {
+  const bronze = { ...env, CARGOAI_PLAN_CREDIT_ALLOWANCE: '150', CARGOAI_MONTHLY_CREDIT_CAP: '150' };
+  assert.equal(getConfig(bronze).liveEnabled, true);
+  assert.equal(getConfig(bronze).planAllowance, 150);
+  assert.equal(getConfig({ ...bronze, CARGOAI_MONTHLY_CREDIT_CAP: '151' }).liveEnabled, false);
+  assert.match(getConfig({ ...bronze, CARGOAI_WEBHOOK_HMAC_ENABLED: 'false' }).message, /HMAC/);
+  const paid = { ...env, CARGOAI_PLAN_CREDIT_ALLOWANCE: '3000', CARGOAI_MONTHLY_CREDIT_CAP: '3000' };
+  assert.equal(getConfig(paid).liveEnabled, true);
+  assert.equal(getConfig(paid).planAllowance, 3000);
+  assert.equal(getConfig({ ...paid, CARGOAI_MONTHLY_CREDIT_CAP: undefined }).budget, 0);
+  assert.equal(getConfig({ ...paid, CARGOAI_MONTHLY_CREDIT_CAP: undefined }).liveEnabled, false);
+  assert.equal(getConfig({ ...paid, CARGOAI_LIVE_ENABLED: undefined }).liveEnabled, false);
+  assert.equal(getConfig({ ...paid, CARGOAI_WEBHOOK_HMAC_ENABLED: 'false' }).liveEnabled, false);
+  assert.equal(getConfig({ ...paid, CARGOAI_MONTHLY_CREDIT_CAP: '3001' }).liveEnabled, false);
+  assert.equal(getConfig({ ...paid, CARGOAI_PLAN_CREDIT_ALLOWANCE: '150' }).liveEnabled, false);
+  assert.equal(getConfig({ ...paid, CARGOAI_PLAN_CREDIT_ALLOWANCE: undefined }).liveEnabled, false);
+  for (const allowance of ['3001', '-1', '', 'NaN', '1.5', 'Infinity']) {
+    assert.equal(getConfig({ ...paid, CARGOAI_PLAN_CREDIT_ALLOWANCE: allowance, CARGOAI_MONTHLY_CREDIT_CAP: '10' }).liveEnabled, false);
+  }
+  assert.equal(getConfig({ ...paid, CARGOAI_PLAN_CREDIT_ALLOWANCE: '0', CARGOAI_MONTHLY_CREDIT_CAP: '0' }).liveEnabled, false);
+});
+
 test('modern Supabase secret keys use apikey only for administrative REST reads and RPCs', async () => {
   const config = getConfig({ ...env, SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_fixture_only' });
   const calls = [];
@@ -172,11 +195,11 @@ test('modern Supabase secret keys use apikey only for administrative REST reads 
     return new Response(JSON.stringify(options.method === 'GET' ? [] : { claimed: false, reason: 'budget_exhausted' }));
   });
   await store.sourceRows();
-  await store.claim(awb(1), 0, false);
+  await store.claim(awb(1), 0, false, 50);
   assert.equal(calls[0].options.method, 'GET');
   assert.equal(calls[1].options.method, 'POST');
   assert.equal(calls[1].url, 'https://example.supabase.co/rest/v1/rpc/cargoai_claim_subscription');
-  assert.deepEqual(JSON.parse(calls[1].options.body), { p_awb: awb(1), p_budget: 0, p_allow_renewals: false });
+  assert.deepEqual(JSON.parse(calls[1].options.body), { p_awb: awb(1), p_budget: 0, p_allow_renewals: false, p_plan_allowance: 50 });
 });
 
 test('legacy service_role JWTs retain both apikey and Bearer headers', async () => {
@@ -303,6 +326,31 @@ test('ambiguous timeout and provider errors reserve credits without automatic re
     assert.equal(calls, 1);
     assert.equal(store.state.used, 10);
     assert.equal(store.state.claims.get(awb(1)).outcome, 'unknown');
+  }
+});
+
+test('paid sync passes the allowance to SQL, respects the remaining cap, and still sends only once per run', async () => {
+  for (const limit of [150, 3000]) {
+    const store = memoryStore([awb(1), awb(2)]);
+    store.state.used = limit - 20;
+    const claim = store.claim;
+    store.claim = async (value, budget, renewals, allowance) => {
+      assert.equal(budget, limit);
+      assert.equal(allowance, limit);
+      assert.equal(renewals, false);
+      return claim(value, budget);
+    };
+    let calls = 0;
+    const service = createTrackingService({ env: { ...env, CARGOAI_PLAN_CREDIT_ALLOWANCE: String(limit), CARGOAI_MONTHLY_CREDIT_CAP: String(limit) }, store, fetchImpl: async () => { calls++; return providerResponse(); } });
+    assert.equal((await service.sync()).accepted, 1);
+    assert.equal(calls, 1);
+    assert.equal(store.state.used, limit - 10);
+    assert.equal((await service.sync()).accepted, 1);
+    assert.equal(calls, 2);
+    assert.equal(store.state.used, limit);
+    store.sourceRows = async () => [{ key: 'jfs_joblog', value: [{ awb: awb(3) }] }];
+    assert.equal((await service.sync()).attempted, 0);
+    assert.equal(calls, 2);
   }
 });
 
