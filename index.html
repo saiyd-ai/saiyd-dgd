@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-R</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-S</span></span>
           </div>
         </div>
       </div>
@@ -2896,10 +2896,11 @@ Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":
 "weight" = GROSS weight of that pallet in kg (number). "qty" = cartons on that pallet (integer). "dims" = dimensions text.
 IMPORTANT — REMARKS: the REMARK column often uses MERGED cells: one remark (e.g. "AIR FRESHNER" or "PERFUME id8000") covers a GROUP of consecutive pallets. Assign the correct remark to EVERY pallet in its group. Different remarks = different DG items.
 LOOSE CARTON lists: when the list has columns like "Qty (Boxes)" and "Box Weight" with remarks "OVER PACKED" / "AVERAGE WT", each row is CARTONS not pallets: weight = the BOX weight per carton (kg), qty = the number of boxes in that row, remark = the exact text ("OVER PACKED" or "AVERAGE WT"). Keep every OVER PACKED row separate (qty 1 each), in order.
-Sanity-check unclear digits (pallet usually 50–999 kg, qty 1–60). Keep the printed order. NEVER invent pallets.`;
+Sanity-check unclear digits (pallet usually 50–999 kg, qty 1–60). Keep the printed order. NEVER invent pallets.
+OUTPUT EVERY SINGLE ROW — long lists can have 40+ rows and ALL of them must be in the JSON, never stop early or summarise.`;
   const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
   content.push({type:"text", text: "Packing list" + (hintText && hintText.trim().length > 30 ? " — extracted text as an extra hint, trust the image(s) first:\n\n" + hintText.slice(0, 8000) : " — read the page image(s) carefully.")});
-  const j = aiJson(await aiCall(sys, content, 1800));
+  const j = aiJson(await aiCall(sys, content, 8000));
   const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0, rm: String(p.remark || "").trim().toUpperCase()})).filter(r => r.w && r.q);
   return {rows, tare: (j.tare && parseFloat(j.tare) > 0) ? String(j.tare) : null,
     hdr: {awb: String(j.awb || "").trim(), job: String(j.job || "").trim().toUpperCase(), org: String(j.org || "").trim().toUpperCase(), dest: String(j.dest || "").trim().toUpperCase()}};
@@ -3694,6 +3695,7 @@ function ptParseJfsXlsx(wb){
         ci = {qty, w: wAny, boxMode: wBox >= 0,
           dims: find(/DIMENSION|DIMS|L\*W\*H|SIZE/),
           rm:   find(/REMARK/),
+          plw:  find(/PALLET\s*\/\s*LOOSE|LOOSE\s*\/\s*WRAP|^P\s*\/\s*L\s*\/\s*W/),
           tot:  find(/TOTAL\s*WEIGHT/)};
         break;
       }
@@ -3708,7 +3710,9 @@ function ptParseJfsXlsx(wb){
       const w = parseFloat(row[ci.w]); const q = parseInt(row[ci.qty]);
       if(!w || !q){ if(rows.length) break; else continue; }
       let rm = ci.rm >= 0 ? String(row[ci.rm] == null ? "" : row[ci.rm]).trim().toUpperCase() : "";
-      if(rm) lastRm = rm; else rm = lastRm;                      // merged remark cells cover the rows below
+      const plw = ci.plw >= 0 ? String(row[ci.plw] == null ? "" : row[ci.plw]).trim().toUpperCase() : "";
+      if(!rm && plw){ rm = plw === "W" ? "OVER PACKED" : plw === "L" ? "AVERAGE WT" : ""; }   // P/L/W column decides per row
+      else if(rm) lastRm = rm; else if(ci.plw < 0) rm = lastRm;  // merged remark cells cover the rows below (no P/L/W column only)
       rows.push({w, d: ci.dims >= 0 ? String(row[ci.dims] || "") : "", q, rm});
     }
     if(!rows.length) continue;
@@ -3717,8 +3721,11 @@ function ptParseJfsXlsx(wb){
     for(let r = 0; r < Math.min(grid.length, hr + 2); r++){
       const row = grid[r] || [];
       for(let c = 0; c < row.length; c++){
-        const lab = String(row[c] == null ? "" : row[c]).trim().toUpperCase();
-        const val = () => { for(let k = c + 1; k < row.length; k++){ if(row[k] != null && String(row[k]).trim()) return String(row[k]).trim(); } return ""; };
+        const cell = String(row[c] == null ? "" : row[c]).trim();
+        const colon = cell.indexOf(":");
+        const lab = (colon > 0 ? cell.slice(0, colon) : cell).trim().toUpperCase();
+        const inline = colon > 0 ? cell.slice(colon + 1).trim() : "";
+        const val = () => inline || (() => { for(let k = c + 1; k < row.length; k++){ if(row[k] != null && String(row[k]).trim()) return String(row[k]).trim(); } return ""; })();
         if(/^AWB/.test(lab) && !hdr.awb) hdr.awb = val();
         if(/(DGS\s*REF|JOB\s*NO|REF\s*NO)/.test(lab) && !hdr.job) hdr.job = val().toUpperCase();
         if(/^ROUTE/.test(lab) && !hdr.org){
@@ -3736,10 +3743,23 @@ async function ptFromImage(file){
   if(!aiKey()){ msg.textContent = "Add the Claude API key in SETTINGS → AI first."; return; }
   msg.textContent = "🤖 AI reading the photo...";
   try{
-    const b64 = await imgFileToB64(file, 1600);
+    ptPasteFeedback(file);                                        // show the pasted photo in the box immediately
+    const b64 = await imgFileToB64(file, 2200);
     const res = await aiPalletRows([b64], "");
     _ptApply(res, msg, "photo", file.name || "Packing list photo");
   }catch(e){ msg.textContent = "Photo read failed: " + (e.message||e).slice(0,80); }
+}
+/* show the pasted/attached photo inside the paste box so the user SEES it arrived */
+function ptPasteFeedback(file){
+  const box = document.getElementById("pt_photobox");
+  if(!box || !file || !(file.type || "").startsWith("image/")) return;
+  try{
+    const url = URL.createObjectURL(file);
+    box.innerHTML = `<div style="display:flex; align-items:center; gap:12px; justify-content:center;">
+      <img src="${url}" style="max-height:64px; max-width:120px; border:1px solid #d8c9a8; border-radius:6px;">
+      <span style="color:#1d6b34; font-weight:bold;">&#10003; Photo received — AI reading the pallets...</span></div>`;
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }catch(e){}
 }
 /* Ctrl+V photo paste box */
 document.addEventListener("DOMContentLoaded", () => {
@@ -4384,10 +4404,11 @@ Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":
 "awb":"AWB number from the header, else empty","job":"JOB NO from the header (e.g. DGS-C00402), else empty","org":"origin airport code from the route, else empty","dest":"destination airport code, else empty"}
 "weight" = GROSS weight of that pallet in kg (number). "qty" = number of cartons on that pallet (integer). "dims" = dimensions text like 120*100*135. "remark" = the REMARK column text for that row (MERGED cells cover a group of rows — repeat the remark on every row of its group), else "".
 LOOSE CARTON lists: when the list has columns like "Qty (Boxes)" and "Box Weight" with remarks "OVER PACKED" / "AVERAGE WT", each row is CARTONS not pallets: weight = the BOX weight per carton (kg), qty = the boxes in that row, remark = the exact text ("OVER PACKED" or "AVERAGE WT"). Keep every OVER PACKED row separate, in order.
-Sanity-check unclear digits from context: a loaded pallet is usually 50–999 kg, qty usually 1–60 cartons, dims in cm. Keep the written order. NEVER invent pallets that are not on the paper.`;
+Sanity-check unclear digits from context: a loaded pallet is usually 50–999 kg, qty usually 1–60 cartons, dims in cm. Keep the written order. NEVER invent pallets that are not on the paper.
+OUTPUT EVERY SINGLE ROW — long lists can have 40+ rows and ALL of them must be in the JSON, never stop early or summarise.`;
     const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
     content.push({type:"text", text:"Extract the pallet table AND the header (AWB NO, JOB NO, route) from the packing list photo(s) above."});
-    const j = aiJson(await aiCall(sys, content, 1800));
+    const j = aiJson(await aiCall(sys, content, 8000));
     const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0, rm: String(p.remark || "").trim().toUpperCase()})).filter(r => r.w && r.q);
     if(!rows.length){ msg.textContent = "AI found no pallet rows — type them below."; return; }
     WH = rows;
