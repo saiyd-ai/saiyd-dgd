@@ -64,7 +64,7 @@ test('UNKNOWN placeholders distinguish pending first updates from unsubscribed A
 });
 
 function fixture(payload = {configured:false,liveEnabled:false,shipments:[]}, status = 200, source = {}) {
-  const elements = new Map(), listeners = {}, requests = [], intervals = [];
+  const elements = new Map(), listeners = {}, requests = [], intervals = [], reportRenders = [];
   const element = id => {
     if (!elements.has(id)) elements.set(id, {id,value:'',innerHTML:'',textContent:'',disabled:false,options:[{value:''}],classList:{contains:() => id === 'tab-track'},addEventListener:(name, fn) => {listeners[id + ':' + name]=fn;}});
     return elements.get(id);
@@ -80,9 +80,75 @@ function fixture(payload = {configured:false,liveEnabled:false,shipments:[]}, st
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../tracking.js'),'utf8'), sandbox);
   const api = sandbox.module.exports;
-  api.init({readStore:key=>Object.prototype.hasOwnProperty.call(source,key) ? source[key] : key==='jfs_joblog'?[{awb:AWB,job:'<img src=x>',shipper:'Example'}]:[],getSession:async()=>({data:{session:auth}}),onAuthStateChange:cb=>{authListener=cb;},milestones:{BKD:'BOOKED',DEP:'DEPARTED',DLV:'DELIVERED'}});
-  return {api,requests,element,listeners,sandbox,auth,intervals,confirmMessages,authListener:()=>authListener,confirm:yes=>{confirmResult=yes;},confirmCount:()=>confirmCount,setResponse:(p,s=200)=>{payload=p;status=s;}};
+  api.init({readStore:key=>Object.prototype.hasOwnProperty.call(source,key) ? source[key] : key==='jfs_joblog'?[{awb:AWB,job:'<img src=x>',shipper:'Example'}]:[],getSession:async()=>({data:{session:auth}}),onAuthStateChange:cb=>{authListener=cb;},refreshReports:()=>reportRenders.push(api.reportCells(AWB,'')),milestones:{BKD:'BOOKED',DEP:'DEPARTED',DLV:'DELIVERED'}});
+  return {api,requests,element,listeners,sandbox,auth,intervals,reportRenders,confirmMessages,authListener:()=>authListener,confirm:yes=>{confirmResult=yes;},confirmCount:()=>confirmCount,setResponse:(p,s=200)=>{payload=p;status=s;}};
 }
+
+test('Dashboard loads and polls stored tracking, refreshes report cells, and never starts paid tracking', async () => {
+  const f = fixture({configured:true,liveEnabled:true,shipments:[{awb:AWB,status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}]});
+  for (const id of ['tab-track','tab-rpt']) f.element(id).classList.contains = () => false;
+  f.element('tab-dash').classList.contains = () => true;
+  assert.equal(f.requests.length,0);
+  f.api.onTab('dash');
+  await new Promise(setImmediate);
+  assert.equal(f.requests.length,1);
+  assert.match(f.reportRenders.at(-1),/IN TRANSIT/);
+  assert.match(f.reportRenders.at(-1),/10:00 UTC/);
+
+  f.setResponse({configured:true,liveEnabled:true,shipments:[{awb:AWB,status:'DELIVERED',lastUpdate:'2026-09-26T11:00:00Z'}]});
+  f.intervals[0]();
+  await new Promise(setImmediate);
+  assert.equal(f.requests.length,2);
+  assert.match(f.reportRenders.at(-1),/DELIVERED/);
+  assert.match(f.reportRenders.at(-1),/11:00 UTC/);
+
+  f.sandbox.document.hidden = true;
+  f.intervals[0]();
+  await new Promise(setImmediate);
+  assert.equal(f.requests.length,2);
+  assert.equal(f.confirmCount(),0);
+  for (const request of f.requests) {
+    assert.equal(request.url,'/.netlify/functions/cargoai-tracking');
+    assert.equal(request.init.method || 'GET','GET');
+    assert.equal(request.init.headers.Authorization,'Bearer fixture-only');
+  }
+});
+
+test('actual sign-in loads tracking only after a successful cloud pull in a visible report view', async () => {
+  const html = fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+  const entry = html.slice(html.indexOf('async function enterApp(user){'),html.indexOf('function setSync(state)'));
+  const pull = html.slice(html.indexOf('async function cloudPullAll(tell){'),html.indexOf('/* live team sync'));
+  for (const scenario of [{tab:'dash'},{tab:'track'},{tab:'rpt'},{tab:'dgd'},{tab:'dash',fail:true},{tab:'dash',hidden:true}]) {
+    const f = fixture({configured:true,liveEnabled:true,shipments:[{awb:AWB,status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}]});
+    for (const name of ['dash','track','rpt','dgd']) f.element('tab-'+name).classList.contains = () => scenario.tab === name;
+    f.sandbox.document.hidden = !!scenario.hidden;
+    f.sandbox.document.getElementById = id => { const el = f.element(id); el.style ||= {}; return el; };
+    let finishCloud;
+    const cloudGate = new Promise(resolve => { finishCloud = resolve; });
+    const query = {select:()=>query,eq:()=>query,single:async()=>({data:{active:true}}),in:async()=>({data:[]})};
+    Object.assign(f.sandbox,{DgTracking:f.api,sbUser:null,_inboxT:null,PRIVATE_KEYS:[],
+      sb:{from:()=>query},localStorage:{setItem:()=>{}},userDisplayName:()=> 'Fixture user',
+      cloudPullShared:async()=>{ await cloudGate; if(scenario.fail) throw new Error('Cloud unavailable'); }});
+    f.sandbox.window.DgTracking = f.api;
+    for (const name of ['renderDash','setSync','rebuildUNDB','fillPickers','loadDefaults','refreshDraftList','renderCustomers','refresh','dgdLogoApply','dgdLogoPull','aiKeyCloudPull','inboxPoll','teamSyncStart']) f.sandbox[name] = () => {};
+    vm.runInNewContext(entry + '\n' + pull,f.sandbox);
+    const signingIn = f.sandbox.enterApp({id:'fixture-user',email:'fixture@example.test'});
+    await new Promise(setImmediate);
+    assert.equal(f.requests.length,0,'No tracking GET before company data finishes loading');
+    finishCloud();
+    await signingIn;
+    await new Promise(setImmediate);
+    const shouldRefresh = scenario.tab !== 'dgd' && !scenario.fail && !scenario.hidden;
+    assert.equal(f.requests.length,shouldRefresh ? 1 : 0,JSON.stringify(scenario));
+    if (shouldRefresh) {
+      assert.match(f.reportRenders.at(-1),/IN TRANSIT/);
+      assert.equal(f.requests[0].url,'/.netlify/functions/cargoai-tracking');
+      assert.equal(f.requests[0].init.method || 'GET','GET');
+      assert.equal(f.requests[0].init.headers.Authorization,'Bearer fixture-only');
+    }
+    assert.equal(f.confirmCount(),0);
+  }
+});
 
 test('unconfigured service lists real AWBs safely and makes no CargoAi or POST request', async () => {
   const f = fixture({configured:false,liveEnabled:false,shipments:[]},503);
