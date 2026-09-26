@@ -215,8 +215,13 @@
     const info = reportInfo(awb);
     return '<td style="' + escapeHtml(tdStyle) + '">' + escapeHtml(info.status) + '<small class="tracking-report-source">CargoAi</small></td><td style="' + escapeHtml(tdStyle) + '">' + escapeHtml(info.lastUpdate) + '</td><td style="' + escapeHtml(tdStyle) + '">' + escapeHtml(info.manualStatus || 'No manual update') + '<small class="tracking-report-source">Manual / legacy entry</small></td><td style="' + escapeHtml(tdStyle) + '">' + escapeHtml(info.lastManualEntry || '—') + '</td>';
   }
+  function jobLink(job) {
+    return '<div class="tracking-job"><button type="button" class="tracking-job-link" data-job="' + escapeHtml(job.job) + '"' + (job.documentIndex == null ? '' : ' data-document="' + job.documentIndex + '"') + '>' + escapeHtml(job.job) + '</button>' + (job.documentStatus ? '<span class="tracking-doc-status ' + (job.documentStatus === 'CONFIRMED' ? 'confirmed' : '') + '">' + escapeHtml(job.documentStatus) + '</span>' : '') + '</div>';
+  }
   function render() {
     if (!node('tracking-body')) return;
+    const tableBody = node('tracking-body');
+    const expandedJobs = new Set(typeof tableBody.querySelectorAll === 'function' ? [...tableBody.querySelectorAll('details[data-job-group][open]')].map(detail => detail.dataset.jobGroup) : []);
     const all = allRows(), local = localData();
     const select = node('tracking-filter'), previous = select.value;
     select.innerHTML = '<option value="">All shipment statuses</option>' + [...new Set(all.map(row => row.status))].sort().map(status => '<option value="' + escapeHtml(status) + '">' + escapeHtml(status) + '</option>').join('');
@@ -226,24 +231,27 @@
     node('tracking-delivered').textContent = all.filter(row => tone(row.status) === 'delivered').length;
     node('tracking-moving').textContent = all.filter(row => tone(row.status) === 'moving').length;
     node('tracking-untracked').textContent = all.filter(row => normalizeAwb(row.awb) && !row.lastUpdate).length;
-    node('tracking-count').textContent = rows.length + ' of ' + all.length + ' saved AWB groups';
+    node('tracking-count').textContent = rows.length + ' of ' + all.length + ' shipments';
     const manualOnly = all.filter(row => !normalizeAwb(row.awb)).length;
-    node('tracking-invalid').textContent = manualOnly || local.invalid.length ? 'CargoAi accepts an 11-digit master AWB with a valid check digit. ' + manualOnly + ' existing manual-only record(s) are retained below; house AWBs and invalid numbers are not sent to CargoAi.' : '';
+    node('tracking-invalid').textContent = manualOnly || local.invalid.length ? manualOnly + ' manual-only record(s) retained. Airline links require a valid master AWB; house AWBs and incomplete numbers remain available in saved history.' : '';
     const connection = node('tracking-connection');
-    connection.className = 'tracking-connection ' + (state.configured && !state.error ? 'ready' : 'pending');
-    node('tracking-connection-title').textContent = state.error ? 'Tracking temporarily unavailable' : state.loading && !state.loaded ? 'Checking tracking connection…' : !state.configured ? (state.loaded ? 'Automatic tracking setup incomplete' : 'Tracking not connected') : state.liveEnabled ? 'Tracking service configured · live requests enabled' : 'Tracking service configured · live requests paused';
-    const connectionText = !state.configured ? 'Your saved AWBs and manual history remain available. Automatic tracking requires completed server setup.' : !state.liveEnabled ? 'Saved tracking updates can be viewed. New tracking requests remain paused until an administrator enables them with an application credit cap.' : 'Only stored shipment updates are refreshed here. “Track next AWB · CargoAi” starts at most one standard subscription (10 credits); “CargoAi Auto” targets one selected AWB. The server enforces the configured application credit cap.';
-    node('tracking-connection-text').textContent = state.error || [connectionText, state.message, '“Track airline” opens the airline website or tracking directory. Saved report is not changed.'].filter(Boolean).join(' ');
-    node('tracking-checked').textContent = state.checkedAt ? 'Report refreshed: ' + dateText(state.checkedAt) : 'No tracking updates retrieved yet.';
+    connection.className = 'tracking-connection ' + (state.error ? 'issue' : 'ready');
+    node('tracking-connection-title').textContent = 'Manual airline checks available' + (state.error ? ' · Saved updates unavailable' : state.loading && !state.loaded ? ' · Checking saved updates…' : !state.loaded ? '' : state.liveEnabled ? ' · Automatic tracking enabled' : state.configured ? ' · Automatic tracking paused' : ' · Automatic tracking not connected');
+    const connectionText = !state.configured ? 'Your saved AWBs and manual history remain available. Automatic tracking requires completed server setup.' : !state.liveEnabled ? 'Saved tracking updates can be viewed. New tracking requests remain paused until an administrator enables them with an application credit cap.' : 'Only stored shipment updates are refreshed here. “Track next AWB · CargoAi” starts at most one standard subscription (10 credits). To choose a specific AWB, open its details and Automatic tracking. The server enforces the configured application credit cap.';
+    node('tracking-connection-text').textContent = state.error || 'Airline links open an external report. They do not change the status saved in DGDOC.';
+    if (node('tracking-auto-status')) node('tracking-auto-status').textContent = state.error || [connectionText, state.message].filter(Boolean).join(' ');
+    node('tracking-checked').textContent = state.checkedAt ? 'Report refreshed ' + dateText(state.checkedAt) : 'Saved updates not retrieved yet';
     node('tracking-sync').disabled = !state.configured || !state.liveEnabled || !!state.error || state.loading || state.syncing || !all.some(row => normalizeAwb(row.awb));
     node('tracking-refresh').disabled = state.loading || state.syncing;
     node('tracking-export').disabled = !rows.length;
     node('tracking-sync').textContent = state.syncing ? 'Starting CargoAi tracking…' : 'Track next AWB · CargoAi';
     node('tracking-body').innerHTML = rows.length ? rows.map(row => {
-      const jobs = row.jobs.map(job => '<div class="tracking-job"><button type="button" class="tracking-job-link" data-job="' + escapeHtml(job.job) + '"' + (job.documentIndex == null ? '' : ' data-document="' + job.documentIndex + '"') + '>' + escapeHtml(job.job) + '</button>' + (job.documentStatus ? '<span class="tracking-doc-status ' + (job.documentStatus === 'CONFIRMED' ? 'confirmed' : '') + '">' + job.documentStatus + '</span>' : '') + '</div>').join('');
-      const canTrack = normalizeAwb(row.awb) && state.configured && state.liveEnabled && !state.error && !state.loading && !state.syncing;
-      return '<tr data-awb="' + escapeHtml(row.id || row.awb) + '"><td class="tracking-awb">' + escapeHtml(displayAwb(row.awb)) + airlineActions(row.awb) + '</td><td>' + (jobs || '—') + '</td><td>' + escapeHtml([row.origin, row.destination].filter(Boolean).join(' → ') || row.route || '—') + '</td><td><span class="tracking-status ' + tone(row.status) + '">' + escapeHtml(row.status) + '</span>' + (row.subscriptionStatus ? '<small>' + escapeHtml(row.subscriptionStatus) + '</small>' : '') + '</td><td>' + escapeHtml(row.flight || '—') + '</td><td>' + dateText(row.departedAt) + '</td><td>' + dateText(row.arrivedAt) + '</td><td>' + dateText(row.deliveredAt) + '</td><td>' + dateText(row.lastUpdate) + '</td><td>' + escapeHtml(row.manualStatus || 'No manual update') + '<small>Recorded: ' + dateText(row.lastManualEntry) + '</small></td><td class="tracking-row-actions"><button type="button" class="smallbtn sb-blue" data-tracking-action="timeline">Timeline</button><button type="button" class="smallbtn sb-green" data-tracking-action="auto"' + (canTrack ? '' : ' disabled') + '>CargoAi Auto</button></td></tr>';
-    }).join('') : '<tr><td colspan="11" class="tracking-empty">' + (all.length ? 'No shipments match these filters.' : 'No AWBs saved yet. Save a shipment or import AWBs from the job log to see them here.') + '</td></tr>';
+      const id = row.id || row.awb;
+      const jobs = row.jobs.slice(0,1).map(jobLink).join('') + (row.jobs.length > 1 ? '<details class="tracking-more-jobs" data-job-group="' + escapeHtml(id) + '"' + (expandedJobs.has(id) ? ' open' : '') + '><summary>+' + (row.jobs.length - 1) + ' more job' + (row.jobs.length > 2 ? 's' : '') + '</summary>' + row.jobs.slice(1).map(jobLink).join('') + '</details>' : '');
+      const route = [row.origin, row.destination].filter(Boolean).join(' → ') || row.route || 'Route not saved';
+      const customer = row.consignee || row.shipper || '';
+      return '<tr data-awb="' + escapeHtml(id) + '"><td class="tracking-awb" data-label="AWB / airline"><span class="tracking-awb-number">' + escapeHtml(displayAwb(row.awb)) + '</span>' + airlineActions(row.awb) + '</td><td data-label="Route / customer"><strong class="tracking-route">' + escapeHtml(route) + '</strong>' + (customer ? '<span class="tracking-customer" title="' + escapeHtml(customer) + '">' + escapeHtml(customer) + '</span>' : '<small>Customer not saved</small>') + '</td><td data-label="Saved status"><span class="tracking-status ' + tone(row.status) + '">' + escapeHtml(row.status) + '</span><small>' + (normalizeAwb(row.awb) ? 'CargoAi · saved status' : 'Manual record') + '</small></td><td data-label="Last update"><span class="tracking-update">' + dateText(row.lastUpdate) + '</span>' + (!row.lastUpdate ? '<small>No saved update</small>' : '') + '</td><td data-label="Linked jobs">' + (jobs || '<small>No linked job</small>') + '</td><td class="tracking-row-actions" data-label="Details"><button type="button" class="smallbtn sb-blue" data-tracking-action="timeline">View details</button></td></tr>';
+    }).join('') : '<tr><td colspan="6" class="tracking-empty">' + (all.length ? 'No shipments match these filters.' : 'No saved AWBs yet. Save a shipment or add AWBs from your jobs.') + '</td></tr>';
     if (detailId) renderDetail(detailId);
   }
   function getRow(id) {
@@ -253,6 +261,8 @@
     const row = getRow(id), box = node('trk_detail');
     if (!row || !box) return;
     const same = detailId === (row.id || row.awb), savedCode = same && node('trk_ms') ? node('trk_ms').value : '', savedNote = same && node('trk_note') ? node('trk_note').value : '';
+    const opened = same && typeof box.querySelectorAll === 'function' ? new Set([...box.querySelectorAll('details[data-detail-section][open]')].map(detail => detail.dataset.detailSection)) : null;
+    const openSection = (name, initiallyOpen = false) => (opened ? opened.has(name) : initiallyOpen) ? ' open' : '';
     detailId = row.id || row.awb;
     const labels = options.milestones || {}, key = row.manualRecords.length ? row.manualRecords[0].key : displayAwb(row.awb);
     const history = row.manualEvents.slice().reverse().map(event => '<div class="tracking-history-row"><b>' + escapeHtml(event.code || 'UPDATE') + '</b><div><strong>' + escapeHtml(labels[event.code] || 'Saved update') + '</strong><p>' + escapeHtml(event.note || '') + '</p><small>' + escapeHtml(event.source) + ' · Recorded ' + dateText(event.ts) + (event.by ? ' · ' + escapeHtml(event.by) : '') + ' · Record ' + escapeHtml(event.recordKey) + '</small></div></div>').join('');
@@ -260,10 +270,25 @@
       const flight = event.flight || {};
       return '<div class="tracking-history-row"><b>' + escapeHtml(event.code || 'UPDATE') + '</b><div><strong>' + escapeHtml(eventKind(event)) + '</strong><p>' + escapeHtml(eventSummary(event)) + '</p>' + ['scheduledDeparture','scheduledArrival','estimatedDeparture','estimatedArrival'].filter(field => flight[field]).map(field => '<small>' + escapeHtml(field.replace(/([A-Z])/g,' $1')) + ': ' + dateText(flight[field]) + '</small>').join('') + '</div></div>';
     }).join('');
-    box.innerHTML = '<div class="card tracking-detail"><h2>Timeline · ' + escapeHtml(displayAwb(row.awb)) + '</h2><div class="body"><p class="tracking-note">CargoAi events and saved manual history are shown separately. Manual entry times record when an update was entered; they do not verify an actual departure, arrival or delivery.</p><div class="tracking-timeline-grid"><section><h3>CargoAi events</h3>' + (events || '<p class="tracking-note">No CargoAi events received yet.</p>') + '</section><section><h3>Manual / legacy history</h3>' + (history || '<p class="tracking-note">No manual entries yet.</p>') + '</section></div><div class="tracking-manual-form"><div><label for="trk_ms">Manual milestone</label><select id="trk_ms">' + Object.entries(labels).map(([code,label]) => '<option value="' + escapeHtml(code) + '">' + escapeHtml(label) + '</option>').join('') + '</select></div><div><label for="trk_note">Manual note / flight reference</label><input type="text" id="trk_note" placeholder="Flight number or operations remark"></div><button type="button" class="smallbtn sb-green" data-detail-action="add" data-record-key="' + escapeHtml(key) + '">Add manual update</button><button type="button" class="smallbtn sb-blue" data-detail-action="auto"' + (!normalizeAwb(row.awb) || !state.configured || !state.liveEnabled || state.error || state.loading || state.syncing ? ' disabled' : '') + '>Auto for this AWB</button></div><p class="tracking-note">' + (normalizeAwb(row.awb) ? 'Automatic tracking uses CargoCONNECT credits and requires confirmation.' : 'This AWB remains available for manual updates. CargoAi tracking requires a valid master AWB.') + '</p></div></div>';
+    const route = [row.origin,row.destination].filter(Boolean).join(' → ') || row.route || 'Route not saved';
+    box.innerHTML = '<section class="tracking-detail"><div class="tracking-detail-header"><div><small>SHIPMENT DETAILS</small><h3 id="tracking-detail-title" tabindex="-1">' + escapeHtml(displayAwb(row.awb)) + ' <span>' + escapeHtml(route) + '</span></h3></div><button type="button" class="smallbtn sb-blue" data-detail-action="close">Close details</button></div><div class="tracking-detail-body"><div class="tracking-parties"><p><b>Shipper</b>' + escapeHtml(row.shipper || 'Not saved') + '</p><p><b>Consignee</b>' + escapeHtml(row.consignee || 'Not saved') + '</p></div><dl class="tracking-dates">' + [['Actual departure',row.departedAt],['Actual arrival',row.arrivedAt],['Delivery',row.deliveredAt],['Last CargoAi update',row.lastUpdate]].map(([label,value]) => '<div><dt>' + label + '</dt><dd>' + dateText(value) + '</dd></div>').join('') + '</dl><p class="tracking-note">Dates above come from saved CargoAi updates. A dash means the date has not been verified. All times are UTC.</p><details class="tracking-flight-details" data-detail-section="flights"' + openSection('flights') + '><summary>Flight references</summary><p>' + escapeHtml(row.flight || 'No flight references received.') + '</p></details><div class="tracking-timeline-grid"><details data-detail-section="events"' + openSection('events',true) + '><summary>CargoAi events <span>' + row.events.length + '</span></summary><div class="tracking-history-list" tabindex="0" role="region" aria-label="CargoAi event history">' + (events || '<p class="tracking-note">No CargoAi events received yet.</p>') + '</div></details><details data-detail-section="manual"' + openSection('manual',!row.events.length) + '><summary>Manual / legacy history <span>' + row.manualEvents.length + '</span></summary><div class="tracking-history-list" tabindex="0" role="region" aria-label="Manual event history">' + (history || '<p class="tracking-note">No manual entries yet.</p>') + '</div></details></div><p class="tracking-note">Manual entry times show when an update was recorded, not a verified departure, arrival or delivery.</p><div class="tracking-manual-form"><div><label for="trk_ms">Manual milestone</label><select id="trk_ms">' + Object.entries(labels).map(([code,label]) => '<option value="' + escapeHtml(code) + '">' + escapeHtml(label) + '</option>').join('') + '</select></div><div><label for="trk_note">Manual note / flight reference</label><input type="text" id="trk_note" placeholder="Flight number or operations remark"></div><button type="button" class="smallbtn sb-green" data-detail-action="add" data-record-key="' + escapeHtml(key) + '">Add manual update</button></div><details class="tracking-automatic" data-detail-section="automatic"' + openSection('automatic') + '><summary>Automatic tracking <span>CargoAi · this AWB</span></summary><div class="tracking-automatic-body"><p class="tracking-note">' + (normalizeAwb(row.awb) ? 'Starting a subscription uses CargoCONNECT credits and asks for confirmation. Saved status: ' + escapeHtml(row.subscriptionStatus || 'not subscribed') + '.' : 'This record is available for manual updates. Automatic tracking requires a valid master AWB.') + '</p><button type="button" class="smallbtn sb-blue" data-detail-action="auto"' + (!normalizeAwb(row.awb) || !state.configured || !state.liveEnabled || state.error || state.loading || state.syncing ? ' disabled' : '') + '>Start CargoAi tracking for this AWB</button></div></details></div></section>';
     if (savedCode && node('trk_ms')) node('trk_ms').value = savedCode;
     if (savedNote && node('trk_note')) node('trk_note').value = savedNote;
-    if (scroll && box.scrollIntoView) box.scrollIntoView({behavior:'smooth',block:'nearest'});
+    if (scroll) {
+      const heading = node('tracking-detail-title');
+      if (heading && typeof heading.focus === 'function') heading.focus({preventScroll:true});
+      if (typeof box.scrollIntoView === 'function') box.scrollIntoView({behavior:'auto',block:'start'});
+    }
+  }
+  function closeDetail() {
+    const previousId = detailId, body = node('tracking-body');
+    detailId = null; node('trk_detail').innerHTML = '';
+    const buttons = body && typeof body.querySelectorAll === 'function' ? [...body.querySelectorAll('[data-tracking-action="timeline"]')] : [];
+    const trigger = buttons.find(button => {
+      const row = button.closest('[data-awb]');
+      return row && row.dataset.awb === previousId;
+    });
+    if (trigger && typeof trigger.focus === 'function') trigger.focus();
   }
   async function session() {
     const result = options.getSession ? await options.getSession() : null;
@@ -373,6 +398,7 @@
     });
     node('trk_detail').addEventListener('click', event => {
       const button = event.target.closest('[data-detail-action]'); if (!button) return;
+      if (button.dataset.detailAction === 'close') { closeDetail(); return; }
       if (button.dataset.detailAction === 'add' && options.addManual) options.addManual(button.dataset.recordKey);
       if (button.dataset.detailAction === 'auto') { const row = getRow(detailId); if (row) sync(row.awb); }
     });
