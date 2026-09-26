@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-V</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-W</span></span>
           </div>
         </div>
       </div>
@@ -470,7 +470,7 @@
         <div class="warnbar" style="margin-top:0;">Type the AWB, paste the AWB text, or upload the AWB PDF &mdash; the airline is detected automatically. Then use the buttons below for LABELS, AIRLINE DOCUMENTS and DNATA. No DGD needed.</div>
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
           <label style="margin:0;">AWB PDF upload:</label>
-          <input type="file" id="gc_awbfile" accept=".pdf" style="font-size:12.5px;">
+          <input type="file" id="gc_awbfile" accept=".pdf,image/*" style="font-size:12.5px;">
           <button class="btn btn-save" style="background:#7b2d8b;" onclick="readAwbPdf('gc_awbfile','gc_pdfmsg').then(()=>gcSyncFromMain())">&#129302; AI EXTRACT FROM PDF</button>
           <span id="gc_pdfmsg" style="font-size:12px; color:#7a4b00;"></span>
         </div>
@@ -663,10 +663,14 @@
     <!-- AUTO FILL -->
     <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#9889; AUTO FILL &mdash; paste AWB / booking details here</h2><div class="body">
       <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
-        <label style="margin:0;">Attach AWB PDF:</label>
-        <input type="file" id="awbfile" accept=".pdf" style="font-size:12.5px;">
+        <label style="margin:0;">Attach AWB PDF / LABEL PHOTO:</label>
+        <input type="file" id="awbfile" accept=".pdf,image/*" style="font-size:12.5px;">
         <button class="btn btn-save" style="background:#7b2d8b;" onclick="readAwbPdf()">&#129302; AI EXTRACT FROM PDF</button>
         <span id="awbpdfmsg" style="font-size:12px; color:#7a4b00;"></span>
+      </div>
+      <div id="awb_photobox" tabindex="0" style="border:2px dashed #7b2d8b; border-radius:10px; padding:14px; text-align:center;
+           color:#7b2d8b; font-weight:bold; font-size:13px; cursor:pointer; margin-bottom:10px; background:#faf5fc;">
+        &#128247; NO AWB? PASTE (Ctrl+V) or DRAG the SHIPPING LABEL photo HERE &mdash; AI fills SHIPPER &amp; CONSIGNEE from the label
       </div>
       <label>...or paste the Air Waybill copy text, booking e-mail, or shipment details (any format)</label>
       <textarea id="f_auto" style="min-height:110px;" placeholder="Example:&#10;AWB: 176-12345675&#10;Shipper: ABC Trading LLC, Dubai, UAE, Tel +971...&#10;Consignee: XYZ Ltd, Cochin, India&#10;From: DUBAI (DXB)  To: COCHIN (COK)&#10;UN1263 Paint, PG III, PI 355, 2 fibreboard boxes x 4.5 L, CAO"></textarea>
@@ -3112,10 +3116,35 @@ function loadPdfjs(){
   });
   return pdfjsReady;
 }
+/* SHIPPING LABEL photo → AI fills shipper/consignee (for shipments where no AWB copy is available) */
+async function awbFromImage(file, msgId){
+  const msg = document.getElementById(msgId || "awbpdfmsg");
+  if(!aiKey()){ msg.textContent = "AI key not loaded yet — reload the page once."; return; }
+  const box = document.getElementById("awb_photobox");
+  if(box){
+    try{
+      const url = URL.createObjectURL(file);
+      box.innerHTML = `<div style="display:flex; align-items:center; gap:12px; justify-content:center;">
+        <img src="${url}" style="max-height:64px; max-width:120px; border:1px solid #d8b8e2; border-radius:6px;">
+        <span style="color:#1d6b34;">&#10003; Label received — AI reading shipper &amp; consignee...</span></div>`;
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    }catch(e){}
+  }
+  msg.textContent = "🤖 AI reading the label photo...";
+  try{
+    const b64 = await imgFileToB64(file, 2200);
+    const j = await aiExtractShipment("", "Shipping LABEL photo (no AWB copy) — extract the shipper and consignee blocks exactly as printed, plus AWB number / route / UN items when visible", [b64]);
+    const got = [j.shipper && "Shipper", j.consignee && "Consignee", j.awb && "AWB", (j.dep || j.dest) && "Route", (j.items||[]).length ? (j.items.length + " item(s)") : ""].filter(Boolean).join(", ");
+    msg.textContent = "✓ AI filled from the label: " + (got || "nothing found") + " — CHECK every field!";
+    if(box) box.innerHTML = "&#10003; " + (got || "Nothing readable") + " — paste another label photo any time.";
+    const el = document.getElementById("autoresult"); if(el) el.textContent = "🤖 From LABEL photo: " + got;
+  }catch(e){ msg.textContent = "Label read failed: " + (e.message||e).slice(0,80); }
+}
 async function readAwbPdf(fileId, msgId){
   const f = document.getElementById(fileId || "awbfile").files[0];
   const msg = document.getElementById(msgId || "awbpdfmsg");
-  if(!f){ alert("Choose the AWB PDF file first."); return; }
+  if(!f){ alert("Choose the AWB PDF or label photo first."); return; }
+  if((f.type || "").startsWith("image/")){ await awbFromImage(f, msgId); return; }   // label photo attached
   msg.textContent = "Reading PDF...";
   try{
     await loadPdfjs();
@@ -3789,6 +3818,28 @@ function ptPasteFeedback(file){
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   }catch(e){}
 }
+/* AWB LABEL photo box — paste (Ctrl+V) or drag & drop the shipping label */
+document.addEventListener("DOMContentLoaded", () => {
+  const abox = document.getElementById("awb_photobox");
+  if(abox){
+    abox.addEventListener("paste", e => {
+      const items = (e.clipboardData || {}).items || [];
+      for(const it of items){
+        if(it.type && it.type.startsWith("image/")){ e.preventDefault(); awbFromImage(it.getAsFile()); return; }
+      }
+      abox.innerHTML = "No image in the clipboard — copy the label photo first, then Ctrl+V here.";
+    });
+    abox.addEventListener("dragover", e => { e.preventDefault(); abox.style.background = "#f0dff7"; });
+    abox.addEventListener("dragleave", () => { abox.style.background = "#faf5fc"; });
+    abox.addEventListener("drop", e => {
+      e.preventDefault(); abox.style.background = "#faf5fc";
+      const f = [...((e.dataTransfer || {}).files || [])].find(x => (x.type || "").startsWith("image/"));
+      if(f) awbFromImage(f);
+      else abox.innerHTML = "That file is not a photo — drop a label IMAGE (JPG/PNG), or attach a PDF above.";
+    });
+    abox.addEventListener("click", () => abox.focus());
+  }
+});
 /* Ctrl+V photo paste box */
 document.addEventListener("DOMContentLoaded", () => {
   const box = document.getElementById("pt_photobox");
