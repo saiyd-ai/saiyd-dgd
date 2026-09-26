@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { normalizeTrackCargoShipment, TrackCargoNormalizationError } from '../../netlify/functions/_lib/trackcargo.mjs';
 
 // Minimal, redacted observed shape; no organisation/user IDs, parties or secrets.
-const AWB = '020-18224861';
+const AWB = '020-12345675';
 const ID = '2a2da1ac-8647-4d5e-bfe6-6a3cdf0b8edc';
 const NOW = new Date('2026-09-26T21:00:00Z');
 const envelope = data => ({ success: true, error: null, warnings: [], data });
@@ -16,9 +16,9 @@ const sampleEvent = (code, location, utc, elapsed, extra = {}) => ({
 function sample() {
   return {
     awb: AWB, orderId: ID, now: NOW,
-    order: envelope({ orderId: ID, trackingId: '02018224861', trackingType: 'air', deleted: false, status: 'active', updatedAt: '2026-09-26T20:15:07.556Z' }),
+    order: envelope({ orderId: ID, trackingId: '02012345675', trackingType: 'air', deleted: false, status: 'active', updatedAt: '2026-09-26T20:15:07.556Z' }),
     tracking: envelope({ status: 'AVAILABLE', trackingData: {
-      awb: { prefix: '020', number: '18224861', serial_no: '1822486', check_digit: '1' }, tracking_id: '02018224861',
+      awb: { prefix: '020', number: '12345675', serial_no: '1234567', check_digit: '5' }, tracking_id: '02012345675',
       origin_airport_code: 'DWC', destination_airport_code: 'JFK', completed: false,
       events: [
         sampleEvent('BKD', 'DWC', '2026-09-22T17:17:00.000Z', true, { pieces: 108, weight: 38760, timezone: 'Asia/Dubai' }),
@@ -83,7 +83,7 @@ test('Lufthansa actual watermark is Vienna UTC; planned JFK arrival and delivery
 });
 
 test('both INCONCLUSIVE Air India shapes preserve order identity with no invented status, route or events', () => {
-  for (const awb of ['098-32127141', '098-32123254']) {
+  for (const awb of ['098-12345675', '098-12345686']) {
     const fixture = sample();
     fixture.awb = awb;
     fixture.order.data.trackingId = awb.replace('-', '');
@@ -102,11 +102,11 @@ test('both INCONCLUSIVE Air India shapes preserve order identity with no invente
 
 test('every observed identity field must agree with the expected canonical AWB and UUID', () => {
   for (const mutate of [
-    f => { f.awb = '02018224861'; }, f => { f.awb = '020-18224862'; },
+    f => { f.awb = '02012345675'; }, f => { f.awb = '020-12345676'; },
     f => { f.orderId = '../air'; }, f => { f.order.data.orderId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; },
-    f => { f.order.data.trackingId = '09832127141'; }, f => { data(f).tracking_id = '09832127141'; },
-    f => { data(f).awb.prefix = '098'; }, f => { data(f).awb.number = '32127141'; },
-    f => { data(f).awb.serial_no = '1822487'; }, f => { data(f).awb.check_digit = '2'; },
+    f => { f.order.data.trackingId = '09812345675'; }, f => { data(f).tracking_id = '09812345675'; },
+    f => { data(f).awb.prefix = '098'; }, f => { data(f).awb.number = '12345686'; },
+    f => { data(f).awb.serial_no = '1234568'; }, f => { data(f).awb.check_digit = '6'; },
     f => { delete data(f).awb; }
   ]) { const fixture = sample(); mutate(fixture); rejected(fixture, 'identity_mismatch'); }
 });

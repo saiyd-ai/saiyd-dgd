@@ -50,7 +50,7 @@ test('only the three fixed GET endpoints receive the secret, with no redirect or
 
 test('malformed IDs, URLs and path/query injection are rejected before any fetch', async () => {
   const api = client(noNetwork);
-  for (const id of [undefined, null, 42, {}, [], '', '02018224861', ID.replaceAll('-', ''), `${ID}\n`, ` ${ID}`, `${ID}/tracking`, `${ID}?key=${KEY}`, `https://evil.example/${ID}`, '..', ID.replace('2', 'z')]) {
+  for (const id of [undefined, null, 42, {}, [], '', '02012345675', ID.replaceAll('-', ''), `${ID}\n`, ` ${ID}`, `${ID}/tracking`, `${ID}?key=${KEY}`, `https://evil.example/${ID}`, '..', ID.replace('2', 'z')]) {
     await assert.rejects(api.getOrder(id), hasError('invalid_order_id', 400));
     await assert.rejects(api.getTracking(id), hasError('invalid_order_id', 400));
   }
