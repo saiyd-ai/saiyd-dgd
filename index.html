@@ -463,39 +463,33 @@
 
     <!-- ================= SHIPMENT TRACKING ================= -->
     <div class="tab" id="tab-track">
-      <div class="card tracking-card"><h2>&#9992; SHIPMENT TRACKING</h2><div class="body">
-        <p class="tracking-intro">Check an airline, review saved progress, or open the full shipment history.</p>
+      <div class="card tracking-card"><h2>&#9992; SHIPMENT TRACKING · TRACKCARGO</h2><div class="body">
+        <p class="tracking-intro">Review TrackCargo carrier updates for your saved AWBs, with linked jobs and shipment history.</p>
         <div id="tracking-connection" class="tracking-connection pending" role="status">
-          <strong id="tracking-connection-title">Manual airline checks available</strong>
-          <p id="tracking-connection-text">Airline links open an external report. They do not change the status saved in DGDOC.</p>
+          <strong id="tracking-connection-title">TrackCargo · refresh when needed</strong>
+          <p id="tracking-connection-text">Refresh TrackCargo reads existing orders. New AWBs and scheduled updates are not enabled.</p>
         </div>
         <div class="tracking-kpis">
           <div class="tracking-kpi"><b id="tracking-total">0</b><span>MASTER AWBS</span></div>
-          <div class="tracking-kpi"><b id="tracking-moving">0</b><span>MOVING / ARRIVED</span></div>
-          <div class="tracking-kpi"><b id="tracking-delivered">0</b><span>DELIVERED</span></div>
-          <div class="tracking-kpi"><b id="tracking-untracked">0</b><span>NO SAVED UPDATE</span></div>
+          <div class="tracking-kpi"><b id="tracking-updates">0</b><span>WITH CARRIER UPDATES</span></div>
+          <div class="tracking-kpi"><b id="tracking-pending">0</b><span>AWAITING CARRIER RESULT</span></div>
+          <div class="tracking-kpi"><b id="tracking-unlinked">0</b><span id="tracking-unlinked-label">NOT RETRIEVED</span></div>
         </div>
         <div class="tracking-controls">
           <div class="tracking-search"><label for="tracking-search">Search shipments</label><input type="text" id="tracking-search" placeholder="MAWB, job, customer, route or flight"></div>
-          <div class="tracking-filter"><label for="tracking-filter">Shipment status</label><select id="tracking-filter"><option value="">All shipment statuses</option></select></div>
+          <div class="tracking-filter"><label for="tracking-filter">Latest carrier event</label><select id="tracking-filter"><option value="">All carrier results</option></select></div>
           <button type="button" id="tracking-import" class="btn btn-load">Add saved AWBs</button>
-          <button type="button" id="tracking-refresh" class="btn btn-load">Refresh report</button>
+          <button type="button" id="tracking-refresh" class="btn btn-load">Refresh TrackCargo</button>
           <button type="button" id="tracking-export" class="btn btn-load" disabled>Export CSV</button>
         </div>
         <div id="tracking-action-message" role="status" aria-live="polite"></div>
-        <section id="trackcargo-panel" class="tracking-trackcargo" aria-label="TrackCargo existing orders"></section>
         <div class="tracking-meta"><span id="tracking-count">0 unique MAWBs</span><span id="tracking-checked">No tracking updates retrieved yet.</span></div>
-        <div class="tracking-table-wrap" role="region" aria-label="Saved shipment tracking report">
-          <table class="tracking-table"><thead><tr><th scope="col">AWB / airline</th><th scope="col">Route / customer</th><th scope="col">Saved status</th><th scope="col">Last update</th><th scope="col">Linked jobs</th><th scope="col">Details</th></tr></thead><tbody id="tracking-body"></tbody></table>
+        <div class="tracking-table-wrap" role="region" aria-label="TrackCargo shipment tracking report">
+          <table class="tracking-table"><thead><tr><th scope="col">AWB / airline</th><th scope="col">Route / customer</th><th scope="col">Latest carrier event</th><th scope="col">Last actual event</th><th scope="col">Linked jobs</th><th scope="col">Details</th></tr></thead><tbody id="tracking-body"></tbody></table>
         </div>
         <div id="trk_detail"></div>
         <p id="tracking-invalid" class="tracking-note"></p>
-        <p class="tracking-note">Saved status comes from CargoAi. “Last update” is when that stored record changed; refreshing this page does not mean a new airline event. Times are UTC. Open details for dates, flights and manual history.</p>
-        <details class="tracking-automatic" id="tracking-automatic"><summary>Automatic tracking <span>Optional · CargoAi</span></summary><div class="tracking-automatic-body">
-          <p id="tracking-auto-status" class="tracking-note">Automatic tracking settings have not been checked yet.</p>
-          <button type="button" id="tracking-sync" class="btn btn-save" disabled>Track next AWB · CargoAi</button>
-          <p class="tracking-note">Starting a subscription uses CargoCONNECT credits and asks for confirmation. Manual airline checks, report refresh and export do not start subscriptions.</p>
-        </div></details>
+        <p class="tracking-note">TrackCargo shows the latest actual carrier event, which may cover part of a shipment. Planned events do not confirm arrival or delivery. Times are UTC; fetch time is when the result was retrieved. Airline links are available for manual checks.</p>
       </div></div>
     </div>
 
@@ -2423,9 +2417,6 @@ function trackRemove(awb){
   const all = trackAll(); delete all[awb]; trackSave(all);
   document.getElementById("trk_detail").innerHTML = ""; trackRender();
 }
-/* CargoAi requests use the server only. Legacy company_settings entries are left untouched. */
-function trackCCFetch(awb){ return window.DgTracking ? DgTracking.sync(awb) : Promise.resolve(); }
-function trackCCUpdateAll(){ return window.DgTracking ? DgTracking.sync() : Promise.resolve(); }
 /* ---------- alt print (checklist / stickers / labels) ---------- */
 function printAlt(srcId){
   const src = document.getElementById(srcId);
@@ -4306,7 +4297,7 @@ function renderDash(){
 function _jobRowsHtml(log, docs, q, limit){
   const TH = "padding:6px 8px; font-size:11.5px; background:#0f2b4c; color:#fff; border:1px solid #0f2b4c; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #e2e8f0; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">DOCUMENT STATUS</th><th style="${TH}">LAST JOB LOG UPDATE</th><th style="${TH}">AWB</th><th style="${TH}">CARGOAI STATUS</th><th style="${TH}">LAST CARGOAI UPDATE</th><th style="${TH}">MANUAL / LEGACY STATUS</th><th style="${TH}">LAST MANUAL ENTRY</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
+  let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">DOCUMENT STATUS</th><th style="${TH}">LAST JOB LOG UPDATE</th><th style="${TH}">AWB</th><th style="${TH}">TRACKCARGO CARRIER EVENT</th><th style="${TH}">LAST ACTUAL CARRIER EVENT</th><th style="${TH}">MANUAL / LEGACY STATUS</th><th style="${TH}">LAST MANUAL ENTRY</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
   let rows = log.slice().sort((a,b) => (b.last||0) - (a.last||0))
     .filter(e => !q || ((e.job||"")+" "+(e.awb||"")+" "+(e.shipper||"")+" "+(e.consignee||"")).toLowerCase().includes(q));
   if(limit && !q) rows = rows.slice(0, limit);
@@ -4346,7 +4337,7 @@ async function dashReport(){
   const BORD = {top:{style:"thin"},left:{style:"thin"},bottom:{style:"thin"},right:{style:"thin"}};
   const ws = wb.addWorksheet("JOBS");
   ws.columns = [{width:16},{width:19},{width:15},{width:30},{width:30},{width:26},{width:16},{width:9},{width:19},{width:27},{width:29},{width:24},{width:29}];
-  ["JOB NO","LAST JOB LOG UPDATE","AWB","SHIPPER","CONSIGNEE","ROUTE","UN/ID","PRINTS","DOCUMENT STATUS","CARGOAI STATUS","LAST CARGOAI UPDATE (UTC)","MANUAL / LEGACY STATUS","LAST MANUAL ENTRY (UTC)"].forEach((t,i) => {
+  ["JOB NO","LAST JOB LOG UPDATE","AWB","SHIPPER","CONSIGNEE","ROUTE","UN/ID","PRINTS","DOCUMENT STATUS","TRACKCARGO CARRIER EVENT","LAST ACTUAL CARRIER EVENT (UTC)","MANUAL / LEGACY STATUS","LAST MANUAL ENTRY (UTC)"].forEach((t,i) => {
     const c = ws.getRow(1).getCell(i+1); c.value = t; c.font = {bold:true,color:{argb:"FFFFFFFF"}}; c.fill = NAVY; c.border = BORD;
   });
   log.slice().sort((a,b) => (b.last||0) - (a.last||0)).forEach((e,i) => {
@@ -8145,7 +8136,6 @@ if(window.DgTracking) DgTracking.init({
   milestones: TRK_MILESTONES,
   getSession: () => sb ? sb.auth.getSession() : Promise.resolve(null),
   onAuthStateChange: callback => sb ? sb.auth.onAuthStateChange(callback) : null,
-  prepareSync: trackCloudPush,
   importAwbs: trackImport,
   addManual: trackAddMs,
   openDocument: index => loadDoc(index),

@@ -2,7 +2,7 @@
 
 Status on 27 September 2026: the account shows **Pro — Active**, billed monthly for 27 September–27 October. The public Pro price is $19/month with 20 included trackings and $1 per additional tracking. Three shipments already exist from the trial. Six authenticated GET requests succeeded during the controlled API probe. The dashboard still showed **0/20 usage and zero overage** afterward; this observation is not a general guarantee about future retrieval billing.
 
-The client, normalized adapter, authenticated read-only controller, and separate frontend panel are deployed. **Production commit `c1876a2` passed the authenticated browser check on 27 September 2026.** An explicit refresh returned one Lufthansa carrier result and two Air India pending results, separately from the five saved CargoAi shipments and manual history. The six Quick Print controls remained available.
+The client, normalized adapter, and authenticated read-only controller are deployed. **Initial integration commit `c1876a2` passed the authenticated browser check on 27 September 2026.** An explicit refresh returned one Lufthansa carrier result and two Air India pending results. The six Quick Print controls remained available. The subsequent TrackCargo-only display change replaces the former two-provider presentation; its deployment is recorded separately.
 
 `TRACKCARGO_API_KEY` and `TRACKCARGO_ORDERS_JSON` are saved in Netlify's server environment. The latter holds the three exact observed AWB/order UUID mappings; real UUIDs are not included in this document. The temporary probe credential file was removed before the GET requests, and the setup's in-memory copy was cleared afterward. The durable secret is stored in Netlify. Never put its value in source files, browser storage, screenshots, logs, or public responses.
 
@@ -52,7 +52,9 @@ The booking event reports 108 pieces while acceptance reports seven. The observe
 
 The controller reads only configured orders that also exist in saved company AWBs. It makes two provider GETs per selected order, coalesces concurrent reads, and retains successful normalized snapshots in a **60-second process-local memory cache**. The cache is not a shared or durable rate limiter. Provider failures return sanitized per-order errors. There are no database writes, credit reservations, automatic retries, scheduled reads, new orders, subscriptions, cancellations, or webhook configuration.
 
-The frontend provides a separate TrackCargo panel, explicit refresh control, and shipment details. It makes no automatic TrackCargo requests. CargoAi's primary tracking display, reports and manual/legacy history remain unchanged; TrackCargo records are not appended to the existing one-record-per-AWB merge. A pending/error TrackCargo response cannot erase CargoAi or manual history.
+The frontend now uses TrackCargo as the only provider in the main shipment table, filters, event counts, details, dashboard/document reports, and CSV export. It joins provider results to local saved AWBs and job metadata; it never falls back to a CargoAi status. AWBs without a retrieved order remain visible and are labelled honestly. Counts measure carrier results and pending results, not whole-shipment delivery inferred from a single event.
+
+Only the explicit **Refresh TrackCargo** button reads provider data. Navigation, cloud updates, visibility changes, and the compatibility `refresh()` method render local/cached data without requesting either tracking provider. The former CargoAi start controls and request path have been removed from the UI. Its backend, credentials, stored records and callback receiver remain untouched. Manual/legacy history remains available separately. The existing three-order read-only scope is unchanged; no new tracking orders or scheduled requests are enabled.
 
 ## Preserve history and the existing pause
 
@@ -64,7 +66,7 @@ Numerical API rate limits, general retrieval usage accounting, and webhook authe
 
 ## Verification and deployment status
 
-All **93 relevant tests pass**, including 27 TrackCargo backend tests: client 10, adapter 9, controller 8. Tests use synthetic AWBs and credentials with mocked/redacted response shapes; the separately authorized six-GET probe verifies the real API. The adapter also normalized all three captured probe records successfully without returning raw records publicly.
+The TrackCargo-only display revision passes **82 relevant tests**: 26 frontend, 29 preserved CargoAi backend, and 27 TrackCargo backend tests (client 10, adapter 9, controller 8). Frontend checks cover explicit-only reads, source-correct reports/CSV, pending and unlinked AWBs, manual history, authentication races and stale-result labels. Tests use synthetic AWBs and credentials with mocked/redacted response shapes; the separately authorized six-GET probe verifies the real API. The adapter also normalized all three captured probe records successfully without returning raw records publicly.
 
 ```text
 node --test --test-isolation=none tests/backend/trackcargo-client.test.mjs tests/backend/trackcargo.test.mjs tests/backend/trackcargo-tracking.test.mjs
