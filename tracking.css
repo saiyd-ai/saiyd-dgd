@@ -36,6 +36,12 @@
 .tracking-note{font-size:11.5px;color:#5b6b7d;line-height:1.6;margin-top:12px}
 .tracking-row-actions{white-space:nowrap}
 .tracking-row-actions button{display:block;margin-bottom:6px}
+.tracking-table .tracking-awb{min-width:180px}
+.tracking-airline-actions{max-width:195px;white-space:normal;margin-top:8px;font-weight:normal}
+.tracking-airline-link{display:inline-block;text-decoration:none;margin-bottom:6px;white-space:nowrap}
+.tracking-airline-link:hover{text-decoration:underline}
+.tracking-airline-link:focus-visible{outline:2px solid #1a5fb4;outline-offset:3px}
+.tracking-airline-actions small{line-height:1.4;overflow-wrap:normal}
 .tracking-timeline-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:18px 0}
 .tracking-timeline-grid h3{font-size:13px;color:#23235f;margin-bottom:10px}
 .tracking-history-row{display:flex;gap:12px;padding:11px 0;border-bottom:1px dashed #d7dee8;font-size:12px;line-height:1.55}
