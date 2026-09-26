@@ -6,6 +6,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   const ENDPOINT = '/.netlify/functions/cargoai-tracking';
+  const TRACKCARGO_ENDPOINT = '/.netlify/functions/trackcargo-tracking';
   const txt = value => value == null ? '' : String(value);
   const array = value => Array.isArray(value) ? value : [];
   const escapeHtml = value => txt(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -195,6 +196,7 @@
     ])].map(cells => cells.map(csvCell).join(',')).join('\r\n');
   }
   const state = {configured:false, liveEnabled:false, shipments:[], loaded:false, loading:false, syncing:false, error:'', message:'', checkedAt:null, userId:null, generation:0};
+  const trackcargo = {configured:false, shipments:[], loaded:false, loading:false, error:'', message:'', checkedAt:null};
   let options = {}, timer = null, detailId = null;
   function node(id) { return typeof document === 'undefined' ? null : document.getElementById(id); }
   function localData() {
@@ -217,6 +219,42 @@
   }
   function jobLink(job) {
     return '<div class="tracking-job"><button type="button" class="tracking-job-link" data-job="' + escapeHtml(job.job) + '"' + (job.documentIndex == null ? '' : ' data-document="' + job.documentIndex + '"') + '>' + escapeHtml(job.job) + '</button>' + (job.documentStatus ? '<span class="tracking-doc-status ' + (job.documentStatus === 'CONFIRMED' ? 'confirmed' : '') + '">' + escapeHtml(job.documentStatus) + '</span>' : '') + '</div>';
+  }
+  function trackcargoStatus(shipment) {
+    if (shipment.dataStatus === 'ERROR') return 'TrackCargo unavailable';
+    if (shipment.dataStatus !== 'AVAILABLE' || !txt(shipment.status).trim() || txt(shipment.status).toUpperCase() === 'UNKNOWN') return 'Awaiting carrier result';
+    return statusText(shipment.status);
+  }
+  function trackcargoMetadata(shipment) {
+    return 'Order: ' + statusText(shipment.orderStatus || 'unknown') + ' · Data: ' + statusText(shipment.dataStatus || 'unknown');
+  }
+  function trackcargoNotice(shipment) {
+    return shipment.refreshError ? '<p class="trackcargo-message issue">Not refreshed: ' + escapeHtml(shipment.refreshError) + ' Showing the previous TrackCargo result.</p>' : shipment.message ? '<p class="trackcargo-message">' + escapeHtml(shipment.message) + '</p>' : '';
+  }
+  function renderTrackcargo() {
+    const panel = node('trackcargo-panel');
+    if (!panel) return;
+    const active = typeof document !== 'undefined' && document.activeElement;
+    const focusedAction = active && typeof panel.contains === 'function' && panel.contains(active) && active.dataset && active.dataset.trackcargoAction ? {action:active.dataset.trackcargoAction,awb:active.dataset.awb} : null;
+    const note = trackcargo.error ? trackcargo.error + (trackcargo.shipments.length ? ' Showing the last retrieved TrackCargo results.' : '') : trackcargo.loading ? 'Reading existing TrackCargo orders…' : trackcargo.loaded ? trackcargo.message || (trackcargo.configured ? 'Existing TrackCargo orders retrieved.' : 'TrackCargo is not connected.') : 'Refresh to read the orders already in TrackCargo. This does not create new tracking orders.';
+    panel.innerHTML = '<div class="trackcargo-header"><div><h3>TrackCargo <span>Existing orders</span></h3><p>Latest carrier events are shown separately from saved CargoAi status and manual history.</p></div><button type="button" class="smallbtn sb-blue" data-trackcargo-action="refresh"' + (trackcargo.loading ? ' aria-disabled="true"' : '') + '>' + (trackcargo.loading ? 'Refreshing TrackCargo…' : 'Refresh TrackCargo') + '</button></div><p class="trackcargo-message' + (trackcargo.error ? ' issue' : '') + '" role="status" aria-live="polite">' + escapeHtml(note) + '</p>' + (trackcargo.checkedAt ? '<p class="trackcargo-retrieved">Last retrieval ' + dateText(trackcargo.checkedAt) + ' · Refresh runs only when requested.</p>' : '') + (trackcargo.shipments.length ? '<div class="trackcargo-table-wrap"><table class="trackcargo-table"><thead><tr><th scope="col">AWB / route</th><th scope="col">Latest carrier event</th><th scope="col">Last actual event</th><th scope="col">Details</th></tr></thead><tbody>' + trackcargo.shipments.map(shipment => {
+      const status = trackcargoStatus(shipment), row = getRow(shipment.awb);
+      return '<tr><td data-label="AWB / route"><b>' + escapeHtml(displayAwb(shipment.awb)) + '</b><small>' + escapeHtml([shipment.origin,shipment.destination].filter(Boolean).join(' → ') || 'Route not returned') + '</small></td><td data-label="Latest carrier event"><span class="tracking-status ' + (shipment.dataStatus === 'ERROR' ? 'issue' : tone(status)) + '">' + escapeHtml(status) + '</span>' + (shipment.statusDescription ? '<small>' + escapeHtml(shipment.statusDescription) + '</small>' : '') + '<small>' + escapeHtml(trackcargoMetadata(shipment)) + '</small>' + trackcargoNotice(shipment) + '</td><td data-label="Last actual event">' + dateText(shipment.lastUpdate) + (shipment.currentLocation ? '<small>At ' + escapeHtml(shipment.currentLocation) + '</small>' : '') + '<small>Fetched ' + dateText(shipment.fetchedAt) + '</small></td><td data-label="Details">' + (row ? '<button type="button" class="smallbtn sb-blue" data-trackcargo-action="detail" data-awb="' + escapeHtml(row.id || row.awb) + '">View shipment</button>' : '<small>No linked saved shipment</small>') + '</td></tr>';
+    }).join('') + '</tbody></table></div>' : '');
+    if (focusedAction && typeof panel.querySelectorAll === 'function') {
+      const button = [...panel.querySelectorAll('[data-trackcargo-action]')].find(item => item.dataset.trackcargoAction === focusedAction.action && item.dataset.awb === focusedAction.awb);
+      if (button && !button.disabled) button.focus({preventScroll:true});
+    }
+  }
+  function trackcargoDetail(row, open) {
+    if (!normalizeAwb(row.awb)) return '';
+    const shipment = trackcargo.shipments.find(item => normalizeAwb(item.awb) === normalizeAwb(row.awb));
+    let body = '<p class="tracking-note">' + escapeHtml(trackcargo.error || (trackcargo.loaded ? 'No existing TrackCargo order was returned for this AWB.' : 'Use Refresh TrackCargo above to read existing orders.')) + '</p>';
+    if (shipment) {
+      const events = array(shipment.events).slice().sort((a,b) => (Date.parse(b.eventDate) || 0) - (Date.parse(a.eventDate) || 0));
+      body = (trackcargo.error ? '<p class="trackcargo-message issue">' + escapeHtml(trackcargo.error) + ' Showing the last retrieved result.</p>' : '') + '<p class="trackcargo-detail-status">Latest carrier event <span class="tracking-status ' + (shipment.dataStatus === 'ERROR' ? 'issue' : tone(trackcargoStatus(shipment))) + '">' + escapeHtml(trackcargoStatus(shipment)) + '</span> ' + escapeHtml(trackcargoMetadata(shipment)) + '</p>' + (shipment.statusDescription ? '<p class="tracking-note">' + escapeHtml(shipment.statusDescription) + '</p>' : '') + '<p class="tracking-note">' + escapeHtml('Order ' + txt(shipment.orderId) + (shipment.currentLocation ? ' · Current location ' + shipment.currentLocation : '')) + '</p>' + trackcargoNotice(shipment) + '<dl class="tracking-dates trackcargo-dates">' + [['Origin departure event',shipment.departedAt],['Verified arrival',shipment.arrivedAt],['Verified delivery',shipment.deliveredAt],['Last actual event',shipment.lastUpdate],['Planned arrival',shipment.plannedArrivalAt],['Planned delivery',shipment.plannedDeliveryAt]].map(([label,value]) => '<div><dt>' + label + '</dt><dd>' + dateText(value) + '</dd></div>').join('') + '</dl><p class="tracking-note">Fetched from TrackCargo ' + dateText(shipment.fetchedAt) + '. TrackCargo times are UTC. The latest carrier event can refer to part of a shipment. Planned events are forecasts; they do not confirm arrival or delivery. Fetch time shows when this result was retrieved.</p><div class="tracking-history-list" tabindex="0" role="region" aria-label="TrackCargo event history">' + (events.map(event => '<div class="tracking-history-row"><b>' + escapeHtml(event.code || 'UPDATE') + '</b><div><strong>' + escapeHtml(eventKind(event)) + ' · TrackCargo</strong><p>' + escapeHtml(event.description || '') + '</p><p>' + escapeHtml(eventSummary(event)) + '</p>' + (event.timezone ? '<small>Event location timezone: ' + escapeHtml(event.timezone) + '</small>' : '') + '</div></div>').join('') || '<p class="tracking-note">No carrier events returned by TrackCargo.</p>') + '</div>';
+    }
+    return '<details class="trackcargo-detail" data-detail-section="trackcargo"' + open + '><summary>TrackCargo <span>Existing order · separate provider</span></summary><div class="trackcargo-detail-body">' + body + '</div></details>';
   }
   function render() {
     if (!node('tracking-body')) return;
@@ -252,6 +290,7 @@
       const customer = row.consignee || row.shipper || '';
       return '<tr data-awb="' + escapeHtml(id) + '"><td class="tracking-awb" data-label="AWB / airline"><span class="tracking-awb-number">' + escapeHtml(displayAwb(row.awb)) + '</span>' + airlineActions(row.awb) + '</td><td data-label="Route / customer"><strong class="tracking-route">' + escapeHtml(route) + '</strong>' + (customer ? '<span class="tracking-customer" title="' + escapeHtml(customer) + '">' + escapeHtml(customer) + '</span>' : '<small>Customer not saved</small>') + '</td><td data-label="Saved status"><span class="tracking-status ' + tone(row.status) + '">' + escapeHtml(row.status) + '</span><small>' + (normalizeAwb(row.awb) ? 'CargoAi · saved status' : 'Manual record') + '</small></td><td data-label="Last update"><span class="tracking-update">' + dateText(row.lastUpdate) + '</span>' + (!row.lastUpdate ? '<small>No saved update</small>' : '') + '</td><td data-label="Linked jobs">' + (jobs || '<small>No linked job</small>') + '</td><td class="tracking-row-actions" data-label="Details"><button type="button" class="smallbtn sb-blue" data-tracking-action="timeline">View details</button></td></tr>';
     }).join('') : '<tr><td colspan="6" class="tracking-empty">' + (all.length ? 'No shipments match these filters.' : 'No saved AWBs yet. Save a shipment or add AWBs from your jobs.') + '</td></tr>';
+    renderTrackcargo();
     if (detailId) renderDetail(detailId);
   }
   function getRow(id) {
@@ -271,7 +310,7 @@
       return '<div class="tracking-history-row"><b>' + escapeHtml(event.code || 'UPDATE') + '</b><div><strong>' + escapeHtml(eventKind(event)) + '</strong><p>' + escapeHtml(eventSummary(event)) + '</p>' + ['scheduledDeparture','scheduledArrival','estimatedDeparture','estimatedArrival'].filter(field => flight[field]).map(field => '<small>' + escapeHtml(field.replace(/([A-Z])/g,' $1')) + ': ' + dateText(flight[field]) + '</small>').join('') + '</div></div>';
     }).join('');
     const route = [row.origin,row.destination].filter(Boolean).join(' → ') || row.route || 'Route not saved';
-    box.innerHTML = '<section class="tracking-detail"><div class="tracking-detail-header"><div><small>SHIPMENT DETAILS</small><h3 id="tracking-detail-title" tabindex="-1">' + escapeHtml(displayAwb(row.awb)) + ' <span>' + escapeHtml(route) + '</span></h3></div><button type="button" class="smallbtn sb-blue" data-detail-action="close">Close details</button></div><div class="tracking-detail-body"><div class="tracking-parties"><p><b>Shipper</b>' + escapeHtml(row.shipper || 'Not saved') + '</p><p><b>Consignee</b>' + escapeHtml(row.consignee || 'Not saved') + '</p></div><dl class="tracking-dates">' + [['Actual departure',row.departedAt],['Actual arrival',row.arrivedAt],['Delivery',row.deliveredAt],['Last CargoAi update',row.lastUpdate]].map(([label,value]) => '<div><dt>' + label + '</dt><dd>' + dateText(value) + '</dd></div>').join('') + '</dl><p class="tracking-note">Dates above come from saved CargoAi updates. A dash means the date has not been verified. All times are UTC.</p><details class="tracking-flight-details" data-detail-section="flights"' + openSection('flights') + '><summary>Flight references</summary><p>' + escapeHtml(row.flight || 'No flight references received.') + '</p></details><div class="tracking-timeline-grid"><details data-detail-section="events"' + openSection('events',true) + '><summary>CargoAi events <span>' + row.events.length + '</span></summary><div class="tracking-history-list" tabindex="0" role="region" aria-label="CargoAi event history">' + (events || '<p class="tracking-note">No CargoAi events received yet.</p>') + '</div></details><details data-detail-section="manual"' + openSection('manual',!row.events.length) + '><summary>Manual / legacy history <span>' + row.manualEvents.length + '</span></summary><div class="tracking-history-list" tabindex="0" role="region" aria-label="Manual event history">' + (history || '<p class="tracking-note">No manual entries yet.</p>') + '</div></details></div><p class="tracking-note">Manual entry times show when an update was recorded, not a verified departure, arrival or delivery.</p><div class="tracking-manual-form"><div><label for="trk_ms">Manual milestone</label><select id="trk_ms">' + Object.entries(labels).map(([code,label]) => '<option value="' + escapeHtml(code) + '">' + escapeHtml(label) + '</option>').join('') + '</select></div><div><label for="trk_note">Manual note / flight reference</label><input type="text" id="trk_note" placeholder="Flight number or operations remark"></div><button type="button" class="smallbtn sb-green" data-detail-action="add" data-record-key="' + escapeHtml(key) + '">Add manual update</button></div><details class="tracking-automatic" data-detail-section="automatic"' + openSection('automatic') + '><summary>Automatic tracking <span>CargoAi · this AWB</span></summary><div class="tracking-automatic-body"><p class="tracking-note">' + (normalizeAwb(row.awb) ? 'Starting a subscription uses CargoCONNECT credits and asks for confirmation. Saved status: ' + escapeHtml(row.subscriptionStatus || 'not subscribed') + '.' : 'This record is available for manual updates. Automatic tracking requires a valid master AWB.') + '</p><button type="button" class="smallbtn sb-blue" data-detail-action="auto"' + (!normalizeAwb(row.awb) || !state.configured || !state.liveEnabled || state.error || state.loading || state.syncing ? ' disabled' : '') + '>Start CargoAi tracking for this AWB</button></div></details></div></section>';
+    box.innerHTML = '<section class="tracking-detail"><div class="tracking-detail-header"><div><small>SHIPMENT DETAILS</small><h3 id="tracking-detail-title" tabindex="-1">' + escapeHtml(displayAwb(row.awb)) + ' <span>' + escapeHtml(route) + '</span></h3></div><button type="button" class="smallbtn sb-blue" data-detail-action="close">Close details</button></div><div class="tracking-detail-body"><div class="tracking-parties"><p><b>Shipper</b>' + escapeHtml(row.shipper || 'Not saved') + '</p><p><b>Consignee</b>' + escapeHtml(row.consignee || 'Not saved') + '</p></div><dl class="tracking-dates">' + [['Actual departure',row.departedAt],['Actual arrival',row.arrivedAt],['Delivery',row.deliveredAt],['Last CargoAi update',row.lastUpdate]].map(([label,value]) => '<div><dt>' + label + '</dt><dd>' + dateText(value) + '</dd></div>').join('') + '</dl><p class="tracking-note">Dates above come from saved CargoAi updates. A dash means the date has not been verified. All times are UTC.</p><details class="tracking-flight-details" data-detail-section="flights"' + openSection('flights') + '><summary>Flight references</summary><p>' + escapeHtml(row.flight || 'No flight references received.') + '</p></details>' + trackcargoDetail(row, openSection('trackcargo',true)) + '<div class="tracking-timeline-grid"><details data-detail-section="events"' + openSection('events',true) + '><summary>CargoAi events <span>' + row.events.length + '</span></summary><div class="tracking-history-list" tabindex="0" role="region" aria-label="CargoAi event history">' + (events || '<p class="tracking-note">No CargoAi events received yet.</p>') + '</div></details><details data-detail-section="manual"' + openSection('manual',!row.events.length) + '><summary>Manual / legacy history <span>' + row.manualEvents.length + '</span></summary><div class="tracking-history-list" tabindex="0" role="region" aria-label="Manual event history">' + (history || '<p class="tracking-note">No manual entries yet.</p>') + '</div></details></div><p class="tracking-note">Manual entry times show when an update was recorded, not a verified departure, arrival or delivery.</p><div class="tracking-manual-form"><div><label for="trk_ms">Manual milestone</label><select id="trk_ms">' + Object.entries(labels).map(([code,label]) => '<option value="' + escapeHtml(code) + '">' + escapeHtml(label) + '</option>').join('') + '</select></div><div><label for="trk_note">Manual note / flight reference</label><input type="text" id="trk_note" placeholder="Flight number or operations remark"></div><button type="button" class="smallbtn sb-green" data-detail-action="add" data-record-key="' + escapeHtml(key) + '">Add manual update</button></div><details class="tracking-automatic" data-detail-section="automatic"' + openSection('automatic') + '><summary>Automatic tracking <span>CargoAi · this AWB</span></summary><div class="tracking-automatic-body"><p class="tracking-note">' + (normalizeAwb(row.awb) ? 'Starting a subscription uses CargoCONNECT credits and asks for confirmation. Saved status: ' + escapeHtml(row.subscriptionStatus || 'not subscribed') + '.' : 'This record is available for manual updates. Automatic tracking requires a valid master AWB.') + '</p><button type="button" class="smallbtn sb-blue" data-detail-action="auto"' + (!normalizeAwb(row.awb) || !state.configured || !state.liveEnabled || state.error || state.loading || state.syncing ? ' disabled' : '') + '>Start CargoAi tracking for this AWB</button></div></details></div></section>';
     if (savedCode && node('trk_ms')) node('trk_ms').value = savedCode;
     if (savedNote && node('trk_note')) node('trk_note').value = savedNote;
     if (scroll) {
@@ -297,15 +336,45 @@
   function clearState() {
     state.generation++;
     Object.assign(state, {configured:false, liveEnabled:false, shipments:[], loaded:false, error:'', message:'', checkedAt:null, userId:null});
+    Object.assign(trackcargo, {configured:false, shipments:[], loaded:false, loading:false, error:'', message:'', checkedAt:null});
     render();
     if (options.refreshReports) options.refreshReports();
   }
-  async function request(init) {
+  async function request(init, endpoint = ENDPOINT) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
-    try { return await fetch(ENDPOINT, {...init, signal:controller.signal}); }
+    try { return await fetch(endpoint, {...init, signal:controller.signal}); }
     catch (error) { if (error.name === 'AbortError') throw new Error('The tracking service took too long to respond. Try refreshing again.'); throw error; }
     finally { clearTimeout(timeout); }
+  }
+  async function refreshTrackcargo() {
+    if (trackcargo.loading) return;
+    trackcargo.loading = true; trackcargo.error = ''; render();
+    let generation = state.generation;
+    try {
+      const auth = await session();
+      if (generation !== state.generation) return;
+      if (!auth || !auth.access_token) { clearState(); generation = state.generation; trackcargo.error = 'Sign in to view TrackCargo orders.'; return; }
+      if (state.userId && state.userId !== auth.user.id) clearState();
+      state.userId = auth.user.id; generation = state.generation; trackcargo.loading = true;
+      const response = await request({method:'GET', headers:{Authorization:'Bearer ' + auth.access_token}, cache:'no-store'}, TRACKCARGO_ENDPOINT);
+      const payload = await response.json().catch(() => null);
+      if (generation !== state.generation) return;
+      if (response.status === 401 || response.status === 403) {
+        trackcargo.shipments = []; trackcargo.loaded = false; trackcargo.checkedAt = null;
+        throw new Error('Your account cannot access TrackCargo. Sign in again or contact your administrator.');
+      }
+      if (!response.ok && !(response.status === 503 && payload && payload.configured === false)) throw new Error('TrackCargo could not be refreshed. Try again shortly.');
+      if (!payload || typeof payload.configured !== 'boolean' || payload.mode !== 'read_only' || !Array.isArray(payload.shipments)) throw new Error('TrackCargo returned an unexpected response. Contact your administrator.');
+      trackcargo.configured = payload.configured;
+      trackcargo.shipments = payload.shipments.filter(item => item && item.provider === 'trackcargo' && normalizeAwb(item.awb)).map(item => {
+        const previous = trackcargo.shipments.find(saved => normalizeAwb(saved.awb) === normalizeAwb(item.awb));
+        return item.dataStatus === 'ERROR' && previous && previous.dataStatus !== 'ERROR' ? {...previous,refreshError:item.message || 'TrackCargo did not return an updated result.'} : item;
+      });
+      trackcargo.message = typeof payload.message === 'string' ? payload.message.trim() : '';
+      trackcargo.loaded = true; trackcargo.checkedAt = new Date().toISOString();
+    } catch (error) { if (generation === state.generation) trackcargo.error = error.message || 'TrackCargo could not be refreshed.'; }
+    finally { if (generation === state.generation) { trackcargo.loading = false; render(); } }
   }
   async function refresh() {
     if (state.loading) return;
@@ -367,6 +436,11 @@
   }
   function init(config) {
     options = config || {};
+    if (node('trackcargo-panel')) node('trackcargo-panel').addEventListener('click', event => {
+      const button = event.target.closest('[data-trackcargo-action]'); if (!button) return;
+      if (button.dataset.trackcargoAction === 'refresh') return refreshTrackcargo();
+      if (button.dataset.trackcargoAction === 'detail') renderDetail(button.dataset.awb, true);
+    });
     node('tracking-search').addEventListener('input', render);
     node('tracking-filter').addEventListener('change', render);
     node('tracking-refresh').addEventListener('click', refresh);
@@ -408,5 +482,5 @@
     clearInterval(timer); timer = setInterval(() => { if (isVisible()) refresh(); }, 90000);
     render();
   }
-  return {normalizeAwb, displayAwb, airlineTrackingLink, collectShipments, withManualHistory, importSavedAwbs, mergeManualStores, eventKind, eventSummary, mergeTracking, filterShipments, csvCell, toCsv, dateText, escapeHtml, statusText, init, onTab, refresh, sync, render, renderDetail, getRow, reportInfo, reportCells};
+  return {normalizeAwb, displayAwb, airlineTrackingLink, collectShipments, withManualHistory, importSavedAwbs, mergeManualStores, eventKind, eventSummary, mergeTracking, filterShipments, csvCell, toCsv, dateText, escapeHtml, statusText, init, onTab, refresh, refreshTrackcargo, sync, render, renderDetail, getRow, reportInfo, reportCells};
 });
