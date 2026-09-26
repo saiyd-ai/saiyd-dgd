@@ -11,6 +11,30 @@ test('MAWB validation accepts formatting, rejects house AWBs, bad check digits a
   for (const value of ['HAWB-12345675', '17612345674', '1761234567', '176123456755', '<script>17612345675']) assert.equal(tracking.normalizeAwb(value), '');
 });
 
+test('airline links use verified direct routes or honest landing pages for validated MAWBs only', () => {
+  const lufthansa = tracking.airlineTrackingLink(' 020-1234 5675 ');
+  assert.equal(lufthansa.awb,'020-12345675');
+  assert.equal(lufthansa.mode,'direct');
+  assert.equal(lufthansa.url,'https://www.lufthansa-cargo.com/en/eservices/etracking/tracking/-/awb/020/12345675?searchFilter=awb');
+  assert.equal(tracking.airlineTrackingLink('155-12345675').url,'https://aviationcargo.dhl.com/track/15512345675');
+  assert.equal(tracking.airlineTrackingLink('15512345675').mode,'direct');
+  for (const [awb,url,carrier] of [
+    ['098-12345675','https://aicargoportal.airindia.com/icargoneoportal/app/main/','Air India Cargo'],
+    ['147-12345675','https://ebooking.champ.aero/trace/AT/trace.asp','Royal Air Maroc Cargo'],
+    ['999-12345675','https://www.track-trace.com/aircargo','track-trace airline directory']
+  ]) {
+    const link = tracking.airlineTrackingLink(awb);
+    assert.equal(link.awb,awb);
+    assert.equal(link.carrier,carrier);
+    assert.equal(link.mode,'copy');
+    assert.equal(link.url,url);
+    assert.equal(new URL(url).search,'');
+  }
+  assert.equal(tracking.airlineTrackingLink('147-12345675').copyText,'12345675');
+  assert.equal(tracking.airlineTrackingLink('147-12345675').copyLabel,'Copy number');
+  for (const invalid of ['020-12345674','HAWB-12345675','020-1234567','javascript:alert(1)','\"><img src=x>02012345675','']) assert.equal(tracking.airlineTrackingLink(invalid),null);
+});
+
 test('one MAWB merges linked jobs and snapshots without changing document approvals', () => {
   const log = [{awb:AWB,job:'DG-1',route:'DXB - LHR'}, {awb:'176-12345675',job:'GC-2'}];
   const documents = [{job:'DG-1',status:'CONFIRMED',ts:2,snap:{awb:AWB,dep:'DXB',dest:'LHR'}}, {job:'GC-2',status:'DRAFT',snap:{awb:AWB}}, {job:'BAD',awb:'HAWB-123'}];
@@ -83,6 +107,61 @@ function fixture(payload = {configured:false,liveEnabled:false,shipments:[]}, st
   api.init({readStore:key=>Object.prototype.hasOwnProperty.call(source,key) ? source[key] : key==='jfs_joblog'?[{awb:AWB,job:'<img src=x>',shipper:'Example'}]:[],getSession:async()=>({data:{session:auth}}),onAuthStateChange:cb=>{authListener=cb;},refreshReports:()=>reportRenders.push(api.reportCells(AWB,'')),milestones:{BKD:'BOOKED',DEP:'DEPARTED',DLV:'DELIVERED'}});
   return {api,requests,element,listeners,sandbox,auth,intervals,reportRenders,confirmMessages,authListener:()=>authListener,confirm:yes=>{confirmResult=yes;},confirmCount:()=>confirmCount,setResponse:(p,s=200)=>{payload=p;status=s;}};
 }
+
+function clickTrackingAction(fixture, name, awb) {
+  const action = {dataset:{trackingAction:name},closest:selector=>selector==='[data-awb]' ? {dataset:{awb}} : null};
+  return fixture.listeners['tracking-body:click']({target:{closest:selector=>selector==='[data-tracking-action]' ? action : null},preventDefault:()=>{ throw new Error('Native airline link should remain clickable'); }});
+}
+
+test('manual airline links stay beside AWBs while paid tracking is paused and do not change saved data or call tracking', async () => {
+  const awbs = ['02012345675','09812345675','14712345675','15512345675','99912345675'];
+  const source = {jfs_joblog:awbs.map((awb,i)=>({awb,job:'JOB-'+i})),jfs_tracking:{'HOUSE-SAMPLE-01':{awb:'HOUSE-SAMPLE-01',milestones:[]}}};
+  const f = fixture({configured:true,liveEnabled:false,shipments:[{awb:awbs[0],status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}]},200,source);
+  // Links must be present even before the CargoAi service has been contacted.
+  assert.equal((f.element('tracking-body').innerHTML.match(/data-tracking-action="airline"/g)||[]).length,5);
+  assert.equal(f.requests.length,0);
+  await f.api.refresh();
+  const stored = JSON.stringify(awbs.map(awb=>f.api.getRow(awb)));
+  const html = f.element('tracking-body').innerHTML;
+  for (const awb of awbs) {
+    const row = html.match(new RegExp('<tr data-awb="'+awb+'">(.*?)</tr>'))[1];
+    const firstCell = row.slice(0,row.indexOf('</td>'));
+    assert.ok(firstCell.includes('data-tracking-action="airline"'));
+    assert.ok(firstCell.includes('target="_blank" rel="noopener noreferrer"'));
+    assert.ok(row.includes('data-tracking-action="auto" disabled'));
+    await clickTrackingAction(f,'airline',awb);
+  }
+  const manual = html.match(/<tr data-awb="manual:HOUSE-SAMPLE-01">(.*?)<\/tr>/)[1];
+  assert.ok(!manual.includes('data-tracking-action="airline"'));
+  assert.ok(!manual.includes('data-tracking-action="copy-awb"'));
+  assert.match(f.element('tracking-action-message').textContent,/Saved report is not changed/);
+  assert.equal(JSON.stringify(awbs.map(awb=>f.api.getRow(awb))),stored);
+  assert.equal(f.requests.length,1);
+  assert.equal(f.requests[0].init.method || 'GET','GET');
+  assert.equal(f.confirmCount(),0);
+});
+
+test('Copy AWB uses canonical text and leaves native navigation separate, including unavailable clipboard fallback', async () => {
+  const source = {jfs_joblog:[{awb:'09812345675',job:'AIR-INDIA'},{awb:'14712345675',job:'ROYAL-AIR-MAROC'}]};
+  const f = fixture(undefined,200,source), copied = [];
+  f.sandbox.navigator = {clipboard:{writeText:async value=>copied.push(value)}};
+  f.sandbox.window.open = () => { throw new Error('Clipboard action must not open an asynchronous popup'); };
+  assert.equal(await clickTrackingAction(f,'copy-awb','09812345675'),true);
+  assert.deepEqual(copied,['098-12345675']);
+  assert.match(f.element('tracking-action-message').textContent,/Copied 098-12345675/);
+  assert.equal(await clickTrackingAction(f,'copy-awb','14712345675'),true);
+  assert.deepEqual(copied,['098-12345675','12345675']);
+  assert.match(f.element('tracking-action-message').textContent,/Prefix 147 is set/);
+  for (const clipboard of [undefined,{writeText:async()=>{ throw new Error('Denied'); }}]) {
+    f.sandbox.navigator = {clipboard};
+    assert.equal(await clickTrackingAction(f,'copy-awb','09812345675'),false);
+    assert.match(f.element('tracking-action-message').textContent,/Select and copy this AWB: 098-12345675/);
+    assert.ok(!f.element('tracking-action-message').textContent.startsWith('Copied'));
+  }
+  assert.equal(f.requests.length,0);
+  assert.equal(f.confirmCount(),0);
+  assert.equal(f.api.getRow('09812345675').lastUpdate,null);
+});
 
 test('Dashboard loads and polls stored tracking, refreshes report cells, and never starts paid tracking', async () => {
   const f = fixture({configured:true,liveEnabled:true,shipments:[{awb:AWB,status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}]});
