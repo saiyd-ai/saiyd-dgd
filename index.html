@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-T</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-U</span></span>
           </div>
         </div>
       </div>
@@ -2430,11 +2430,32 @@ window.addEventListener("beforeprint", () => {
 /* ---------- Claude AI integration ---------- */
 function aiKey(){ return localStorage.getItem("jfs_ai_key") || ""; }
 function aiModel(){ return localStorage.getItem("jfs_ai_model") || "claude-fable-5"; }
+/* COMPANY AI KEY — stored once in the backend (company_settings), every staff login gets it automatically */
+async function aiKeyCloudPull(){
+  if(!sb || !sbUser) return;
+  try{
+    const { data } = await sb.from("company_settings").select("value").eq("key", "ai_key").maybeSingle();
+    const cloudKey = data && data.value && data.value.key ? String(data.value.key) : "";
+    if(cloudKey){
+      localStorage.setItem("jfs_ai_key", cloudKey);
+      if(data.value.model) localStorage.setItem("jfs_ai_model", data.value.model);
+      const el = document.getElementById("ai_key"); if(el) el.value = cloudKey;
+      const st = document.getElementById("ai_status"); if(st) st.textContent = "✓ Company AI key loaded automatically.";
+    } else if(aiKey()){
+      await aiKeyCloudPush();          // seed the company key from this device (first time)
+    }
+  }catch(e){}
+}
+async function aiKeyCloudPush(){
+  if(!sb || !sbUser || !aiKey()) return;
+  try{ await sb.from("company_settings").upsert({key:"ai_key", value:{key: aiKey(), model: aiModel()}, updated_by: sbUser.email}); }catch(e){}
+}
 function aiSave(){
   const k = document.getElementById("ai_key").value.trim();
   localStorage.setItem("jfs_ai_key", k);
   localStorage.setItem("jfs_ai_model", document.getElementById("ai_model").value);
-  document.getElementById("ai_status").textContent = k ? "Saved — click TEST CONNECTION." : "Key removed — AI off.";
+  document.getElementById("ai_status").textContent = k ? "Saved for the WHOLE COMPANY — click TEST CONNECTION." : "Key removed — AI off (this device).";
+  if(k) aiKeyCloudPush();              // one save = every staff login has AI
 }
 async function aiCall(system, userText, maxTokens){
   const key = aiKey();
@@ -7707,6 +7728,7 @@ async function enterApp(user){
   }catch(e){}
   dgdLogoApply();
   dgdLogoPull();          // company-wide logo — same for every user
+  aiKeyCloudPull();       // company AI key — every staff login gets AI automatically
   // no auto popup — new jobs start from the DG / GC buttons in the sidebar
   inboxPoll();
   if(_inboxT) clearInterval(_inboxT);
