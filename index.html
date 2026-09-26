@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-W</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-X</span></span>
           </div>
         </div>
       </div>
@@ -831,9 +831,11 @@
     <div id="aireviewbox" style="display:none; margin:12px 0; background:#f5eaf8; border:1px solid #c9a0d4; border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.6;"></div>
 
     <div class="actions">
-      <button class="btn btn-print" onclick="printDGD()">&#128424; PRINT / SAVE AS PDF</button>
+      <button class="btn btn-save" style="background:#b45309;" onclick="dgdSaveDraft()">&#128190; 1. SAVE DRAFT</button>
+      <button class="btn btn-save" style="background:#1d6b34;" onclick="dgdConfirm()">&#10004; 2. CONFIRM DGD</button>
+      <button class="btn btn-print" onclick="printDGD()">&#128424; 3. PRINT / SAVE AS PDF</button>
+      <span id="dgd_status_badge" style="font-weight:800; font-size:12px; padding:6px 12px; border-radius:12px; display:none;"></span>
       <button class="btn btn-save" style="background:#7b2d8b;" onclick="aiReview()">&#129302; AI REVIEW DGD</button>
-      <button class="btn btn-save" onclick="saveDraft()">Save Draft</button>
       <select id="draftsel" style="width:auto; min-width:200px;"></select>
       <button class="btn btn-load" onclick="loadDraft()">Load</button>
       <button class="btn btn-del" onclick="deleteDraft()">Delete Draft</button>
@@ -4180,13 +4182,15 @@ function renderDash(){
 function _jobRowsHtml(log, docs, q, limit){
   const TH = "padding:6px 8px; font-size:11.5px; background:#0f2b4c; color:#fff; border:1px solid #0f2b4c; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #e2e8f0; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">LAST PRINT</th><th style="${TH}">AWB</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
+  let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">STATUS</th><th style="${TH}">LAST UPDATE</th><th style="${TH}">AWB</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
   let rows = log.slice().sort((a,b) => (b.last||0) - (a.last||0))
     .filter(e => !q || ((e.job||"")+" "+(e.awb||"")+" "+(e.shipper||"")+" "+(e.consignee||"")).toLowerCase().includes(q));
   if(limit && !q) rows = rows.slice(0, limit);
   rows.forEach(e => {
     const di = docs.findIndex(d => (d.job||"") === e.job);
+    const st = di >= 0 ? (docs[di].status || "DRAFT") : "";
     h += `<tr><td style="${TD} font-weight:bold;">${e.type === "GC" ? "&#128230; " : "&#129513; "}${esc(e.job)}</td>
+      <td style="${TD} white-space:nowrap;">${statusBadgeHtml(st)}${di >= 0 && st !== "CONFIRMED" ? ` <button class="smallbtn sb-green" onclick="docConfirm(${di})" title="Confirm this DGD">&#10004;</button>` : ""}</td>
       <td style="${TD}">${e.last ? new Date(e.last).toLocaleString("en-GB") : ""}</td>
       <td style="${TD}">${esc(e.awb||"")}</td><td style="${TD}">${esc(e.shipper||"")}</td>
       <td style="${TD}">${esc(e.consignee||"")}</td><td style="${TD}">${esc(e.route||"")}</td>
@@ -4194,7 +4198,7 @@ function _jobRowsHtml(log, docs, q, limit){
       <td style="${TD} text-align:center; font-weight:bold; color:#0f2b4c;">${e.prints||0}</td>
       <td style="${TD}">${di >= 0 ? `<button class="smallbtn sb-green" onclick="loadDoc(${di})">Open</button>` : ""}</td></tr>`;
   });
-  if(rows.length === 0) h += `<tr><td colspan="9" style="${TD} color:#8a97a5;">No jobs.</td></tr>`;
+  if(rows.length === 0) h += `<tr><td colspan="10" style="${TD} color:#8a97a5;">No jobs.</td></tr>`;
   return h;
 }
 /* DOCUMENT REPORT — full list, DG and NON-DG split */
@@ -4972,32 +4976,94 @@ function renderItems(){
 }
 
 /* ---------- documents ---------- */
-function saveDocument(tellUser){
+/* status flow: 1. SAVE DRAFT (DRAFT) → 2. CONFIRM (CONFIRMED) → 3. PRINT. Edit any time — status stays. */
+function saveDocument(tellUser, status){
   const s = snapshot();
   if(!s.awb && !s.consignee){ if(tellUser) alert("Form is empty."); return; }
   const list = store("jfs_documents");
-  // one record per JOB — updated on every print (signed/AWB uploads stay attached)
+  // one record per JOB — updated on every save/confirm/print (signed/AWB uploads stay attached)
   let d = s.job ? list.find(x => (x.job||"") === s.job) : null;
   if(d){
     d.ts = Date.now(); d.when = new Date().toLocaleString("en-GB"); d.awb = s.awb;
     d.shipper = (s.shipper||"").split("\n")[0]; d.consignee = (s.consignee||"").split("\n")[0]; d.snap = s;
+    if(status) d.status = status; else if(!d.status) d.status = "DRAFT";
   } else {
     const id = (s.awb || "NOAWB") + "|" + new Date().toISOString();
     list.unshift({ id, ts: Date.now(), job: s.job || "", when: new Date().toLocaleString("en-GB"), awb: s.awb,
-      shipper: (s.shipper||"").split("\n")[0], consignee: (s.consignee||"").split("\n")[0], snap: s });
+      shipper: (s.shipper||"").split("\n")[0], consignee: (s.consignee||"").split("\n")[0], snap: s,
+      status: status || "DRAFT" });
   }
   if(list.length > 300) list.pop();
   setStore("jfs_documents", list);
   if(tellUser){ alert("Document saved."); renderDocs(); }
 }
+/* joblog entry WITHOUT counting a print — drafts & confirmed DGDs show on the dashboard immediately */
+function jobLogTouch(){
+  const s = snapshot();
+  const key = (s.job||"").trim().toUpperCase();
+  if(!key) return;
+  const list = store("jfs_joblog");
+  let e = list.find(x => x.job === key);
+  if(!e){ e = {job:key, first: Date.now(), prints: 0, months:{}}; list.unshift(e); }
+  e.awb = s.awb; e.shipper = (s.shipper||"").split("\n")[0]; e.consignee = (s.consignee||"").split("\n")[0];
+  e.route = [s.dep, s.dest].filter(Boolean).join(" - ");
+  e.un = (s.items||[]).map(r => r.un).filter(Boolean).join(", ");
+  e.last = e.last || Date.now(); e.type = e.type || JOBTYPE || "DG";
+  setStore("jfs_joblog", list);
+}
+function dgdStatusBadge(){
+  const b = document.getElementById("dgd_status_badge"); if(!b) return;
+  const s = snapshot();
+  const d = s.job ? store("jfs_documents").find(x => (x.job||"") === s.job) : null;
+  if(d && d.status){
+    b.style.display = "inline-block";
+    if(d.status === "CONFIRMED"){ b.style.background = "#d9f2e0"; b.style.color = "#1d6b34"; b.textContent = "✔ CONFIRMED"; }
+    else { b.style.background = "#fdeccf"; b.style.color = "#b45309"; b.textContent = "⏳ DRAFT"; }
+  } else b.style.display = "none";
+}
+function dgdSaveDraft(){
+  const s = snapshot();
+  if(!s.awb && !s.consignee && !(s.items||[]).length){ alert("Form is empty — fill the DGD first."); return; }
+  saveDraft();                              // named draft (Load box) as before
+  saveDocument(false, "DRAFT");
+  jobLogTouch();
+  dgdStatusBadge();
+  if(typeof renderDash === "function" && document.getElementById("dashkpi")) try{ renderDash(); }catch(e){}
+  alert("✓ Saved as DRAFT — it now shows on the DASHBOARD and DOCUMENT REPORT as ⏳ DRAFT.\nOpen it any time, edit, then press CONFIRM DGD.");
+}
+function dgdConfirm(){
+  const s = snapshot();
+  if(!s.awb && !s.consignee){ alert("Form is empty — fill the DGD first."); return; }
+  saveDocument(false, "CONFIRMED");
+  jobLogTouch();
+  dgdStatusBadge();
+  if(typeof renderDash === "function" && document.getElementById("dashkpi")) try{ renderDash(); }catch(e){}
+  alert("✔ DGD CONFIRMED — it shows everywhere as CONFIRMED.\nYou can still open and edit it later; press CONFIRM again after editing.");
+}
+function docConfirm(i){
+  const list = store("jfs_documents");
+  if(!list[i]) return;
+  list[i].status = "CONFIRMED"; list[i].ts = Date.now(); list[i].when = new Date().toLocaleString("en-GB");
+  setStore("jfs_documents", list);
+  renderDocs();
+  if(typeof renderDash === "function" && document.getElementById("dashkpi")) try{ renderDash(); }catch(e){}
+  if(typeof rptRender === "function") try{ rptRender(); }catch(e){}
+}
+function statusBadgeHtml(st){
+  if(st === "CONFIRMED") return `<span style="background:#d9f2e0; color:#1d6b34; font-weight:bold; font-size:11px; padding:3px 8px; border-radius:10px;">&#10004; CONFIRMED</span>`;
+  if(st) return `<span style="background:#fdeccf; color:#b45309; font-weight:bold; font-size:11px; padding:3px 8px; border-radius:10px;">&#9203; DRAFT</span>`;
+  return "";
+}
 function renderDocs(){
   const q = (document.getElementById("doc_search").value||"").toLowerCase();
   const list = store("jfs_documents");
-  let h = "<tr><th>DATE</th><th>JOB</th><th>AWB</th><th>SHIPPER</th><th>CONSIGNEE</th><th>VIEW</th><th>SIGNED DGD (stamp+sign scan)</th><th></th></tr>";
+  let h = "<tr><th>DATE</th><th>STATUS</th><th>JOB</th><th>AWB</th><th>SHIPPER</th><th>CONSIGNEE</th><th>VIEW</th><th>SIGNED DGD (stamp+sign scan)</th><th></th></tr>";
   list.forEach((d,i) => {
     if(q && !((d.job||"")+" "+d.awb+" "+d.shipper+" "+d.consignee).toLowerCase().includes(q)) return;
     const signed = !!d.signed;
-    h += `<tr><td>${esc(d.when)}</td><td><b>${esc(d.job||"—")}</b></td><td><b>${esc(d.awb||"—")}</b></td>
+    h += `<tr><td>${esc(d.when)}</td>
+      <td style="white-space:nowrap;">${statusBadgeHtml(d.status || "DRAFT")}${(d.status || "DRAFT") !== "CONFIRMED" ? ` <button class="smallbtn sb-green" onclick="docConfirm(${i})" title="Confirm">&#10004; Confirm</button>` : ""}</td>
+      <td><b>${esc(d.job||"—")}</b></td><td><b>${esc(d.awb||"—")}</b></td>
       <td>${esc(d.shipper||"")}</td><td>${esc(d.consignee||"")}</td>
       <td style="white-space:nowrap;">
         <button class="btn btn-save" style="background:#0f2b4c; padding:8px 18px; margin:0;" onclick="docViewer(${i})">&#128065; VIEW</button>
@@ -5013,7 +5079,7 @@ function renderDocs(){
   });
   document.getElementById("doc_table").innerHTML = h;
 }
-function loadDoc(i){ applySnapshot(store("jfs_documents")[i].snap); showTab("dgd"); }
+function loadDoc(i){ applySnapshot(store("jfs_documents")[i].snap); showTab("dgd"); try{ dgdStatusBadge(); }catch(e){} }
 function delDoc(i){
   const list = store("jfs_documents");
   if(!confirm("Delete this document?")) return;
