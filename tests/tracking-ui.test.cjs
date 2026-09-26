@@ -6,21 +6,55 @@ const vm = require('node:vm');
 const tracking = require('../tracking.js');
 const AWB = '17612345675';
 const TRACKCARGO_ENDPOINT = '/.netlify/functions/trackcargo-tracking';
+const AWBS = ['02012345675','09812345675','09812345686','14712345675','15512345675'];
+const legacy = {
+  '176-12345675':{awb:'176-12345675',job:'DG-1',route:'DXB - LHR',milestones:[{code:'BKD',ts:1700000000000,note:'Booking entered',by:'Operator'}],updated:1700000000000},
+  '17612345675':{awb:'17612345675',job:'GC-2',milestones:[{code:'DLV',ts:1700000010000,note:'Legacy imported',src:'CARGO CONNECT'}],updated:1700000010000},
+  'HOUSE-SAMPLE-01':{awb:'HOUSE-SAMPLE-01',job:'DG-HOUSE',milestones:[{code:'DEP',ts:1700000020000,note:'Manual house entry'}],updated:1700000020000}
+};
 
 function trackcargoPayload() {
   const fetchedAt = '2026-09-27T01:00:00Z';
   return {configured:true,mode:'read_only',message:'Read existing TrackCargo orders only.',shipments:[
-    {awb:'02012345675',provider:'trackcargo',orderId:'existing-lh',orderStatus:'active',dataStatus:'AVAILABLE',status:'RCF',statusDescription:'Received from flight',statusScope:'latest_actual_event',origin:'DWC',destination:'JFK',currentLocation:'VIE',lastUpdate:'2026-09-24T22:03:00Z',fetchedAt,departedAt:'2026-09-23T04:58:00Z',arrivedAt:null,deliveredAt:null,plannedArrivalAt:'2026-09-28T00:05:00Z',plannedDeliveryAt:'2026-09-28T18:05:00Z',events:[
+    {awb:AWBS[0],provider:'trackcargo',orderId:'existing-lh',orderStatus:'active',dataStatus:'AVAILABLE',status:'RCF',statusDescription:'Received from flight',statusScope:'latest_actual_event',origin:'DWC',destination:'JFK',currentLocation:'VIE',lastUpdate:'2026-09-24T22:03:00Z',fetchedAt,departedAt:'2026-09-23T04:58:00Z',arrivedAt:null,deliveredAt:null,plannedArrivalAt:'2026-09-28T00:05:00Z',plannedDeliveryAt:'2026-09-28T18:05:00Z',events:[
       {code:'RCF',description:'Received from flight',eventDate:'2026-09-24T22:03:00Z',eventLocation:'VIE',isPlanned:false,timeKind:'actual',pieces:7,weight:2721,flightNumber:'LH7562S',timezone:'Europe/Vienna'},
       {code:'DLV',description:'Delivered to consignee',eventDate:'2026-09-28T18:05:00Z',eventLocation:'JFK',isPlanned:true,timeKind:'planned',pieces:null,weight:null,timezone:'America/New_York'}
     ]},
-    ...['09812345675','09812345686'].map((awb,i)=>({awb,provider:'trackcargo',orderId:'existing-ai-'+i,orderStatus:'pending',dataStatus:'INCONCLUSIVE',status:'UNKNOWN',lastUpdate:null,fetchedAt,events:[]}))
+    ...AWBS.slice(1,3).map((awb,i)=>({awb,provider:'trackcargo',orderId:'existing-ai-'+i,orderStatus:'pending',dataStatus:'INCONCLUSIVE',status:'UNKNOWN',lastUpdate:null,fetchedAt,events:[]}))
   ]};
 }
 
-function clickTrackcargo(fixture, action, awb) {
-  return fixture.listeners['trackcargo-panel:click']({target:{closest:()=>({dataset:{trackcargoAction:action,awb}})}});
+function fixture(payload = {configured:false,mode:'read_only',shipments:[]}, status = 200, source = {}) {
+  const elements = new Map(), listeners = {}, requests = [], intervals = [], reportRenders = [];
+  const element = id => {
+    if (!elements.has(id)) elements.set(id, {id,value:'',innerHTML:'',textContent:'',disabled:false,options:[{value:''}],classList:{contains:() => id === 'tab-track'},addEventListener:(name, fn) => {listeners[id + ':' + name]=fn;}});
+    return elements.get(id);
+  };
+  let authListener, confirmCount = 0;
+  const auth = {access_token:'fixture-only',user:{id:'fixture-user'}};
+  const sandbox = {module:{exports:{}},AbortController,console,Date,Blob,URL,
+    document:{hidden:false,getElementById:element,addEventListener:(name,fn)=>{listeners['document:'+name]=fn;}},
+    window:{addEventListener:(name,fn)=>{listeners['window:'+name]=fn;},confirm:()=>{confirmCount++;throw new Error('Tracking view must not prompt to start paid subscriptions');}},
+    setInterval:fn=>{intervals.push(fn);return 1;},clearInterval:()=>{},setTimeout:()=>1,clearTimeout:()=>{},
+    fetch:async (url, init) => { requests.push({url,init});return {ok:status>=200&&status<300,status,json:async()=>payload}; }
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../tracking.js'),'utf8'), sandbox);
+  const api = sandbox.module.exports;
+  api.init({readStore:key=>Object.prototype.hasOwnProperty.call(source,key) ? source[key] : key==='jfs_joblog'?[{awb:AWB,job:'<img src=x>',shipper:'Example'}]:[],getSession:async()=>({data:{session:auth}}),onAuthStateChange:cb=>{authListener=cb;},refreshReports:()=>reportRenders.push(api.reportCells(AWB,'')),milestones:{BKD:'BOOKED',DEP:'DEPARTED',DLV:'DELIVERED'}});
+  return {api,requests,element,listeners,sandbox,auth,intervals,reportRenders,authListener:()=>authListener,confirmCount:()=>confirmCount,setResponse:(p,s=200)=>{payload=p;status=s;}};
 }
+
+function clickTrackingAction(fixture, name, awb) {
+  const action = {dataset:{trackingAction:name},closest:selector=>selector==='[data-awb]' ? {dataset:{awb}} : null};
+  return fixture.listeners['tracking-body:click']({target:{closest:selector=>selector==='[data-tracking-action]' ? action : null},preventDefault:()=>{throw new Error('Native airline link should remain clickable');}});
+}
+function localSource() {
+  return {jfs_joblog:AWBS.map((awb,i)=>({awb,job:'JOB-'+i,route:'DXB - JFK'})),jfs_tracking:{'020-12345675':{awb:'020-12345675',milestones:[{code:'DEP',note:'Manual note',ts:1}]}}};
+}
+function view(f) {
+  return ['tracking-body','tracking-connection-title','tracking-connection-text','tracking-action-message','tracking-checked','trk_detail'].map(id=>f.element(id).innerHTML+' '+f.element(id).textContent).join('\n');
+}
+
 
 test('MAWB validation accepts formatting, rejects house AWBs, bad check digits and missing digits', () => {
   assert.equal(tracking.normalizeAwb(' 176-1234 5675 '), AWB);
@@ -69,98 +103,6 @@ test('newest duplicate document supplies the status and linked document index', 
   assert.equal(rows[0].jobs[0].documentIndex, 0);
 });
 
-test('tracking state never invents milestone dates or overwrites document status', () => {
-  const rows = tracking.collectShipments([{awb:AWB,job:'DG-1'}],[]).shipments;
-  const disconnected = tracking.mergeTracking(rows,[],false)[0];
-  assert.equal(disconnected.status, 'Tracking not connected');
-  assert.equal(disconnected.deliveredAt, null);
-  const joined = tracking.mergeTracking(rows,[{awb:'176-12345675',status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}],true)[0];
-  assert.equal(joined.status,'IN TRANSIT');
-  assert.equal(joined.arrivedAt,null);
-  assert.equal(tracking.filterShipments([joined],'DG-1','IN TRANSIT').length,1);
-  assert.equal(tracking.filterShipments([joined],'','DELIVERED').length,0);
-});
-
-test('CSV quotes delimiters, line breaks and neutralizes spreadsheet formulas', () => {
-  for (const formula of ['=1+1',' +SUM(A1)','\t=1','\r@IMPORT','\ufeff-1','@SUM(1)']) assert.ok(tracking.csvCell(formula).startsWith('"\''));
-  assert.equal(tracking.csvCell('a,"b"\nc'), '"a,""b""\nc"');
-  const rows = tracking.mergeTracking(tracking.collectShipments([{awb:AWB,job:'=HYPERLINK("bad")',shipper:'@attacker'}],[]).shipments,[],false);
-  const csv = tracking.toCsv(rows);
-  assert.ok(csv.startsWith('\ufeff"AWB"'));
-  assert.ok(csv.includes('"\'@attacker"'));
-  assert.ok(csv.includes('"\'=HYPERLINK(""bad"")"'));
-});
-
-test('UNKNOWN placeholders distinguish pending first updates from unsubscribed AWBs', () => {
-  const rows = tracking.collectShipments([{awb:AWB,job:'DG-1'}],[]).shipments;
-  for (const subscriptionStatus of ['active','pending','unknown']) {
-    const result = tracking.mergeTracking(rows,[{awb:AWB,status:'UNKNOWN',lastUpdate:null,subscriptionStatus}],true);
-    assert.equal(result[0].status,'Awaiting first update',subscriptionStatus);
-  }
-  const placeholder = [{awb:AWB,status:'UNKNOWN',lastUpdate:null,subscriptionStatus:'not_subscribed'}];
-  assert.equal(tracking.mergeTracking(rows,placeholder,true)[0].status,'Not tracked');
-  assert.equal(tracking.mergeTracking(rows,placeholder,false)[0].status,'Tracking not connected');
-  assert.equal(tracking.mergeTracking(rows,[{...placeholder[0],status:'DELIVERED',lastUpdate:'2026-09-26T10:00:00Z'}],false)[0].status,'DELIVERED');
-});
-
-function fixture(payload = {configured:false,liveEnabled:false,shipments:[]}, status = 200, source = {}) {
-  const elements = new Map(), listeners = {}, requests = [], intervals = [], reportRenders = [];
-  const element = id => {
-    if (!elements.has(id)) elements.set(id, {id,value:'',innerHTML:'',textContent:'',disabled:false,options:[{value:''}],classList:{contains:() => id === 'tab-track'},addEventListener:(name, fn) => {listeners[id + ':' + name]=fn;}});
-    return elements.get(id);
-  };
-  let authListener, confirmResult = false, confirmCount = 0;
-  const confirmMessages = [];
-  const auth = {access_token:'fixture-only',user:{id:'fixture-user'}};
-  const sandbox = {module:{exports:{}},AbortController,console,Date,Blob,URL,
-    document:{hidden:false,getElementById:element,addEventListener:()=>{}},
-    window:{addEventListener:()=>{},confirm:message=>{confirmCount++;confirmMessages.push(message);return confirmResult;}},
-    setInterval:fn=>{intervals.push(fn);return 1;},clearInterval:()=>{},setTimeout:()=>1,clearTimeout:()=>{},
-    fetch:async (url, init) => { requests.push({url,init});return {ok:status>=200&&status<300,status,json:async()=>payload}; }
-  };
-  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../tracking.js'),'utf8'), sandbox);
-  const api = sandbox.module.exports;
-  api.init({readStore:key=>Object.prototype.hasOwnProperty.call(source,key) ? source[key] : key==='jfs_joblog'?[{awb:AWB,job:'<img src=x>',shipper:'Example'}]:[],getSession:async()=>({data:{session:auth}}),onAuthStateChange:cb=>{authListener=cb;},refreshReports:()=>reportRenders.push(api.reportCells(AWB,'')),milestones:{BKD:'BOOKED',DEP:'DEPARTED',DLV:'DELIVERED'}});
-  return {api,requests,element,listeners,sandbox,auth,intervals,reportRenders,confirmMessages,authListener:()=>authListener,confirm:yes=>{confirmResult=yes;},confirmCount:()=>confirmCount,setResponse:(p,s=200)=>{payload=p;status=s;}};
-}
-
-function clickTrackingAction(fixture, name, awb) {
-  const action = {dataset:{trackingAction:name},closest:selector=>selector==='[data-awb]' ? {dataset:{awb}} : null};
-  return fixture.listeners['tracking-body:click']({target:{closest:selector=>selector==='[data-tracking-action]' ? action : null},preventDefault:()=>{ throw new Error('Native airline link should remain clickable'); }});
-}
-
-test('manual airline links stay beside AWBs while paid tracking is paused and do not change saved data or call tracking', async () => {
-  const awbs = ['02012345675','09812345675','14712345675','15512345675','99912345675'];
-  const source = {jfs_joblog:awbs.map((awb,i)=>({awb,job:'JOB-'+i})),jfs_tracking:{'HOUSE-SAMPLE-01':{awb:'HOUSE-SAMPLE-01',milestones:[]}}};
-  const f = fixture({configured:true,liveEnabled:false,shipments:[{awb:awbs[0],status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}]},200,source);
-  // Links must be present even before the CargoAi service has been contacted.
-  assert.equal((f.element('tracking-body').innerHTML.match(/data-tracking-action="airline"/g)||[]).length,5);
-  assert.equal(f.requests.length,0);
-  await f.api.refresh();
-  const stored = JSON.stringify(awbs.map(awb=>f.api.getRow(awb)));
-  const html = f.element('tracking-body').innerHTML;
-  for (const awb of awbs) {
-    const row = html.match(new RegExp('<tr data-awb="'+awb+'">(.*?)</tr>'))[1];
-    const firstCell = row.slice(0,row.indexOf('</td>'));
-    assert.ok(firstCell.includes('data-tracking-action="airline"'));
-    assert.ok(firstCell.includes('target="_blank" rel="noopener noreferrer"'));
-    assert.ok(!row.includes('data-tracking-action="auto"'));
-    f.api.renderDetail(awb);
-    const detail = f.element('trk_detail').innerHTML;
-    assert.match(detail,/<details class="tracking-automatic" data-detail-section="automatic">/);
-    assert.ok(detail.includes('data-detail-action="auto" disabled'));
-    await clickTrackingAction(f,'airline',awb);
-  }
-  const manual = html.match(/<tr data-awb="manual:HOUSE-SAMPLE-01">(.*?)<\/tr>/)[1];
-  assert.ok(!manual.includes('data-tracking-action="airline"'));
-  assert.ok(!manual.includes('data-tracking-action="copy-awb"'));
-  assert.match(f.element('tracking-action-message').textContent,/Saved report is not changed/);
-  assert.equal(JSON.stringify(awbs.map(awb=>f.api.getRow(awb))),stored);
-  assert.equal(f.requests.length,1);
-  assert.equal(f.requests[0].init.method || 'GET','GET');
-  assert.equal(f.confirmCount(),0);
-});
-
 test('Copy AWB uses canonical text and leaves native navigation separate, including unavailable clipboard fallback', async () => {
   const source = {jfs_joblog:[{awb:'09812345675',job:'AIR-INDIA'},{awb:'14712345675',job:'ROYAL-AIR-MAROC'}]};
   const f = fixture(undefined,200,source), copied = [];
@@ -182,289 +124,6 @@ test('Copy AWB uses canonical text and leaves native navigation separate, includ
   assert.equal(f.confirmCount(),0);
   assert.equal(f.api.getRow('09812345675').lastUpdate,null);
 });
-
-test('compact shipment rows keep airline actions and linked jobs while complete flights and history remain in details and export', async () => {
-  const flight = Array.from({length:18},(_,i)=>'DHL FLIGHT ' + (100 + i)).join(' / ');
-  const customer = 'Example consignee with a long address and operations contact';
-  const jobs = ['DG-1','GC-2','DG-3'].map(job=>({awb:AWB,job,shipper:'Example shipper',consignee:customer}));
-  const f = fixture({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'IN_TRANSIT',origin:'DXB',destination:'LHR',flight,
-    departedAt:'2026-09-24T09:00:00Z',lastUpdate:'2026-09-26T10:00:00Z',events:[{code:'DEP',eventDate:'2026-09-24T09:00:00Z',eventLocation:'DXB'}]}]},200,
-    {jfs_joblog:jobs,jfs_tracking:legacy});
-  await f.api.refresh();
-  const row = f.element('tracking-body').innerHTML.match(new RegExp('<tr data-awb="'+AWB+'">(.*?)</tr>'))[1];
-  assert.equal((row.match(/<td\b/g)||[]).length,6);
-  assert.ok(row.includes('data-tracking-action="airline"'));
-  assert.ok(row.includes('>View details</button>'));
-  assert.ok(row.includes('CargoAi · saved status'));
-  assert.ok(row.includes('title="'+customer+'"'));
-  assert.match(row,/<details class="tracking-more-jobs" data-job-group="17612345675"><summary>\+2 more jobs<\/summary>/);
-  assert.ok(row.indexOf('data-job="DG-1"') < row.indexOf('<details'));
-  assert.ok(row.indexOf('data-job="GC-2"') > row.indexOf('<details'));
-  assert.ok(!row.includes(flight));
-  assert.ok(!row.includes('Legacy imported entry'));
-  assert.ok(!row.includes('data-detail-action="auto"'));
-  assert.match(row,/26 Sept? 2026, 10:00 UTC/);
-
-  await clickTrackingAction(f,'timeline',AWB);
-  const detail = f.element('trk_detail').innerHTML;
-  assert.ok(detail.includes(flight));
-  assert.ok(detail.includes('Legacy imported entry'));
-  assert.ok(detail.includes('Actual departure'));
-  assert.match(detail,/24 Sept? 2026, 09:00 UTC/);
-  assert.match(detail,/<details class="tracking-flight-details" data-detail-section="flights">/);
-  assert.match(detail,/<details data-detail-section="events" open>/);
-  assert.match(detail,/<details class="tracking-automatic" data-detail-section="automatic">/);
-  assert.ok(detail.includes('data-detail-action="auto" disabled'));
-  const csv = f.api.toCsv([f.api.getRow(AWB)]);
-  for (const retained of [flight,'DG-1','GC-2','DG-3','Legacy imported entry']) assert.ok(csv.includes(retained));
-  f.listeners['trk_detail:click']({target:{closest:()=>({dataset:{detailAction:'close'}})}});
-  assert.equal(f.element('trk_detail').innerHTML,'');
-  f.api.render();
-  assert.equal(f.element('trk_detail').innerHTML,'');
-  assert.equal(f.requests.length,1);
-  assert.equal(f.requests[0].init.method || 'GET','GET');
-  assert.equal(f.confirmCount(),0);
-});
-
-test('opening details moves focus and view only on explicit action, then closing returns focus to the correct shipment', async () => {
-  const f = fixture({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'IN_TRANSIT'}]});
-  const navigation = [];
-  f.element('tracking-detail-title').focus = options => navigation.push({action:'heading-focus',...options});
-  f.element('trk_detail').scrollIntoView = options => navigation.push({action:'detail-scroll',...options});
-  const rowButton = awb => ({closest:()=>({dataset:{awb}}),focus:()=>navigation.push({action:'row-focus',awb})});
-  f.element('tracking-body').querySelectorAll = selector => selector === '[data-tracking-action="timeline"]' ? [rowButton('02012345675'),rowButton(AWB)] : [];
-  assert.equal(navigation.length,0);
-  await clickTrackingAction(f,'timeline',AWB);
-  assert.ok(f.element('trk_detail').innerHTML.includes('id="tracking-detail-title" tabindex="-1"'));
-  assert.deepEqual(navigation,[{action:'heading-focus',preventScroll:true},{action:'detail-scroll',behavior:'auto',block:'start'}]);
-  await f.api.refresh();
-  f.intervals[0]();
-  await new Promise(setImmediate);
-  assert.equal(navigation.length,2,'Stored-status refresh must not steal focus or scroll');
-  f.listeners['trk_detail:click']({target:{closest:()=>({dataset:{detailAction:'close'}})}});
-  assert.deepEqual(navigation.at(-1),{action:'row-focus',awb:AWB});
-  assert.equal(f.element('trk_detail').innerHTML,'');
-  f.api.render();
-  assert.equal(navigation.length,3);
-  assert.equal(f.element('trk_detail').innerHTML,'');
-  assert.equal(f.requests.length,2);
-  assert.ok(f.requests.every(request=>(request.init.method || 'GET') === 'GET'));
-  assert.equal(f.confirmCount(),0);
-});
-
-test('stored-status refresh preserves expanded jobs, detail sections and an unsaved manual note without paid requests', async () => {
-  const f = fixture({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}]},200,
-    {jfs_joblog:[{awb:AWB,job:'DG-1'},{awb:AWB,job:'GC-2'}],jfs_tracking:legacy});
-  await f.api.refresh();
-  f.api.renderDetail(AWB);
-  f.element('trk_note').value = 'Unsaved operations note';
-  f.element('trk_ms').value = 'DEP';
-  f.element('tracking-automatic').open = true;
-  f.element('tracking-body').querySelectorAll = selector => {
-    assert.equal(selector,'details[data-job-group][open]');
-    return [{dataset:{jobGroup:AWB}}];
-  };
-  f.element('trk_detail').querySelectorAll = selector => {
-    assert.equal(selector,'details[data-detail-section][open]');
-    return ['flights','manual','automatic'].map(detailSection=>({dataset:{detailSection}}));
-  };
-  f.setResponse({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'DELIVERED',lastUpdate:'2026-09-26T11:00:00Z'}]});
-  f.intervals[0]();
-  await new Promise(setImmediate);
-  const detail = f.element('trk_detail').innerHTML;
-  assert.match(f.element('tracking-body').innerHTML,/<details class="tracking-more-jobs" data-job-group="17612345675" open>/);
-  for (const name of ['flights','manual','automatic']) assert.ok(detail.includes('data-detail-section="'+name+'" open'));
-  assert.ok(detail.includes('data-detail-section="events">'));
-  assert.equal(f.element('trk_note').value,'Unsaved operations note');
-  assert.equal(f.element('trk_ms').value,'DEP');
-  assert.equal(f.element('tracking-automatic').open,true);
-  assert.match(f.element('tracking-body').innerHTML,/DELIVERED/);
-  assert.match(f.element('tracking-checked').textContent,/^Report refreshed /);
-  assert.equal(f.requests.length,2);
-  assert.ok(f.requests.every(request=>(request.init.method || 'GET') === 'GET'));
-  assert.equal(f.confirmCount(),0);
-});
-
-test('Dashboard loads and polls stored tracking, refreshes report cells, and never starts paid tracking', async () => {
-  const f = fixture({configured:true,liveEnabled:true,shipments:[{awb:AWB,status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}]});
-  for (const id of ['tab-track','tab-rpt']) f.element(id).classList.contains = () => false;
-  f.element('tab-dash').classList.contains = () => true;
-  assert.equal(f.requests.length,0);
-  f.api.onTab('dash');
-  await new Promise(setImmediate);
-  assert.equal(f.requests.length,1);
-  assert.match(f.reportRenders.at(-1),/IN TRANSIT/);
-  assert.match(f.reportRenders.at(-1),/10:00 UTC/);
-
-  f.setResponse({configured:true,liveEnabled:true,shipments:[{awb:AWB,status:'DELIVERED',lastUpdate:'2026-09-26T11:00:00Z'}]});
-  f.intervals[0]();
-  await new Promise(setImmediate);
-  assert.equal(f.requests.length,2);
-  assert.match(f.reportRenders.at(-1),/DELIVERED/);
-  assert.match(f.reportRenders.at(-1),/11:00 UTC/);
-
-  f.sandbox.document.hidden = true;
-  f.intervals[0]();
-  await new Promise(setImmediate);
-  assert.equal(f.requests.length,2);
-  assert.equal(f.confirmCount(),0);
-  for (const request of f.requests) {
-    assert.equal(request.url,'/.netlify/functions/cargoai-tracking');
-    assert.equal(request.init.method || 'GET','GET');
-    assert.equal(request.init.headers.Authorization,'Bearer fixture-only');
-  }
-});
-
-test('actual sign-in loads tracking only after a successful cloud pull in a visible report view', async () => {
-  const html = fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-  const entry = html.slice(html.indexOf('async function enterApp(user){'),html.indexOf('function setSync(state)'));
-  const pull = html.slice(html.indexOf('async function cloudPullAll(tell){'),html.indexOf('/* live team sync'));
-  for (const scenario of [{tab:'dash'},{tab:'track'},{tab:'rpt'},{tab:'dgd'},{tab:'dash',fail:true},{tab:'dash',hidden:true}]) {
-    const f = fixture({configured:true,liveEnabled:true,shipments:[{awb:AWB,status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}]});
-    for (const name of ['dash','track','rpt','dgd']) f.element('tab-'+name).classList.contains = () => scenario.tab === name;
-    f.sandbox.document.hidden = !!scenario.hidden;
-    f.sandbox.document.getElementById = id => { const el = f.element(id); el.style ||= {}; return el; };
-    let finishCloud;
-    const cloudGate = new Promise(resolve => { finishCloud = resolve; });
-    const query = {select:()=>query,eq:()=>query,single:async()=>({data:{active:true}}),in:async()=>({data:[]})};
-    Object.assign(f.sandbox,{DgTracking:f.api,sbUser:null,_inboxT:null,PRIVATE_KEYS:[],
-      sb:{from:()=>query},localStorage:{setItem:()=>{}},userDisplayName:()=> 'Fixture user',
-      cloudPullShared:async()=>{ await cloudGate; if(scenario.fail) throw new Error('Cloud unavailable'); }});
-    f.sandbox.window.DgTracking = f.api;
-    for (const name of ['renderDash','setSync','rebuildUNDB','fillPickers','loadDefaults','refreshDraftList','renderCustomers','refresh','dgdLogoApply','dgdLogoPull','aiKeyCloudPull','inboxPoll','teamSyncStart']) f.sandbox[name] = () => {};
-    vm.runInNewContext(entry + '\n' + pull,f.sandbox);
-    const signingIn = f.sandbox.enterApp({id:'fixture-user',email:'fixture@example.test'});
-    await new Promise(setImmediate);
-    assert.equal(f.requests.length,0,'No tracking GET before company data finishes loading');
-    finishCloud();
-    await signingIn;
-    await new Promise(setImmediate);
-    const shouldRefresh = scenario.tab !== 'dgd' && !scenario.fail && !scenario.hidden;
-    assert.equal(f.requests.length,shouldRefresh ? 1 : 0,JSON.stringify(scenario));
-    if (shouldRefresh) {
-      assert.match(f.reportRenders.at(-1),/IN TRANSIT/);
-      assert.equal(f.requests[0].url,'/.netlify/functions/cargoai-tracking');
-      assert.equal(f.requests[0].init.method || 'GET','GET');
-      assert.equal(f.requests[0].init.headers.Authorization,'Bearer fixture-only');
-    }
-    assert.equal(f.confirmCount(),0);
-  }
-});
-
-test('unconfigured service lists real AWBs safely and makes no CargoAi or POST request', async () => {
-  const f = fixture({configured:false,liveEnabled:false,shipments:[]},503);
-  assert.equal(f.requests.length,0);
-  await f.api.refresh();
-  assert.equal(f.requests.length,1);
-  assert.equal(f.requests[0].url,'/.netlify/functions/cargoai-tracking');
-  assert.equal(f.requests[0].init.headers.Authorization,'Bearer fixture-only');
-  assert.equal(f.requests[0].init.method,undefined);
-  assert.equal(f.element('tracking-sync').disabled,true);
-  assert.equal(f.element('tracking-connection-title').textContent,'Manual airline checks available · Automatic tracking not connected');
-  assert.ok(f.element('tracking-body').innerHTML.includes('&lt;img src=x&gt;'));
-  await f.listeners['tracking-sync:click']();
-  assert.equal(f.requests.length,1);
-  assert.equal(f.confirmCount(),0);
-});
-
-test('live tracking stays paused until backend enablement; enabled POST requires explicit confirmation', async () => {
-  const f = fixture({configured:true,liveEnabled:false,shipments:[]});
-  await f.api.refresh();
-  await f.listeners['tracking-sync:click']();
-  assert.equal(f.requests.length,1);
-  assert.equal(f.confirmCount(),0);
-  f.setResponse({configured:true,liveEnabled:true,shipments:[]});
-  await f.api.refresh();
-  await f.listeners['tracking-sync:click']();
-  assert.equal(f.confirmCount(),1);
-  assert.equal(f.requests.filter(r=>r.init.method==='POST').length,0);
-  f.confirm(true);
-  await f.listeners['tracking-sync:click']();
-  const post = f.requests.find(r=>r.init.method==='POST');
-  assert.equal(post.init.body,'{"action":"sync"}');
-});
-
-test('pending signed callbacks show the server reason as text and cannot start tracking', async () => {
-  const message = 'Signed webhook (HMAC) setup is pending. <img src=x onerror=alert(1)>';
-  const f = fixture({configured:false,liveEnabled:false,shipments:[{awb:AWB,status:'IN_TRANSIT'}],message});
-  await f.api.refresh();
-  assert.equal(f.element('tracking-connection-title').textContent,'Manual airline checks available · Automatic tracking not connected');
-  assert.ok(f.element('tracking-auto-status').textContent.includes(message));
-  assert.equal(f.element('tracking-auto-status').innerHTML,'');
-  assert.equal(f.api.reportInfo(AWB).status,'IN TRANSIT');
-  assert.equal(f.element('tracking-sync').disabled,true);
-  await f.listeners['tracking-sync:click']();
-  assert.equal(f.requests.length,1);
-  assert.equal(f.confirmCount(),0);
-  f.authListener()('SIGNED_OUT',null);
-  assert.ok(!f.element('tracking-auto-status').textContent.includes(message));
-});
-
-test('credit messaging follows server setup without assuming a Free plan or enabling paused requests', async () => {
-  const message = 'Verified allowance: 150 credits. Application cap: 10 credits. Live requests are paused.';
-  const f = fixture({configured:true,liveEnabled:false,shipments:[],message});
-  await f.api.refresh();
-  assert.equal(f.element('tracking-connection-title').textContent,'Manual airline checks available · Automatic tracking paused');
-  assert.ok(f.element('tracking-auto-status').textContent.includes(message));
-  assert.ok(!/Free.plan/.test(f.element('tracking-auto-status').textContent));
-  await f.listeners['tracking-sync:click']();
-  assert.equal(f.confirmCount(),0);
-  f.setResponse({configured:true,liveEnabled:true,shipments:[],message:{unexpected:'value'}});
-  await f.api.refresh();
-  assert.ok(!f.element('tracking-auto-status').textContent.includes(message));
-  assert.ok(!f.element('tracking-auto-status').textContent.includes('[object Object]'));
-  await f.listeners['tracking-sync:click']();
-  assert.match(f.confirmMessages[0],/10 CargoCONNECT credits/);
-  assert.match(f.confirmMessages[0],/configured application credit cap/);
-  assert.match(f.confirmMessages[0],/does not change your plan/);
-  assert.ok(!/Free.plan|paid plan will be purchased/.test(f.confirmMessages[0]));
-  assert.equal(f.requests.filter(request=>request.init.method==='POST').length,0);
-});
-
-test('logout clears status and discards an old session response', async () => {
-  const f = fixture({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'DELIVERED',lastUpdate:'2026-09-26T10:00:00Z'}]});
-  await f.api.refresh();
-  assert.equal(f.api.reportInfo(AWB).status,'DELIVERED');
-  let resolve;
-  f.sandbox.fetch = () => new Promise(done=>{resolve=done;});
-  const pending = f.api.refresh();
-  await new Promise(setImmediate);
-  f.authListener()('SIGNED_OUT',null);
-  resolve({ok:true,status:200,json:async()=>({configured:true,liveEnabled:true,shipments:[{awb:AWB,status:'DELIVERED'}]})});
-  await pending;
-  assert.equal(f.api.reportInfo(AWB).status,'Tracking not connected');
-  assert.equal(f.element('tracking-sync').disabled,true);
-});
-
-test('delivered KPI counts only terminal delivery statuses, not partial or negated labels', async () => {
-  const f = fixture();
-  for (const status of ['NOT DELIVERED','PARTIALLY DELIVERED','DELIVERY PENDING','NOT DEPARTED']) {
-    f.setResponse({configured:true,liveEnabled:false,shipments:[{awb:AWB,status}]});
-    await f.api.refresh();
-    assert.equal(f.element('tracking-delivered').textContent,0,status);
-    assert.equal(f.element('tracking-moving').textContent,0,status);
-  }
-  f.setResponse({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'DLV'}]});
-  await f.api.refresh();
-  assert.equal(f.element('tracking-delivered').textContent,1);
-  assert.equal(f.element('tracking-connection-title').textContent,'Manual airline checks available · Automatic tracking paused');
-});
-
-test('server 503 explains the service error rather than silently presenting incomplete setup', async () => {
-  const message = 'Tracking storage is temporarily unavailable.';
-  const f = fixture({configured:false,liveEnabled:false,shipments:[],error:message,message},503);
-  await f.api.refresh();
-  assert.equal(f.element('tracking-connection-title').textContent,'Manual airline checks available · Saved updates unavailable');
-  assert.equal(f.element('tracking-connection-text').textContent,message);
-  assert.equal(f.element('tracking-sync').disabled,true);
-  assert.equal(f.element('tracking-checked').textContent,'Saved updates not retrieved yet');
-});
-
-const legacy = {
-  '176-12345675':{awb:'176-12345675',job:'DG-1',route:'DXB - LHR',milestones:[{code:'BKD',ts:1700000000000,note:'Booking entered',by:'Operator'}],updated:1700000000000},
-  '17612345675':{awb:'17612345675',job:'GC-2',milestones:[{code:'DLV',ts:1700000010000,note:'Legacy imported',src:'CARGO CONNECT'}],updated:1700000010000},
-  'HOUSE-SAMPLE-01':{awb:'HOUSE-SAMPLE-01',job:'DG-HOUSE',milestones:[{code:'DEP',ts:1700000020000,note:'Manual house entry'}],updated:1700000020000}
-};
 
 test('raw aliases and invalid manual AWBs retain all history while grouping only the view', () => {
   const before = JSON.stringify(legacy);
@@ -491,45 +150,6 @@ test('import groups two jobs without synthesizing a third job or altering legacy
   assert.deepEqual(already.all,legacy);
 });
 
-test('manual DLV does not produce a CargoAi delivery or a delivered provider KPI', async () => {
-  const f = fixture({configured:true,liveEnabled:true,shipments:[]},200,{jfs_tracking:legacy});
-  await f.api.refresh();
-  assert.equal(f.element('tracking-delivered').textContent,0);
-  assert.equal(f.api.reportInfo(AWB).status,'Not tracked');
-  assert.equal(f.api.reportInfo(AWB).manualStatus,'DLV');
-  assert.equal(f.api.getRow(AWB).deliveredAt,null);
-  assert.equal(f.api.reportInfo('HOUSE-SAMPLE-01').manualStatus,'DEP');
-});
-
-test('planned, predicted and split provider events stay distinct from recorded manual history in timeline and CSV', async () => {
-  const events = [{code:'ARR',eventDate:'2026-09-26T18:00:00Z',isPlanned:true,isPredicted:true,isSplit:true,pieces:2,eventLocation:'DOH',flight:{number:'QR001'}}];
-  const f = fixture({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'IN_TRANSIT',events,lastUpdate:'2026-09-26T10:00:00Z'}]},200,{jfs_tracking:legacy});
-  await f.api.refresh();
-  f.api.renderDetail(AWB);
-  const html = f.element('trk_detail').innerHTML;
-  assert.ok(html.includes('Predicted · Split shipment'));
-  assert.ok(html.includes('Manual / legacy history'));
-  assert.ok(html.includes('Legacy imported entry'));
-  assert.ok(html.includes('Recorded '));
-  assert.equal(f.api.getRow(AWB).arrivedAt,null);
-  const csv = f.api.toCsv([f.api.getRow(AWB)]);
-  assert.ok(csv.includes('Predicted · Split shipment'));
-  assert.ok(csv.includes('Manual / legacy history (recorded times, not actual milestones)'));
-  assert.ok(csv.includes('Legacy imported entry'));
-});
-
-test('targeted Auto posts only canonical selected AWB and invalid manual AWB never becomes bulk sync', async () => {
-  const f = fixture({configured:true,liveEnabled:true,shipments:[]},200,{jfs_tracking:legacy});
-  await f.api.refresh(); f.confirm(true);
-  await f.api.sync('HOUSE-SAMPLE-01');
-  assert.equal(f.requests.filter(request=>request.init.method==='POST').length,0);
-  assert.equal(f.confirmCount(),0);
-  await f.api.sync(AWB);
-  const posts = f.requests.filter(request=>request.init.method==='POST');
-  assert.equal(posts.length,1);
-  assert.equal(posts[0].init.body,'{"action":"sync","awb":"176-12345675"}');
-});
-
 test('retained untrusted AWB values cannot inject markup or inline handlers', () => {
   const raw = '\"><img src=x onerror=evil()>12345678';
   const f = fixture(undefined,200,{jfs_tracking:{[raw]:{awb:raw,milestones:[]}}});
@@ -539,17 +159,6 @@ test('retained untrusted AWB values cannot inject markup or inline handlers', ()
   assert.ok(!html.includes('onclick='));
   f.api.renderDetail('manual:'+raw);
   assert.ok(!f.element('trk_detail').innerHTML.includes('<img'));
-});
-
-test('current index keeps a single tracking tab and no browser CargoCONNECT credential workflow', () => {
-  const html = fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-  assert.equal((html.match(/id="tab-track"/g)||[]).length,1);
-  assert.equal((html.match(/id="nav-track"/g)||[]).length,1);
-  assert.ok(!html.includes('id="tab-tracking"'));
-  assert.ok(!html.includes('id="cc_key"'));
-  assert.ok(!html.includes('function trackCCConfig'));
-  assert.ok(!html.includes('fetch(cfg.url'));
-  assert.ok(html.includes('prepareSync: trackCloudPush'));
 });
 
 test('actual index manual update function preserves raw records and histories', () => {
@@ -610,150 +219,268 @@ test('actual tracking cloud push merges latest company history and refuses a fai
   assert.equal(writes,1);
 });
 
-test('CSV retains a manual-only shipment route when airport fields are unavailable', () => {
-  const manual = {'HOUSE-01':{awb:'HOUSE-01',route:'DXB - LHR',milestones:[]}};
-  const rows = tracking.mergeTracking(tracking.withManualHistory([],manual),[],false);
-  const csv = tracking.toCsv(rows);
-  assert.ok(csv.includes('"Route","Origin","Destination"'));
-  assert.ok(csv.includes('"DXB - LHR","",""'));
+test('TrackCargo states distinguish not retrieved, not connected, not linked and pending without inventing milestones', () => {
+  const rows = tracking.collectShipments([{awb:AWBS[0],job:'DG-1'}],[]).shipments;
+  assert.equal(tracking.mergeTrackcargo(rows,[],false,false)[0].status,'Not retrieved');
+  assert.equal(tracking.mergeTrackcargo(rows,[],true,false)[0].status,'TrackCargo not connected');
+  assert.equal(tracking.mergeTrackcargo(rows,[],true,true)[0].status,'Not linked to TrackCargo');
+  const payload = trackcargoPayload();
+  const joined = tracking.mergeTrackcargo(rows,payload.shipments,true,true)[0];
+  assert.equal(joined.status,'RCF');
+  assert.equal(joined.arrivedAt,null);
+  assert.equal(joined.deliveredAt,null);
+  assert.equal(joined.plannedArrivalAt,'2026-09-28T00:05:00Z');
+  assert.equal(tracking.filterShipments([joined],'DG-1','RCF').length,1);
+  assert.equal(tracking.filterShipments([joined],'','DELIVERED').length,0);
+  const pending = tracking.mergeTrackcargo(rows,[{...payload.shipments[1],awb:AWBS[0]}],true,true)[0];
+  assert.equal(pending.status,'Awaiting carrier result');
+  assert.equal(pending.lastUpdate,null);
 });
 
-test('TrackCargo runs only on explicit refresh and keeps all five AWBs, CargoAi status and manual history separate', async () => {
-  const awbs = ['02012345675','09812345675','09812345686','14712345675','15512345675'];
-  const source = {jfs_joblog:awbs.map((awb,i)=>({awb,job:'JOB-'+i})),jfs_tracking:{'020-12345675':{awb:'020-12345675',milestones:[{code:'DEP',note:'Manual note',ts:1}]}}};
-  const f = fixture({configured:true,liveEnabled:false,shipments:awbs.map(awb=>({awb,status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}))},200,source);
-  assert.match(f.element('trackcargo-panel').innerHTML,/Refresh TrackCargo/);
+test('CSV escapes formulas and uses only clearly labeled TrackCargo milestones and manual history', () => {
+  for (const formula of ['=1+1',' +SUM(A1)','\t=1','\r@IMPORT','\ufeff-1','@SUM(1)']) assert.ok(tracking.csvCell(formula).startsWith('"\''));
+  assert.equal(tracking.csvCell('a,"b"\nc'),'"a,""b""\nc"');
+  const rows = tracking.mergeTrackcargo(tracking.withManualHistory(tracking.collectShipments([{awb:AWBS[0],job:'=HYPERLINK("bad")',shipper:'@attacker'}],[]).shipments,localSource().jfs_tracking),trackcargoPayload().shipments,true,true);
+  const csv = tracking.toCsv(rows);
+  assert.ok(csv.startsWith('\ufeff"AWB"'));
+  assert.ok(csv.includes('"\'@attacker"'));
+  assert.ok(csv.includes('"\'=HYPERLINK(""bad"")"'));
+  assert.match(csv,/TrackCargo/);
+  assert.ok(!/CargoAi|subscription status/i.test(csv));
+  for (const label of ['RCF','Planned','Actual','Manual note','Recorded:','LH7562S']) assert.ok(csv.includes(label),label);
+  const manual = {'HOUSE-01':{awb:'HOUSE-01',route:'DXB - LHR',milestones:[]}};
+  const manualCsv = tracking.toCsv(tracking.mergeTrackcargo(tracking.withManualHistory([],manual),[],false,false));
+  assert.ok(manualCsv.includes('"DXB - LHR"'));
+});
+
+test('initialization, tabs, storage, visibility and refresh compatibility make no provider requests', async () => {
+  const f = fixture(trackcargoPayload(),200,localSource());
+  assert.equal(f.api.getRow(AWBS[0]).status,'Not retrieved');
+  for (const name of ['track','rpt','dash','track']) f.api.onTab(name);
+  await f.api.refresh();
+  if (f.listeners['document:visibilitychange']) f.listeners['document:visibilitychange']();
+  if (f.listeners['window:storage']) f.listeners['window:storage']({key:'jfs_tracking'});
+  for (const tick of f.intervals) tick();
+  await new Promise(setImmediate);
   assert.equal(f.requests.length,0);
-  f.api.onTab('track');
-  await new Promise(setImmediate);
-  f.intervals[0]();
-  await new Promise(setImmediate);
-  assert.equal(f.requests.length,2);
-  assert.ok(f.requests.every(request=>request.url === '/.netlify/functions/cargoai-tracking'));
-  const primary = f.element('tracking-body').innerHTML, report = f.api.reportCells('02012345675',''), before = JSON.stringify(source), csv = f.api.toCsv(awbs.map(awb=>f.api.getRow(awb)));
-  f.setResponse(trackcargoPayload());
-  await clickTrackcargo(f,'refresh');
-  assert.equal(f.requests.length,3);
-  assert.equal(f.requests.at(-1).url,TRACKCARGO_ENDPOINT);
-  assert.equal(f.requests.at(-1).init.method,'GET');
-  assert.equal(f.requests.at(-1).init.headers.Authorization,'Bearer fixture-only');
-  assert.equal(f.element('tracking-total').textContent,5);
-  assert.equal(f.element('tracking-delivered').textContent,0);
-  assert.equal(f.element('tracking-body').innerHTML,primary);
-  assert.equal((primary.match(/data-tracking-action="airline"/g)||[]).length,5);
-  assert.equal(f.api.reportCells('02012345675',''),report);
-  assert.equal(f.api.toCsv(awbs.map(awb=>f.api.getRow(awb))),csv);
-  assert.equal(JSON.stringify(source),before);
-  const panel = f.element('trackcargo-panel').innerHTML;
-  assert.match(panel,/Latest carrier event/);
-  assert.match(panel,/RCF/);
-  assert.equal((panel.match(/Awaiting carrier result/g)||[]).length,2);
-  assert.equal((panel.match(/TrackCargo order: Pending/g)||[]).length,2);
-  assert.match(panel,/24 Sept 2026, 22:03 UTC/);
-  assert.match(panel,/Fetched 27 Sept 2026, 01:00 UTC/);
+  assert.equal(f.intervals.length,0,'No tracking poll timer should remain');
+  assert.equal(f.listeners['tracking-sync:click'],undefined);
   assert.equal(f.confirmCount(),0);
 });
 
-test('TrackCargo details label actual and planned events, escape provider text, and preserve an unsaved manual note', async () => {
+test('one explicit refresh powers main rows, KPIs and reports without old CargoAi fallback or changing saved records', async () => {
+  const source = localSource(), before = JSON.stringify(source), f = fixture(trackcargoPayload(),200,source);
+  assert.equal(f.element('tracking-total').textContent,5);
+  await f.listeners['tracking-refresh:click']();
+  assert.equal(f.requests.length,1);
+  assert.equal(f.requests[0].url,TRACKCARGO_ENDPOINT);
+  assert.equal(f.requests[0].init.method,'GET');
+  assert.equal(f.requests[0].init.headers.Authorization,'Bearer fixture-only');
+  assert.equal(f.element('tracking-total').textContent,5);
+  assert.equal(f.element('tracking-updates').textContent,1);
+  assert.equal(f.element('tracking-pending').textContent,2);
+  assert.equal(f.element('tracking-unlinked').textContent,2);
+  const html = f.element('tracking-body').innerHTML;
+  assert.equal((html.match(/data-tracking-action="airline"/g)||[]).length,5);
+  assert.equal((html.match(/Awaiting carrier result/g)||[]).length,2);
+  assert.equal((html.match(/Not linked to TrackCargo/g)||[]).length,2);
+  assert.match(html,/RCF/);
+  assert.match(html,/24 Sept? 2026, 22:03 UTC/);
+  assert.match(html,/Fetched 27 Sept? 2026, 01:00 UTC/);
+  assert.ok(!/CargoAi|CargoCONNECT|Start tracking|saved status/i.test(view(f)));
+  assert.equal(f.api.reportInfo(AWBS[0]).status,'RCF');
+  assert.match(f.api.reportCells(AWBS[0],''),/TrackCargo/);
+  assert.ok(!/CargoAi/i.test(f.api.reportCells(AWBS[0],'')));
+  assert.equal(f.api.reportInfo(AWBS[3]).status,'Not linked to TrackCargo');
+  assert.equal(f.api.getRow(AWBS[3]).lastUpdate,null);
+  assert.equal(JSON.stringify(source),before);
+  assert.ok(f.reportRenders.length>0,'Dashboard/document report cache should repaint after explicit refresh');
+});
+
+test('CargoAi-shaped results cannot become TrackCargo results through the new UI', async () => {
+  const payload = trackcargoPayload();
+  payload.shipments = [{awb:AWBS[0],provider:'cargoai',status:'DELIVERED',lastUpdate:'2026-09-26T10:00:00Z',deliveredAt:'2026-09-26T09:00:00Z'}];
+  const f = fixture(payload,200,localSource());
+  await f.api.refreshTrackcargo();
+  assert.equal(f.api.getRow(AWBS[0]).status,'Not linked to TrackCargo');
+  assert.equal(f.api.getRow(AWBS[0]).deliveredAt,null);
+  assert.ok(!f.element('tracking-body').innerHTML.includes('DELIVERED'));
+  assert.equal(f.element('tracking-updates').textContent,0);
+});
+
+test('Export CSV uses the current filtered TrackCargo rows and creates no tracking requests', async () => {
+  const f=fixture(trackcargoPayload(),200,localSource());
+  await f.api.refreshTrackcargo();
+  const blobs=[], links=[];
+  f.sandbox.URL={createObjectURL:blob=>{blobs.push(blob);return 'blob:test-export';},revokeObjectURL:()=>{}};
+  f.sandbox.document.createElement=()=>({click(){links.push(this);},remove(){}});
+  f.sandbox.document.body={appendChild:()=>{}};
+  f.element('tracking-search').value='020-12345675';
+  f.listeners['tracking-search:input']();
+  f.listeners['tracking-export:click']();
+  assert.equal(blobs.length,1); assert.equal(links.length,1);
+  assert.match(links[0].download,/^DGDOC_Shipment_Tracking_.*\.csv$/);
+  const csv=await blobs[0].text();
+  assert.match(csv,/020-12345675/); assert.match(csv,/RCF/); assert.match(csv,/TrackCargo/);
+  assert.ok(!/098-12345675|CargoAi/.test(csv));
+  assert.equal(f.requests.length,1,'Export must use existing retrieved data');
+});
+
+test('manual DLV and latest partial delivery events do not turn into whole-shipment delivery KPIs or verified dates', async () => {
+  const f = fixture({configured:true,mode:'read_only',shipments:[]},200,{jfs_tracking:legacy});
+  await f.api.refreshTrackcargo();
+  assert.equal(f.api.reportInfo(AWB).status,'Not linked to TrackCargo');
+  assert.equal(f.api.reportInfo(AWB).manualStatus,'DLV');
+  assert.equal(f.api.getRow(AWB).deliveredAt,null);
+  assert.equal(f.element('tracking-updates').textContent,0);
+  assert.equal(f.api.reportInfo('HOUSE-SAMPLE-01').manualStatus,'DEP');
+  const payload = trackcargoPayload();
+  payload.shipments = [{...payload.shipments[0],awb:AWB,status:'DLV',statusDescription:'Partial shipment delivered',deliveredAt:null}];
+  f.setResponse(payload);
+  await f.api.refreshTrackcargo();
+  assert.equal(f.element('tracking-updates').textContent,1);
+  assert.equal(f.api.getRow(AWB).deliveredAt,null);
+  f.api.renderDetail(AWB);
+  assert.match(f.element('trk_detail').innerHTML,/<dt>Verified delivery<\/dt><dd>—<\/dd>/);
+});
+
+test('manual airline links and legacy sync compatibility never initiate tracking or alter stored data', async () => {
+  const source = localSource(), before = JSON.stringify(source), f = fixture(trackcargoPayload(),200,source);
+  for (const awb of AWBS) {
+    await clickTrackingAction(f,'airline',awb);
+    f.api.renderDetail(awb);
+    assert.ok(!/data-detail-action="auto"|CargoAi|CargoCONNECT/.test(f.element('trk_detail').innerHTML));
+    if (f.api.sync) await f.api.sync(awb);
+  }
+  if (f.api.sync) await f.api.sync();
+  assert.equal(f.requests.length,0);
+  assert.equal(f.confirmCount(),0);
+  assert.equal(JSON.stringify(source),before);
+});
+
+test('TrackCargo details label actual and planned events, escape provider text and preserve unsaved manual notes', async () => {
   const payload = trackcargoPayload();
   payload.shipments[0].events[0].description = '<img src=x onerror=alert(1)>';
   payload.shipments[0].orderId = '<script>order</script>';
-  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02012345675',job:'LH'},{awb:'14712345675',job:'AT'}]});
-  f.api.renderDetail('02012345675');
-  f.element('trk_note').value = 'Unsaved note';
-  f.element('trk_ms').value = 'DEP';
-  f.element('trk_detail').querySelectorAll = () => ['manual','trackcargo'].map(detailSection=>({dataset:{detailSection}}));
-  f.setResponse(payload);
-  await clickTrackcargo(f,'refresh');
-  const detail = f.element('trk_detail').innerHTML;
+  const f = fixture(payload,200,localSource());
+  f.api.renderDetail(AWBS[0]);
+  f.element('trk_note').value='Unsaved note'; f.element('trk_ms').value='DEP';
+  f.element('trk_detail').querySelectorAll=()=>['manual','trackcargo'].map(detailSection=>({dataset:{detailSection}}));
+  await f.api.refreshTrackcargo();
+  const detail=f.element('trk_detail').innerHTML;
   assert.match(detail,/data-detail-section="trackcargo" open/);
   assert.match(detail,/Origin departure event/);
   assert.match(detail,/<dt>Verified arrival<\/dt><dd>—<\/dd>/);
   assert.match(detail,/<dt>Verified delivery<\/dt><dd>—<\/dd>/);
-  assert.match(detail,/<dt>Planned arrival<\/dt><dd>28 Sept 2026, 00:05 UTC<\/dd>/);
-  assert.match(detail,/Actual · TrackCargo/);
-  assert.match(detail,/Planned · TrackCargo/);
+  assert.match(detail,/<dt>Planned arrival<\/dt><dd>28 Sept? 2026, 00:05 UTC<\/dd>/);
+  assert.match(detail,/Actual · TrackCargo/); assert.match(detail,/Planned · TrackCargo/);
   assert.match(detail,/Event location timezone: Europe\/Vienna/);
   assert.match(detail,/&lt;img src=x onerror=alert\(1\)&gt;/);
-  assert.ok(!detail.includes('&lt;script&gt;order&lt;/script&gt;'),'Raw provider order IDs are not shown to operators');
-  assert.ok(!detail.includes('<img src=x'));
-  assert.equal(f.element('trk_note').value,'Unsaved note');
-  assert.equal(f.element('trk_ms').value,'DEP');
-  await clickTrackcargo(f,'detail','14712345675');
+  assert.ok(!detail.includes('<img src=x')); assert.ok(!detail.includes('&lt;script&gt;order&lt;/script&gt;'));
+  assert.ok(!/CargoAi|CargoCONNECT|Automatic tracking/.test(detail));
+  assert.equal(f.element('trk_note').value,'Unsaved note'); assert.equal(f.element('trk_ms').value,'DEP');
+  await clickTrackingAction(f,'timeline',AWBS[3]);
   assert.match(f.element('trk_detail').innerHTML,/No existing TrackCargo order was returned for this AWB/);
-  assert.equal(f.requests.length,1,'Viewing details must not request TrackCargo again');
+  assert.equal(f.requests.length,1);
 });
 
-test('TrackCargo partial and network failures retain clearly marked prior results while a valid pending result replaces them', async () => {
-  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02012345675',job:'LH'}]});
-  f.setResponse(trackcargoPayload());
-  await f.api.refreshTrackcargo();
-  const partial = trackcargoPayload();
-  partial.shipments[0] = {awb:'02012345675',provider:'trackcargo',orderId:'existing-lh',dataStatus:'ERROR',status:'UNKNOWN',message:'Carrier lookup unavailable',fetchedAt:'2026-09-27T02:00:00Z'};
-  f.setResponse(partial);
-  await f.api.refreshTrackcargo();
-  let panel = f.element('trackcargo-panel').innerHTML;
-  assert.match(panel,/Not refreshed: Carrier lookup unavailable/);
-  assert.match(panel,/Showing the previous TrackCargo result/);
-  assert.match(panel,/RCF/);
-  assert.match(panel,/Fetched 27 Sept 2026, 01:00 UTC/);
-  assert.ok(!panel.includes('Fetched 27 Sept 2026, 02:00 UTC'));
-  f.setResponse(null,502);
-  await f.api.refreshTrackcargo();
-  assert.match(f.element('trackcargo-panel').innerHTML,/TrackCargo could not be refreshed/);
-  assert.match(f.element('trackcargo-panel').innerHTML,/RCF/);
-  const pending = trackcargoPayload();
-  pending.shipments[0] = {...pending.shipments[1],awb:'02012345675',orderId:'existing-lh'};
-  f.setResponse(pending);
-  await f.api.refreshTrackcargo();
-  panel = f.element('trackcargo-panel').innerHTML;
-  assert.ok(!panel.includes('RCF'));
-  assert.ok(!panel.includes('Not refreshed'));
-  assert.equal((panel.match(/Awaiting carrier result/g)||[]).length,3);
+test('explicit detail navigation moves focus once and local render preserves expanded jobs and sections', async () => {
+  const source = localSource(); source.jfs_joblog.push({awb:AWBS[0],job:'OTHER-JOB'});
+  const f = fixture(trackcargoPayload(),200,source), navigation=[];
+  f.element('tracking-detail-title').focus=options=>navigation.push({action:'heading-focus',...options});
+  f.element('trk_detail').scrollIntoView=options=>navigation.push({action:'detail-scroll',...options});
+  const rowButton={closest:()=>({dataset:{awb:AWBS[0]}}),focus:()=>navigation.push({action:'row-focus'})};
+  f.element('tracking-body').querySelectorAll=selector=>selector==='[data-tracking-action="timeline"]'?[rowButton]:[{dataset:{jobGroup:AWBS[0]}}];
+  await clickTrackingAction(f,'timeline',AWBS[0]);
+  assert.equal(navigation.length,2);
+  f.element('trk_detail').querySelectorAll=()=>['manual','trackcargo'].map(detailSection=>({dataset:{detailSection}}));
+  f.element('trk_note').value='Not yet saved';
+  await f.api.refresh(); f.api.onTab('track');
+  assert.equal(navigation.length,2);
+  assert.match(f.element('tracking-body').innerHTML,/<details class="tracking-more-jobs" data-job-group="02012345675" open>/);
+  assert.match(f.element('trk_detail').innerHTML,/data-detail-section="manual" open/);
+  assert.equal(f.element('trk_note').value,'Not yet saved');
+  f.listeners['trk_detail:click']({target:{closest:()=>({dataset:{detailAction:'close'}})}});
+  assert.equal(navigation.at(-1).action,'row-focus'); assert.equal(f.element('trk_detail').innerHTML,'');
+  assert.equal(f.requests.length,0);
 });
 
-test('TrackCargo logout clears prior data and a late response cannot overwrite or unlock the next account request', async () => {
-  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02012345675',job:'LH'}]});
-  f.setResponse(trackcargoPayload());
+test('partial and network failures retain prior results marked stale in table, details, reports and CSV', async () => {
+  const f=fixture(trackcargoPayload(),200,localSource());
   await f.api.refreshTrackcargo();
-  const pending = [];
-  f.sandbox.fetch = () => new Promise(resolve=>pending.push(resolve));
-  const oldRequest = f.api.refreshTrackcargo();
-  await new Promise(setImmediate);
+  const partial=trackcargoPayload();
+  partial.shipments[0]={awb:AWBS[0],provider:'trackcargo',dataStatus:'ERROR',status:'UNKNOWN',message:'Carrier lookup unavailable',fetchedAt:'2026-09-27T02:00:00Z'};
+  f.setResponse(partial); await f.api.refreshTrackcargo();
+  let html=f.element('tracking-body').innerHTML;
+  assert.match(html,/Not refreshed/); assert.match(html,/RCF/);
+  assert.match(html,/Fetched 27 Sept? 2026, 01:00 UTC/);
+  assert.ok(!html.includes('Fetched 27 Sept 2026, 02:00 UTC'));
+  assert.match(f.api.reportCells(AWBS[0],''),/Not refreshed/i);
+  assert.match(f.api.toCsv([f.api.getRow(AWBS[0])]),/Carrier lookup unavailable|Not refreshed/i);
+  f.setResponse(null,502); await f.api.refreshTrackcargo();
+  assert.match(view(f),/TrackCargo could not be refreshed/); assert.match(f.element('tracking-body').innerHTML,/RCF/);
+  f.api.renderDetail(AWBS[0]); assert.match(f.element('trk_detail').innerHTML,/last retrieved|Not refreshed|could not be refreshed/);
+  const pending=trackcargoPayload(); pending.shipments[0]={...pending.shipments[1],awb:AWBS[0],orderId:'existing-lh'};
+  f.setResponse(pending); await f.api.refreshTrackcargo();
+  html=f.element('tracking-body').innerHTML;
+  assert.ok(!html.includes('RCF')); assert.ok(!html.includes('Not refreshed'));
+  assert.equal(f.element('tracking-pending').textContent,3);
+  assert.equal(f.api.getRow(AWBS[0]).lastUpdate,null);
+});
+
+test('logout clears results and late responses cannot overwrite or unlock a new account request', async () => {
+  const f=fixture(trackcargoPayload(),200,localSource()); await f.api.refreshTrackcargo();
+  const pending=[]; f.sandbox.fetch=()=>new Promise(resolve=>pending.push(resolve));
+  const oldRequest=f.api.refreshTrackcargo(); await new Promise(setImmediate);
   f.authListener()('SIGNED_OUT',null);
-  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('existing-lh'));
-  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('RCF'));
-  f.auth.user.id = 'next-user';
-  f.authListener()('SIGNED_IN',f.auth);
-  const newRequest = f.api.refreshTrackcargo();
-  await new Promise(setImmediate);
-  pending[0]({ok:true,status:200,json:async()=>trackcargoPayload()});
-  await oldRequest;
-  assert.match(f.element('trackcargo-panel').innerHTML,/Refreshing TrackCargo/);
-  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('RCF'));
-  await f.api.refreshTrackcargo();
-  assert.equal(pending.length,2,'The old response must not clear the new account loading guard');
-  const next = trackcargoPayload(); next.shipments = next.shipments.slice(1);
-  pending[1]({ok:true,status:200,json:async()=>next});
-  await newRequest;
-  assert.match(f.element('trackcargo-panel').innerHTML,/Awaiting carrier result/);
-  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('RCF'));
+  assert.ok(!view(f).includes('RCF')); assert.equal(f.api.reportInfo(AWBS[0]).status,'Not retrieved');
+  f.auth.user.id='next-user'; f.authListener()('SIGNED_IN',f.auth);
+  const newRequest=f.api.refreshTrackcargo(); await new Promise(setImmediate);
+  pending[0]({ok:true,status:200,json:async()=>trackcargoPayload()}); await oldRequest;
+  assert.equal(f.element('tracking-refresh').disabled,true); assert.ok(!view(f).includes('RCF'));
+  await f.api.refreshTrackcargo(); assert.equal(pending.length,2);
+  const next=trackcargoPayload(); next.shipments=next.shipments.slice(1);
+  pending[1]({ok:true,status:200,json:async()=>next}); await newRequest;
+  assert.equal(f.element('tracking-refresh').disabled,false); assert.ok(!view(f).includes('RCF'));
+  assert.equal(f.api.reportInfo(AWBS[0]).status,'Not linked to TrackCargo');
 });
 
-test('TrackCargo rejects a non-read-only contract and handles missing setup and access denial independently', async () => {
-  const f = fixture();
+test('missing setup, rejected contracts and access denial show honest errors without CargoAi fallbacks', async () => {
+  const f=fixture(undefined,200,localSource());
   f.setResponse({configured:false,mode:'read_only',shipments:[],message:'TrackCargo is not configured.'},503);
+  await f.api.refreshTrackcargo(); assert.match(view(f),/TrackCargo is not configured/);
+  assert.equal(f.api.getRow(AWBS[0]).status,'TrackCargo not connected');
+  f.setResponse({...trackcargoPayload(),mode:'automatic'}); await f.api.refreshTrackcargo();
+  assert.match(view(f),/unexpected response/); assert.ok(!view(f).includes('RCF'));
+  f.setResponse(trackcargoPayload()); await f.api.refreshTrackcargo();
+  f.setResponse({error:'denied'},403); await f.api.refreshTrackcargo();
+  assert.match(view(f),/Your account cannot access TrackCargo/); assert.ok(!view(f).includes('RCF'));
+  assert.ok(f.requests.every(request=>request.url===TRACKCARGO_ENDPOINT && request.init.method==='GET'));
+});
+
+test('an expired local session clears TrackCargo data before making any further request', async () => {
+  const f=fixture(trackcargoPayload(),200,localSource());
   await f.api.refreshTrackcargo();
-  assert.match(f.element('trackcargo-panel').innerHTML,/TrackCargo is not configured/);
-  f.setResponse({...trackcargoPayload(),mode:'automatic'});
+  f.auth.access_token=null;
   await f.api.refreshTrackcargo();
-  assert.match(f.element('trackcargo-panel').innerHTML,/unexpected response/);
-  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('RCF'));
-  f.setResponse(trackcargoPayload());
-  await f.api.refreshTrackcargo();
-  f.setResponse({error:'denied'},403);
-  await f.api.refreshTrackcargo();
-  assert.match(f.element('trackcargo-panel').innerHTML,/Your account cannot access TrackCargo/);
-  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('RCF'));
-  assert.ok(f.requests.every(request=>request.url === TRACKCARGO_ENDPOINT && request.init.method === 'GET'));
+  assert.equal(f.requests.length,1);
+  assert.match(view(f),/Sign in to view TrackCargo orders/);
+  assert.ok(!view(f).includes('RCF'));
+  assert.equal(f.api.reportInfo(AWBS[0]).status,'Not retrieved');
+  assert.equal(f.element('tracking-refresh').disabled,false);
+});
+
+test('page and document exports present TrackCargo only and retain a single tracking host', () => {
+  const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+  assert.equal((html.match(/id="tab-track"/g)||[]).length,1);
+  assert.equal((html.match(/id="nav-track"/g)||[]).length,1);
+  const page=html.slice(html.indexOf('id="tab-track"'),html.indexOf('id="trk_detail"')+1000);
+  assert.ok(!/CargoAi|CargoCONNECT|tracking-sync|tracking-automatic|trackcargo-panel/.test(page));
+  assert.ok(!html.includes('id="cc_key"')); assert.ok(!html.includes('function trackCCConfig'));
+  assert.ok(!html.includes('function trackCCFetch')); assert.ok(!html.includes('function trackCCUpdateAll'));
+  assert.ok(!html.includes('CARGOAI STATUS')); assert.ok(!html.includes('LAST CARGOAI UPDATE'));
+  assert.ok(html.includes('TRACKCARGO'));
+  const js=fs.readFileSync(path.join(__dirname,'../tracking.js'),'utf8');
+  assert.ok(!js.includes('/.netlify/functions/cargoai-tracking'));
+  assert.ok(!/method\s*:\s*['"]POST['"]/.test(js));
 });
