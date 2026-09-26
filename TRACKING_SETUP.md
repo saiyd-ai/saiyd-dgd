@@ -1,6 +1,6 @@
 # DGDOC CargoAi tracking setup
 
-Status: implementation prepared for review; **not activated or deployed**. No CargoAi API key is included. The existing CargoMART PRO subscription is unchanged.
+Status: the tracking migration has been applied to the existing Supabase project in a transaction, without rewriting existing data. Database access checks, replacement of the stored legacy server credential with the existing modern secret key, and function deployment are in progress. **Live tracking remains disabled, with a zero-credit cap.** No secret keys are included in this source. The existing CargoMART PRO subscription is unchanged.
 
 ## What this adds
 
@@ -23,7 +23,7 @@ The local credit ledger caps this integration at 0–50 reserved credits per UTC
 ## Deployment prerequisites
 
 1. Review the code and SQL migration. The unchanged migration and `tests/backend/migration-regression.sql` passed in a disposable local PGlite 0.5.8/PostgreSQL 18.3 database; transaction rollback left zero fixture records. PGlite has a single connection, so this does not prove concurrent request behaviour on hosted Supabase. Verify the migration and concurrent reservation behaviour in a disposable development database before live activation. Back up the current application and database before applying a production change. Reconcile this downloaded source against the latest `main` before deploying; this update is based on upstream `2c1c35216fa556af9acf8b90c630a97a2639fad3`, which already includes the TRACKING tab.
-2. Apply the migration under `supabase/migrations/` to the existing Supabase project. It adds tracking-specific tables and functions. Existing job/document tables are not rewritten. New tracking tables deny direct browser access and are used only through the server service role.
+2. The migration under `supabase/migrations/` has been applied to the existing Supabase project. It adds tracking-specific tables and functions without rewriting existing job/document tables. Complete the production table and access-policy checks before deployment; new tracking tables must deny direct browser access and be used only through the server service role. Do not run the fixture regression script in production.
 3. Configure the variables below in Netlify's server/function environment. Never put secret values in `index.html`, `tracking.js`, browser storage, repository files, screenshots, or chat. Do not reuse DGDOC's existing client-side AI-key settings for CargoAi.
 4. Deploy through Netlify's normal Git/build pipeline so Functions are bundled. Static drag-and-drop hosting alone does not configure the API integration. Use the same origin as DGDOC for the functions.
 5. Test the unauthenticated, authorized, unauthorized, and paused states before enabling CargoAi calls. Keep both live and scheduled processing disabled initially.
@@ -33,8 +33,8 @@ The local credit ledger caps this integration at 0–50 reserved credits per UTC
 | Variable | Value / purpose |
 | --- | --- |
 | `SUPABASE_URL` | Existing project URL: `https://jojtqlfhmkvdegqbwvtj.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Secret server credential for that project; Netlify function scope only |
-| `SUPABASE_ANON_KEY` | Optional existing public project key for validating user sessions |
+| `SUPABASE_SERVICE_ROLE_KEY` | Modern `sb_secret_…` server key (preferred), or a legacy `service_role` JWT; keep this existing variable name and restrict it to Netlify function scope |
+| `SUPABASE_ANON_KEY` | Set the existing `sb_publishable_…` public project key (preferred), or legacy `anon` key, for user-session verification |
 | `TRACKING_ALLOWED_EMAILS` | Comma-separated exact staff email addresses permitted to read/request tracking; no wildcard or domain-wide access. Each user's `profiles.active` must also be `true`. |
 | `CARGOAI_API_KEY` | Secret key for the JFS CargoCONNECT organization; create only when authorized |
 | `CARGOAI_CALLBACK_URL` | `https://dgdoc.jfslogistics.com/.netlify/functions/cargoai-webhook` after this endpoint is deployed |
@@ -45,6 +45,8 @@ The local credit ledger caps this integration at 0–50 reserved credits per UTC
 | `CARGOAI_ALLOW_RENEWALS` | Start `false`; subscriptions can expire after 21 days and renewal may cost another subscription |
 
 Netlify's hourly scheduled function is production-only and additionally checks the auto-sync, live, HMAC and credit gates. Deploy previews must not receive production secrets or be allowed to send subscriptions. The UI's sync control is unavailable while live requests are paused.
+
+For database REST/RPC calls, a modern `sb_secret_…` key is sent only in the `apikey` header; it is not a JWT and must not be sent as `Authorization: Bearer`. Legacy `service_role` JWTs retain both headers for compatibility. Session verification at `/auth/v1/user` always sends the signed-in user's actual access token as `Authorization: Bearer` and prefers `SUPABASE_ANON_KEY` for `apikey`. This keeps user verification separate from administrative database access.
 
 ## Webhook authentication
 
@@ -63,7 +65,7 @@ The implementation preserves the payload's tracking events, rejects unknown AWBs
 
 ## Verification and rollback
 
-Run `npm test` with a current Node.js runtime, or `node --test --test-isolation=none tests/tracking-ui.test.cjs tests/backend/*.test.mjs` if npm is unavailable. All 46 Node tests passed: 22 frontend and 24 backend. Tests exercise AWB normalization, deduplication, manual-history preservation, request authorization, paused/credit-gated flows, callback authentication, event summaries and CSV safety using fixtures. These tests do not establish production entitlement. The separate SQL regression script, including route-correction date resets, was executed successfully in local PGlite as described above. It uses a transaction and rolls its fixture changes back; use only an empty disposable development database, never production.
+Run `npm test` with a current Node.js runtime, or `node --test --test-isolation=none tests/tracking-ui.test.cjs tests/backend/*.test.mjs` if npm is unavailable. All 49 Node tests passed: 22 frontend and 27 backend. Tests exercise AWB normalization, deduplication, manual-history preservation, request authorization, modern/legacy Supabase key headers, paused/credit-gated flows, callback authentication, event summaries and CSV safety using fixtures. These tests do not establish production entitlement. The separate SQL regression script, including route-correction date resets, was executed successfully in local PGlite as described above. It uses a transaction and rolls its fixture changes back; use only an empty disposable development database, never production.
 
 The local browser preview uses explicitly labelled sample data, has no live Supabase client, and cannot send CargoAi requests. Preview tooling is outside the deployable source tree.
 
@@ -77,3 +79,4 @@ To pause future subscriptions, set `CARGOAI_LIVE_ENABLED=false` and `CARGOAI_AUT
 - [Callback HMAC authentication](https://cargoai.readme.io/reference/callbacks-authentication-process)
 - [Tracking event codes](https://cargoai.readme.io/reference/tracking-event-codes)
 - [Netlify scheduled functions](https://docs.netlify.com/build/functions/scheduled-functions/)
+- [Supabase API keys](https://supabase.com/docs/guides/api/api-keys)
