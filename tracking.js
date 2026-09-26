@@ -16,6 +16,36 @@
     return /^\d{11}$/.test(awb) && Number(awb.slice(3, 10)) % 7 === Number(awb[10]) ? awb : '';
   }
   function displayAwb(value) { const awb = normalizeAwb(value); return awb ? awb.slice(0, 3) + '-' + awb.slice(3) : txt(value); }
+  function airlineTrackingLink(value) {
+    const digits = normalizeAwb(value);
+    if (!digits) return null;
+    const awb = displayAwb(digits), prefix = digits.slice(0, 3);
+    if (prefix === '020') return {awb, carrier:'Lufthansa Cargo', mode:'direct', url:'https://www.lufthansa-cargo.com/en/eservices/etracking/tracking/-/awb/020/' + digits.slice(3) + '?searchFilter=awb'};
+    if (prefix === '155') return {awb, carrier:'DHL Aviation', mode:'direct', url:'https://aviationcargo.dhl.com/track/' + digits};
+    if (prefix === '098') return {awb, carrier:'Air India Cargo', mode:'copy', url:'https://aicargoportal.airindia.com/icargoneoportal/app/main/'};
+    if (prefix === '147') return {awb, carrier:'Royal Air Maroc Cargo', mode:'copy', url:'https://ebooking.champ.aero/trace/AT/trace.asp', copyText:digits.slice(3), copyLabel:'Copy number', copyHint:'Prefix 147 is set; paste the 8-digit waybill number.'};
+    return {awb, carrier:'track-trace airline directory', mode:'copy', url:'https://www.track-trace.com/aircargo'};
+  }
+  function airlineActions(value) {
+    const link = airlineTrackingLink(value);
+    if (!link) return '';
+    return '<div class="tracking-airline-actions"><a class="smallbtn sb-blue tracking-airline-link" data-tracking-action="airline" href="' + escapeHtml(link.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(link.carrier + ' · opens in a new tab') + '">Track airline ↗</a>' + (link.mode === 'copy' ? '<button type="button" class="smallbtn sb-blue" data-tracking-action="copy-awb">' + escapeHtml(link.copyLabel || 'Copy AWB') + '</button>' : '') + '<small>' + escapeHtml(link.carrier) + (link.mode === 'copy' ? ' · ' + escapeHtml(link.copyHint || 'Copy AWB, then paste on the website.') : ' · AWB included in link.') + '</small></div>';
+  }
+  async function copyAwb(value) {
+    const link = airlineTrackingLink(value);
+    if (!link) return false;
+    const message = node('tracking-action-message');
+    const copyText = link.copyText || link.awb, label = link.copyText ? 'waybill number' : 'AWB';
+    try {
+      if (typeof navigator === 'undefined' || !navigator.clipboard || !navigator.clipboard.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(copyText);
+      if (message) message.textContent = 'Copied ' + copyText + '. Open “Track airline”. ' + (link.copyHint || 'Paste the AWB on the website.') + ' Saved report is not changed.';
+      return true;
+    } catch {
+      if (message) message.textContent = 'Clipboard unavailable. Select and copy this ' + label + ': ' + copyText + '. Then open “Track airline”. ' + (link.copyHint || 'Paste it on the website.') + ' Saved report is not changed.';
+      return false;
+    }
+  }
   function dateText(value) {
     if (!value) return '—';
     const date = new Date(value);
@@ -202,17 +232,17 @@
     const connection = node('tracking-connection');
     connection.className = 'tracking-connection ' + (state.configured && !state.error ? 'ready' : 'pending');
     node('tracking-connection-title').textContent = state.error ? 'Tracking temporarily unavailable' : state.loading && !state.loaded ? 'Checking tracking connection…' : !state.configured ? (state.loaded ? 'Automatic tracking setup incomplete' : 'Tracking not connected') : state.liveEnabled ? 'Tracking service configured · live requests enabled' : 'Tracking service configured · live requests paused';
-    const connectionText = !state.configured ? 'Your saved AWBs and manual history remain available. Automatic tracking requires completed server setup.' : !state.liveEnabled ? 'Saved tracking updates can be viewed. New tracking requests remain paused until an administrator enables them with an application credit cap.' : 'Only stored shipment updates are refreshed here. “Track next eligible AWB” starts at most one standard subscription (10 credits); Auto targets one selected AWB. The server enforces the configured application credit cap.';
-    node('tracking-connection-text').textContent = state.error || [connectionText, state.message].filter(Boolean).join(' ');
+    const connectionText = !state.configured ? 'Your saved AWBs and manual history remain available. Automatic tracking requires completed server setup.' : !state.liveEnabled ? 'Saved tracking updates can be viewed. New tracking requests remain paused until an administrator enables them with an application credit cap.' : 'Only stored shipment updates are refreshed here. “Track next AWB · CargoAi” starts at most one standard subscription (10 credits); “CargoAi Auto” targets one selected AWB. The server enforces the configured application credit cap.';
+    node('tracking-connection-text').textContent = state.error || [connectionText, state.message, '“Track airline” opens the airline website or tracking directory. Saved report is not changed.'].filter(Boolean).join(' ');
     node('tracking-checked').textContent = state.checkedAt ? 'Report refreshed: ' + dateText(state.checkedAt) : 'No tracking updates retrieved yet.';
     node('tracking-sync').disabled = !state.configured || !state.liveEnabled || !!state.error || state.loading || state.syncing || !all.some(row => normalizeAwb(row.awb));
     node('tracking-refresh').disabled = state.loading || state.syncing;
     node('tracking-export').disabled = !rows.length;
-    node('tracking-sync').textContent = state.syncing ? 'Starting tracking…' : 'Track next eligible AWB';
+    node('tracking-sync').textContent = state.syncing ? 'Starting CargoAi tracking…' : 'Track next AWB · CargoAi';
     node('tracking-body').innerHTML = rows.length ? rows.map(row => {
       const jobs = row.jobs.map(job => '<div class="tracking-job"><button type="button" class="tracking-job-link" data-job="' + escapeHtml(job.job) + '"' + (job.documentIndex == null ? '' : ' data-document="' + job.documentIndex + '"') + '>' + escapeHtml(job.job) + '</button>' + (job.documentStatus ? '<span class="tracking-doc-status ' + (job.documentStatus === 'CONFIRMED' ? 'confirmed' : '') + '">' + job.documentStatus + '</span>' : '') + '</div>').join('');
       const canTrack = normalizeAwb(row.awb) && state.configured && state.liveEnabled && !state.error && !state.loading && !state.syncing;
-      return '<tr data-awb="' + escapeHtml(row.id || row.awb) + '"><td class="tracking-awb">' + escapeHtml(displayAwb(row.awb)) + '</td><td>' + (jobs || '—') + '</td><td>' + escapeHtml([row.origin, row.destination].filter(Boolean).join(' → ') || row.route || '—') + '</td><td><span class="tracking-status ' + tone(row.status) + '">' + escapeHtml(row.status) + '</span>' + (row.subscriptionStatus ? '<small>' + escapeHtml(row.subscriptionStatus) + '</small>' : '') + '</td><td>' + escapeHtml(row.flight || '—') + '</td><td>' + dateText(row.departedAt) + '</td><td>' + dateText(row.arrivedAt) + '</td><td>' + dateText(row.deliveredAt) + '</td><td>' + dateText(row.lastUpdate) + '</td><td>' + escapeHtml(row.manualStatus || 'No manual update') + '<small>Recorded: ' + dateText(row.lastManualEntry) + '</small></td><td class="tracking-row-actions"><button type="button" class="smallbtn sb-blue" data-tracking-action="timeline">Timeline</button><button type="button" class="smallbtn sb-green" data-tracking-action="auto"' + (canTrack ? '' : ' disabled') + '>Auto</button></td></tr>';
+      return '<tr data-awb="' + escapeHtml(row.id || row.awb) + '"><td class="tracking-awb">' + escapeHtml(displayAwb(row.awb)) + airlineActions(row.awb) + '</td><td>' + (jobs || '—') + '</td><td>' + escapeHtml([row.origin, row.destination].filter(Boolean).join(' → ') || row.route || '—') + '</td><td><span class="tracking-status ' + tone(row.status) + '">' + escapeHtml(row.status) + '</span>' + (row.subscriptionStatus ? '<small>' + escapeHtml(row.subscriptionStatus) + '</small>' : '') + '</td><td>' + escapeHtml(row.flight || '—') + '</td><td>' + dateText(row.departedAt) + '</td><td>' + dateText(row.arrivedAt) + '</td><td>' + dateText(row.deliveredAt) + '</td><td>' + dateText(row.lastUpdate) + '</td><td>' + escapeHtml(row.manualStatus || 'No manual update') + '<small>Recorded: ' + dateText(row.lastManualEntry) + '</small></td><td class="tracking-row-actions"><button type="button" class="smallbtn sb-blue" data-tracking-action="timeline">Timeline</button><button type="button" class="smallbtn sb-green" data-tracking-action="auto"' + (canTrack ? '' : ' disabled') + '>CargoAi Auto</button></td></tr>';
     }).join('') : '<tr><td colspan="11" class="tracking-empty">' + (all.length ? 'No shipments match these filters.' : 'No AWBs saved yet. Save a shipment or import AWBs from the job log to see them here.') + '</td></tr>';
     if (detailId) renderDetail(detailId);
   }
@@ -323,6 +353,12 @@
       if (action) {
         const parent = action.closest('[data-awb]'), row = parent && getRow(parent.dataset.awb);
         if (!row) return;
+        if (action.dataset.trackingAction === 'copy-awb') return copyAwb(row.awb);
+        if (action.dataset.trackingAction === 'airline') {
+          const link = airlineTrackingLink(row.awb);
+          if (link) node('tracking-action-message').textContent = 'Opening ' + link.carrier + ' for a manual check.' + (link.mode === 'copy' ? ' ' + (link.copyHint || 'Copy and paste AWB ' + link.awb + ' on the website.') : '') + ' Saved report is not changed.';
+          return;
+        }
         if (action.dataset.trackingAction === 'timeline') renderDetail(row.id || row.awb,true);
         if (action.dataset.trackingAction === 'auto') sync(row.awb);
         return;
@@ -346,5 +382,5 @@
     clearInterval(timer); timer = setInterval(() => { if (isVisible()) refresh(); }, 90000);
     render();
   }
-  return {normalizeAwb, displayAwb, collectShipments, withManualHistory, importSavedAwbs, mergeManualStores, eventKind, eventSummary, mergeTracking, filterShipments, csvCell, toCsv, dateText, escapeHtml, statusText, init, onTab, refresh, sync, render, renderDetail, getRow, reportInfo, reportCells};
+  return {normalizeAwb, displayAwb, airlineTrackingLink, collectShipments, withManualHistory, importSavedAwbs, mergeManualStores, eventKind, eventSummary, mergeTracking, filterShipments, csvCell, toCsv, dateText, escapeHtml, statusText, init, onTab, refresh, sync, render, renderDetail, getRow, reportInfo, reportCells};
 });
