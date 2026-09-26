@@ -10,8 +10,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="undb.js"></script>
 <script src="logo.js"></script>
-<link rel="stylesheet" href="tracking.css">
-<script src="tracking.js"></script>
 <style>
   /* ============ AUTH GATE ============ */
   #authgate{position:fixed; inset:0; z-index:1000; background:linear-gradient(135deg,#1c1c4e 0%,#2d2d6e 55%,#232360 100%);
@@ -365,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-A</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-B</span></span>
           </div>
         </div>
       </div>
@@ -461,40 +459,27 @@
       </div></div>
     </div>
 
-    <!-- ================= SHIPMENT TRACKING ================= -->
+    <!-- ================= TRACKING TAB ================= -->
     <div class="tab" id="tab-track">
-      <div class="card tracking-card"><h2>&#9992; SHIPMENT TRACKING</h2><div class="body">
-        <p class="tracking-intro">Check an airline, review saved progress, or open the full shipment history.</p>
-        <div id="tracking-connection" class="tracking-connection pending" role="status">
-          <strong id="tracking-connection-title">Manual airline checks available</strong>
-          <p id="tracking-connection-text">Airline links open an external report. They do not change the status saved in DGDOC.</p>
+      <div class="card" style="border-left:5px solid #0e7490;"><h2 style="background:#e0f2f7; color:#0e7490;">&#128205; SHIPMENT TRACKING &mdash; every AWB, live status</h2><div class="body">
+        <div style="display:flex; gap:12px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+          <input type="text" id="trk_search" placeholder="Search AWB / job / consignee..." style="width:280px;" oninput="trackRender()">
+          <button class="smallbtn sb-blue" onclick="trackImport(); trackRender();">&#8635; Import new AWBs from jobs</button>
+          <button class="smallbtn sb-green" onclick="trackCCUpdateAll()">&#128752; AUTO UPDATE ALL (CARGO CONNECT)</button>
+          <span id="trk_msg" style="font-size:12px; color:#0e7490; font-weight:bold;"></span>
         </div>
-        <div class="tracking-kpis">
-          <div class="tracking-kpi"><b id="tracking-total">0</b><span>MASTER AWBS</span></div>
-          <div class="tracking-kpi"><b id="tracking-moving">0</b><span>MOVING / ARRIVED</span></div>
-          <div class="tracking-kpi"><b id="tracking-delivered">0</b><span>DELIVERED</span></div>
-          <div class="tracking-kpi"><b id="tracking-untracked">0</b><span>NO SAVED UPDATE</span></div>
+        <div style="overflow-x:auto;"><table id="trk_table" style="border-collapse:collapse; width:100%;"></table></div>
+        <div id="trk_detail" style="margin-top:14px;"></div>
+      </div></div>
+      <div class="card" style="border-left:5px solid #8a97a5;"><h2 style="background:#eef1f5; color:#5b6b7d;">&#128752; CARGO CONNECT API &mdash; automatic tracking updates (company-wide)</h2><div class="body">
+        <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">
+          Paste the CARGO CONNECT API details ONCE — every AWB then updates automatically for all users. Until connected, use the manual UPDATE button on each AWB.</div>
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <div><label>API base URL</label><input type="text" id="cc_url" placeholder="https://api.cargoconnect... " style="width:320px;"></div>
+          <div><label>API key / token</label><input type="password" id="cc_key" placeholder="token" style="width:240px;"></div>
+          <button class="smallbtn sb-green" onclick="trackCCSave()">Save (whole company)</button>
+          <span id="cc_status" style="font-size:12px; font-weight:bold;"></span>
         </div>
-        <div class="tracking-controls">
-          <div class="tracking-search"><label for="tracking-search">Search shipments</label><input type="text" id="tracking-search" placeholder="MAWB, job, customer, route or flight"></div>
-          <div class="tracking-filter"><label for="tracking-filter">Shipment status</label><select id="tracking-filter"><option value="">All shipment statuses</option></select></div>
-          <button type="button" id="tracking-import" class="btn btn-load">Add saved AWBs</button>
-          <button type="button" id="tracking-refresh" class="btn btn-load">Refresh report</button>
-          <button type="button" id="tracking-export" class="btn btn-load" disabled>Export CSV</button>
-        </div>
-        <div id="tracking-action-message" role="status" aria-live="polite"></div>
-        <div class="tracking-meta"><span id="tracking-count">0 unique MAWBs</span><span id="tracking-checked">No tracking updates retrieved yet.</span></div>
-        <div class="tracking-table-wrap" role="region" aria-label="Saved shipment tracking report">
-          <table class="tracking-table"><thead><tr><th scope="col">AWB / airline</th><th scope="col">Route / customer</th><th scope="col">Saved status</th><th scope="col">Last update</th><th scope="col">Linked jobs</th><th scope="col">Details</th></tr></thead><tbody id="tracking-body"></tbody></table>
-        </div>
-        <div id="trk_detail"></div>
-        <p id="tracking-invalid" class="tracking-note"></p>
-        <p class="tracking-note">Saved status comes from CargoAi. “Last update” is when that stored record changed; refreshing this page does not mean a new airline event. Times are UTC. Open details for dates, flights and manual history.</p>
-        <details class="tracking-automatic" id="tracking-automatic"><summary>Automatic tracking <span>Optional · CargoAi</span></summary><div class="tracking-automatic-body">
-          <p id="tracking-auto-status" class="tracking-note">Automatic tracking settings have not been checked yet.</p>
-          <button type="button" id="tracking-sync" class="btn btn-save" disabled>Track next AWB · CargoAi</button>
-          <p class="tracking-note">Starting a subscription uses CargoCONNECT credits and asks for confirmation. Manual airline checks, report refresh and export do not start subscriptions.</p>
-        </div></details>
       </div></div>
     </div>
 
@@ -881,6 +866,19 @@
       <button class="btn btn-del" onclick="deleteDraft()">Delete Draft</button>
       <button class="btn btn-load" onclick="clearForm()">New / Clear</button>
     </div>
+
+    <!-- QUICK PRINT — stickers, DG labels & checklist from INSIDE the DG job (same engines as the tabs) -->
+    <div class="card" style="border-left:5px solid #7b2d8b;"><h2 style="background:#f5eaf8; color:#7b2d8b;">&#128424; QUICK PRINT &mdash; stickers, labels &amp; checklist for THIS job</h2><div class="body">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="btn btn-print" style="background:#7b2d8b;" onclick="buildStickers(); printAlt('stickerArea')">&#128737; SHIPPER/CONSIGNEE STICKERS</button>
+        <button class="btn btn-print" style="background:#7b2d8b;" onclick="buildOpStickers(); printAlt('opstickerArea')">&#128230; OVERPACK STICKERS</button>
+        <button class="btn btn-print" style="background:#b45309;" onclick="buildLabels(); printAlt('labelArea')">&#9888; DG LABELS SHEET</button>
+        <button class="btn btn-print" style="background:#0f2b4c;" onclick="blAutoFill().then(()=>{ buildAwbLabels(); setTimeout(()=>printAwbLabels(), 600); })">&#128745; AIRLINE BARCODE LABELS</button>
+        <button class="btn btn-print" style="background:#1d6b34;" onclick="buildIata(); printAlt('iataArea')">&#9989; IATA CHECKLIST</button>
+        <button class="btn btn-print" style="background:#1d6b34;" onclick="buildChecklist(); printAlt('checklistArea')">&#9745; QUICK CHECKLIST</button>
+      </div>
+      <div style="font-size:12px; color:#8a97a5; margin-top:8px;">One click = generate from this DGD + print. Fine-tuning (counts, prefixes, logos) is still in the STICKERS / DG LABELS / CHECKLIST tabs.</div>
+    </div></div>
     </div><!-- /tab-dgd -->
 
     <!-- ================= CHECKLIST TAB ================= -->
@@ -2353,7 +2351,6 @@ function showTab(name){
   if(name === "rpt" && typeof rptRender === "function") rptRender();
   if(name === "whrep"){ if(typeof renderInbox === "function") renderInbox(); if(typeof inboxPoll === "function") inboxPoll(); }
   if(name === "track" && typeof trackRender === "function") trackRender();
-  if(window.DgTracking) DgTracking.onTab(name);
 }
 
 /* ============================================================
@@ -2376,42 +2373,163 @@ const TRK_MILESTONES = {
 };
 function trackAll(){ try{ return JSON.parse(localStorage.getItem("jfs_tracking")||"{}"); }catch(e){ return {}; } }
 function trackSave(all){ localStorage.setItem("jfs_tracking", JSON.stringify(all)); if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_tracking"); }
-/* Existing manual records stay raw-keyed. Only the report view groups formatted MAWB aliases. */
+/* pull every AWB from the job log into the tracker (no duplicates) */
 function trackImport(){
-  if(!window.DgTracking) return 0;
-  const result = DgTracking.importSavedAwbs(trackAll(), store("jfs_joblog"), store("jfs_documents"));
-  if(result.added) trackSave(result.all);
-  const message = document.getElementById("tracking-action-message");
-  if(message) message.textContent = result.added ? result.added + " new AWB(s) imported. Existing manual history is preserved." : "All valid saved master AWBs are already imported.";
-  return result.added;
-}
-function trackRender(){ if(window.DgTracking) DgTracking.render(); }
-function trackDetail(awb){ if(window.DgTracking) DgTracking.renderDetail(awb, true); }
-function trackAddMs(awb){
   const all = trackAll();
-  let record = Object.prototype.hasOwnProperty.call(all, awb) ? all[awb] : null;
-  if(!record){
-    const row = window.DgTracking && DgTracking.getRow(awb); if(!row) return;
-    record = {awb, job:row.jobs[0] && row.jobs[0].job || "", route:[row.origin,row.destination].filter(Boolean).join(" - ") || row.route, shipper:row.shipper, consignee:row.consignee, milestones:[],updated:0};
-    all[awb] = record;
-  }
-  const code = v("trk_ms"), note = v("trk_note");
-  if(!Object.prototype.hasOwnProperty.call(TRK_MILESTONES, code)) return;
-  record.milestones = Array.isArray(record.milestones) ? record.milestones : [];
-  record.milestones.push({code, note, ts:Date.now(), by:sbUser ? userDisplayName(sbUser.email) : "", src:"MANUAL"});
-  record.updated = Date.now();
-  trackSave(all);
-  document.getElementById("trk_note").value = "";
-  trackRender(); trackDetail(awb);
+  let added = 0;
+  store("jfs_joblog").forEach(e => {
+    const awb = String(e.awb||"").trim();
+    if(!awb || awb.replace(/\D/g,"").length < 8) return;
+    if(!all[awb]){ all[awb] = {awb, job: e.job||"", route: e.route||"", shipper: e.shipper||"", consignee: e.consignee||"",
+      type: e.type||"DG", milestones: [], updated: 0}; added++; }
+    else { all[awb].job = all[awb].job || e.job || ""; all[awb].route = all[awb].route || e.route || ""; }
+  });
+  if(added) trackSave(all);
+  const m = document.getElementById("trk_msg"); if(m) m.textContent = added ? "✓ " + added + " new AWB(s) added to tracking." : "";
+  return added;
+}
+function trackStatusChip(t){
+  const last = (t.milestones||[])[ (t.milestones||[]).length-1 ];
+  if(!last) return `<span style="background:#eef1f5; color:#5b6b7d; font-weight:bold; font-size:11px; padding:3px 8px; border-radius:10px;">NO UPDATE</span>`;
+  const done = last.code === "DLV";
+  return `<span style="background:${done ? "#d9f2e0" : "#e0f2f7"}; color:${done ? "#1d6b34" : "#0e7490"}; font-weight:bold; font-size:11px; padding:3px 8px; border-radius:10px;">${esc(last.code)} — ${esc((TRK_MILESTONES[last.code]||last.note||"").split("—")[0].trim())}</span>`;
+}
+function trackRender(){
+  trackImport();
+  const tb = document.getElementById("trk_table"); if(!tb) return;
+  const q = (v("trk_search")||"").toLowerCase();
+  const TH = "padding:6px 8px; font-size:11.5px; background:#0e7490; color:#fff; border:1px solid #0e7490; text-align:left;";
+  const TD = "padding:5px 8px; border:1px solid #e2e8f0; font-size:12.5px;";
+  const all = trackAll();
+  const list = Object.values(all).sort((a,b) => (b.updated||0) - (a.updated||0));
+  let h = `<tr><th style="${TH}">AWB</th><th style="${TH}">JOB</th><th style="${TH}">ROUTE</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">CURRENT STATUS</th><th style="${TH}">LAST UPDATE</th><th style="${TH}"></th></tr>`;
+  list.forEach(t => {
+    if(q && !((t.awb||"")+" "+(t.job||"")+" "+(t.consignee||"")+" "+(t.route||"")).toLowerCase().includes(q)) return;
+    h += `<tr><td style="${TD} font-weight:bold;">${esc(t.awb)}</td><td style="${TD}">${esc(t.job||"")}</td>
+      <td style="${TD}">${esc(t.route||"")}</td><td style="${TD}">${esc(t.consignee||"")}</td>
+      <td style="${TD}">${trackStatusChip(t)}</td>
+      <td style="${TD}">${t.updated ? new Date(t.updated).toLocaleString("en-GB") : "—"}</td>
+      <td style="${TD} white-space:nowrap;">
+        <button class="smallbtn sb-blue" onclick="trackDetail('${esc(t.awb)}')">&#128065; Timeline</button>
+        <button class="smallbtn sb-green" onclick="trackCCFetch('${esc(t.awb)}')">&#128752; Auto</button>
+      </td></tr>`;
+  });
+  if(!list.length) h += `<tr><td colspan="7" style="${TD} color:#8a97a5;">No AWBs yet — they arrive automatically from the job log.</td></tr>`;
+  tb.innerHTML = h;
+  trackCCLoadForm();
+}
+function trackDetail(awb){
+  const t = trackAll()[awb]; if(!t) return;
+  const box = document.getElementById("trk_detail");
+  const opts = Object.entries(TRK_MILESTONES).map(([c,d]) => `<option value="${c}">${c} — ${esc(d.split("—")[0].trim())}</option>`).join("");
+  const tl = (t.milestones||[]).slice().reverse().map(m => `
+    <div style="display:flex; gap:10px; align-items:flex-start; padding:7px 0; border-bottom:1px dashed #dbe3ec;">
+      <div style="min-width:52px; font-weight:800; color:#0e7490;">${esc(m.code)}</div>
+      <div style="flex:1;">
+        <div style="font-weight:bold;">${esc(TRK_MILESTONES[m.code]||"")}</div>
+        ${m.note ? `<div style="font-size:12px;">${esc(m.note)}</div>` : ""}
+        <div style="font-size:11px; color:#8a97a5;">${new Date(m.ts).toLocaleString("en-GB")}${m.by ? " • " + esc(m.by) : ""}${m.src ? " • " + esc(m.src) : ""}</div>
+      </div></div>`).join("");
+  box.innerHTML = `<div class="card" style="border-left:5px solid #0e7490;"><h2 style="background:#e0f2f7; color:#0e7490;">&#128745; ${esc(awb)} &mdash; ${esc(t.route||"")} ${t.job ? "&mdash; " + esc(t.job) : ""}</h2><div class="body">
+    <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px;">
+      <div><label>Milestone</label><select id="trk_ms" style="width:300px;">${opts}</select></div>
+      <div><label>Note (flight no, remarks — optional)</label><input type="text" id="trk_note" style="width:280px;" placeholder="EK 348 / 27 SEP"></div>
+      <button class="smallbtn sb-green" onclick="trackAddMs('${esc(awb)}')">&#10133; ADD UPDATE</button>
+      <button class="smallbtn sb-blue" onclick="trackCCFetch('${esc(awb)}')">&#128752; AUTO UPDATE (CARGO CONNECT)</button>
+      <button class="smallbtn sb-red" onclick="trackRemove('${esc(awb)}')">Remove AWB</button>
+    </div>
+    ${tl || "<div style='color:#8a97a5; font-size:12.5px;'>No updates yet — add the first milestone above.</div>"}
+  </div></div>`;
+  box.scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+function trackAddMs(awb){
+  const all = trackAll(); const t = all[awb]; if(!t) return;
+  const code = v("trk_ms"); const note = v("trk_note");
+  t.milestones = t.milestones || [];
+  t.milestones.push({code, note, ts: Date.now(), by: (typeof sbUser !== "undefined" && sbUser) ? userDisplayName(sbUser.email) : ""});
+  t.updated = Date.now();
+  trackSave(all); trackRender(); trackDetail(awb);
 }
 function trackRemove(awb){
-  if(!confirm("Remove the saved manual/legacy tracking history for " + awb + "? The shipment may remain listed from saved jobs.")) return;
+  if(!confirm("Remove " + awb + " from tracking?")) return;
   const all = trackAll(); delete all[awb]; trackSave(all);
   document.getElementById("trk_detail").innerHTML = ""; trackRender();
 }
-/* CargoAi requests use the server only. Legacy company_settings entries are left untouched. */
-function trackCCFetch(awb){ return window.DgTracking ? DgTracking.sync(awb) : Promise.resolve(); }
-function trackCCUpdateAll(){ return window.DgTracking ? DgTracking.sync() : Promise.resolve(); }
+/* ---- CARGO CONNECT connector (company-wide credentials in company_settings) ---- */
+async function trackCCConfig(){
+  if(sb && sbUser){
+    try{
+      const { data } = await sb.from("company_settings").select("value").eq("key", "cargoconnect").maybeSingle();
+      if(data && data.value) return data.value;
+    }catch(e){}
+  }
+  return null;
+}
+async function trackCCLoadForm(){
+  const cfg = await trackCCConfig();
+  const st = document.getElementById("cc_status"); if(!st) return;
+  if(cfg && cfg.url){
+    const u = document.getElementById("cc_url"); if(u && !u.value) u.value = cfg.url;
+    st.textContent = "✓ CARGO CONNECT connected (company-wide)."; st.style.color = "#1d6b34";
+  } else { st.textContent = "Not connected yet — manual updates work meanwhile."; st.style.color = "#b45309"; }
+}
+async function trackCCSave(){
+  const url = v("cc_url").trim(), key = document.getElementById("cc_key").value.trim();
+  if(!url){ alert("Enter the CARGO CONNECT API base URL."); return; }
+  try{
+    await sb.from("company_settings").upsert({key:"cargoconnect", value:{url, key}, updated_by: sbUser.email});
+    document.getElementById("cc_key").value = "";
+    trackCCLoadForm();
+    alert("✓ Saved for the whole company — AUTO UPDATE now uses CARGO CONNECT.");
+  }catch(e){ alert("Save failed: " + e.message); }
+}
+async function trackCCFetch(awb){
+  const m = document.getElementById("trk_msg");
+  const cfg = await trackCCConfig();
+  if(!cfg || !cfg.url){
+    if(m) m.textContent = "CARGO CONNECT not connected yet — save the API details below, then AUTO UPDATE works.";
+    alert("CARGO CONNECT API is not connected yet.\n\nPaste the API base URL + key in the CARGO CONNECT card at the bottom of this page (one time, works for the whole company). Until then, use ADD UPDATE manually.");
+    return;
+  }
+  if(m) m.textContent = "🛰 Fetching " + awb + " from CARGO CONNECT...";
+  try{
+    const digits = awb.replace(/\D/g,"");
+    const resp = await fetch(cfg.url.replace(/\/$/,"") + "/tracking/" + digits, {headers: cfg.key ? {"Authorization":"Bearer " + cfg.key} : {}});
+    if(!resp.ok) throw new Error("HTTP " + resp.status);
+    const j = await resp.json();
+    // accepted shapes: {milestones:[{code,note,ts}]} or {events:[{status,description,time}]}
+    const evs = (j.milestones || j.events || []).map(e => ({
+      code: String(e.code || e.status || "").toUpperCase().slice(0,3) || "UPD",
+      note: String(e.note || e.description || e.remark || ""),
+      ts: e.ts ? new Date(e.ts).getTime() : (e.time ? new Date(e.time).getTime() : Date.now()),
+      src: "CARGO CONNECT"
+    }));
+    if(!evs.length){ if(m) m.textContent = "No events returned for " + awb + "."; return; }
+    const all = trackAll(); const t = all[awb]; if(!t) return;
+    t.milestones = t.milestones || [];
+    const seen = new Set(t.milestones.map(x => x.code + "|" + x.ts));
+    let add = 0;
+    evs.forEach(e => { if(!seen.has(e.code + "|" + e.ts)){ t.milestones.push(e); add++; } });
+    t.milestones.sort((a,b) => a.ts - b.ts);
+    t.updated = Date.now();
+    trackSave(all); trackRender(); trackDetail(awb);
+    if(m) m.textContent = "✓ " + awb + ": " + add + " new update(s) from CARGO CONNECT.";
+  }catch(e){ if(m) m.textContent = "CARGO CONNECT failed for " + awb + ": " + (e.message||e).slice(0,60); }
+}
+async function trackCCUpdateAll(){
+  const cfg = await trackCCConfig();
+  if(!cfg || !cfg.url){ trackCCFetch("—"); return; }
+  const list = Object.keys(trackAll());
+  const m = document.getElementById("trk_msg");
+  for(const awb of list){
+    const t = trackAll()[awb];
+    const last = (t.milestones||[])[ (t.milestones||[]).length-1 ];
+    if(last && last.code === "DLV") continue;                      // delivered — nothing more to fetch
+    await trackCCFetch(awb);
+  }
+  if(m) m.textContent = "✓ AUTO UPDATE finished for " + list.length + " AWB(s).";
+}
+
 /* ---------- alt print (checklist / stickers / labels) ---------- */
 function printAlt(srcId){
   const src = document.getElementById(srcId);
@@ -4292,7 +4410,7 @@ function renderDash(){
 function _jobRowsHtml(log, docs, q, limit){
   const TH = "padding:6px 8px; font-size:11.5px; background:#0f2b4c; color:#fff; border:1px solid #0f2b4c; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #e2e8f0; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">DOCUMENT STATUS</th><th style="${TH}">LAST JOB LOG UPDATE</th><th style="${TH}">AWB</th><th style="${TH}">CARGOAI STATUS</th><th style="${TH}">LAST CARGOAI UPDATE</th><th style="${TH}">MANUAL / LEGACY STATUS</th><th style="${TH}">LAST MANUAL ENTRY</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
+  let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">STATUS</th><th style="${TH}">LAST UPDATE</th><th style="${TH}">AWB</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
   let rows = log.slice().sort((a,b) => (b.last||0) - (a.last||0))
     .filter(e => !q || ((e.job||"")+" "+(e.awb||"")+" "+(e.shipper||"")+" "+(e.consignee||"")).toLowerCase().includes(q));
   if(limit && !q) rows = rows.slice(0, limit);
@@ -4302,13 +4420,13 @@ function _jobRowsHtml(log, docs, q, limit){
     h += `<tr><td style="${TD} font-weight:bold;">${e.type === "GC" ? "&#128230; " : "&#129513; "}${esc(e.job)}</td>
       <td style="${TD} white-space:nowrap;">${statusBadgeHtml(st)}${di >= 0 && st !== "CONFIRMED" ? ` <button class="smallbtn sb-green" onclick="docConfirm(${di})" title="Confirm this DGD">&#10004;</button>` : ""}</td>
       <td style="${TD}">${e.last ? new Date(e.last).toLocaleString("en-GB") : ""}</td>
-      <td style="${TD}">${esc(e.awb||"")}</td>${window.DgTracking ? DgTracking.reportCells(e.awb, TD) : `<td style="${TD}">Tracking not connected</td><td style="${TD}">—</td><td style="${TD}">—</td><td style="${TD}">—</td>`}<td style="${TD}">${esc(e.shipper||"")}</td>
+      <td style="${TD}">${esc(e.awb||"")}</td><td style="${TD}">${esc(e.shipper||"")}</td>
       <td style="${TD}">${esc(e.consignee||"")}</td><td style="${TD}">${esc(e.route||"")}</td>
       <td style="${TD}">${esc(e.un||"")}</td>
       <td style="${TD} text-align:center; font-weight:bold; color:#0f2b4c;">${e.prints||0}</td>
       <td style="${TD}">${di >= 0 ? `<button class="smallbtn sb-green" onclick="loadDoc(${di})">Open</button>` : ""}</td></tr>`;
   });
-  if(rows.length === 0) h += `<tr><td colspan="14" style="${TD} color:#8a97a5;">No jobs.</td></tr>`;
+  if(rows.length === 0) h += `<tr><td colspan="10" style="${TD} color:#8a97a5;">No jobs.</td></tr>`;
   return h;
 }
 /* DOCUMENT REPORT — full list, DG and NON-DG split */
@@ -4331,15 +4449,13 @@ async function dashReport(){
   const NAVY = {type:"pattern", pattern:"solid", fgColor:{argb:"FF0F2B4C"}};
   const BORD = {top:{style:"thin"},left:{style:"thin"},bottom:{style:"thin"},right:{style:"thin"}};
   const ws = wb.addWorksheet("JOBS");
-  ws.columns = [{width:16},{width:19},{width:15},{width:30},{width:30},{width:26},{width:16},{width:9},{width:19},{width:27},{width:29},{width:24},{width:29}];
-  ["JOB NO","LAST JOB LOG UPDATE","AWB","SHIPPER","CONSIGNEE","ROUTE","UN/ID","PRINTS","DOCUMENT STATUS","CARGOAI STATUS","LAST CARGOAI UPDATE (UTC)","MANUAL / LEGACY STATUS","LAST MANUAL ENTRY (UTC)"].forEach((t,i) => {
+  ws.columns = [{width:16},{width:19},{width:15},{width:30},{width:30},{width:26},{width:16},{width:9}];
+  ["JOB NO","LAST PRINT","AWB","SHIPPER","CONSIGNEE","ROUTE","UN/ID","PRINTS"].forEach((t,i) => {
     const c = ws.getRow(1).getCell(i+1); c.value = t; c.font = {bold:true,color:{argb:"FFFFFFFF"}}; c.fill = NAVY; c.border = BORD;
   });
   log.slice().sort((a,b) => (b.last||0) - (a.last||0)).forEach((e,i) => {
     const r = ws.getRow(i+2);
-    const savedDoc = store("jfs_documents").find(d => (d.job||"") === e.job);
-    const tracking = window.DgTracking ? DgTracking.reportInfo(e.awb) : {status:"Tracking not connected",lastUpdate:"",manualStatus:"",lastManualEntry:""};
-    [e.job, e.last ? new Date(e.last).toLocaleString("en-GB") : "", e.awb||"", e.shipper||"", e.consignee||"", e.route||"", e.un||"", e.prints||0,savedDoc ? savedDoc.status || "DRAFT" : "",tracking.status,tracking.lastUpdate,tracking.manualStatus,tracking.lastManualEntry]
+    [e.job, e.last ? new Date(e.last).toLocaleString("en-GB") : "", e.awb||"", e.shipper||"", e.consignee||"", e.route||"", e.un||"", e.prints||0]
       .forEach((val,ci) => { r.getCell(ci+1).value = val; r.getCell(ci+1).border = BORD; });
   });
   const wm = wb.addWorksheet("MONTHLY");
@@ -7954,8 +8070,7 @@ async function enterApp(user){
       }
     }
   }catch(e){}
-  const cloudLoaded = await cloudPullAll(false);
-  if(cloudLoaded && !document.hidden && window.DgTracking && ["track","rpt","dash"].some(name => document.getElementById("tab-"+name)?.classList.contains("on"))) DgTracking.refresh();
+  await cloudPullAll(false);
   // staff profiles may have arrived with the pull — refresh the display name
   try{
     const nm2 = userDisplayName(user.email);
@@ -7983,7 +8098,6 @@ const COUNTER_KEYS = ["jfs_job_counter","jfs_inv_counters"];
 function sharedMerge(key, loc, cld){
   if(cld == null) return loc;
   if(loc == null) return cld;
-  if(key === "jfs_tracking" && window.DgTracking) return DgTracking.mergeManualStores(loc, cld);
   if(COUNTER_KEYS.includes(key) && typeof loc === "object" && typeof cld === "object"){
     const out = Object.assign({}, cld);
     Object.keys(loc).forEach(k => { const a = parseFloat(loc[k]) || 0, b = parseFloat(cld[k]) || 0; out[k] = Math.max(a, b); });
@@ -7997,32 +8111,9 @@ function sharedMerge(key, loc, cld){
   if(typeof loc === "object" && typeof cld === "object" && !Array.isArray(loc)) return Object.assign({}, cld, loc);
   return cld;
 }
-/* Tracking history uses a read/union/write; other company-data sync is unchanged.
-   This preserves sequential staff updates but is not an atomic cross-browser merge. */
-let _trackingPush = Promise.resolve();
-function trackCloudPush(){
-  clearTimeout(syncTimers.jfs_tracking); delete syncTimers.jfs_tracking;
-  _trackingPush = _trackingPush.catch(() => {}).then(async () => {
-    if(!sb || !sbUser) throw new Error("Sign in before saving tracking history.");
-    const userId = sbUser.id;
-    const {data, error} = await sb.from("saiyad_shared").select("value").eq("key", "jfs_tracking").maybeSingle();
-    if(error) throw new Error("Tracking history could not be read from the cloud. Try again before starting Auto tracking.");
-    if(!sbUser || sbUser.id !== userId) throw new Error("The signed-in account changed. Try again.");
-    const merged = DgTracking.mergeManualStores(trackAll(), data && data.value);
-    const saved = await sb.from("saiyad_shared").upsert({key:"jfs_tracking",value:merged,updated_at:new Date().toISOString(),updated_by:sbUser.email});
-    if(saved.error) throw new Error("Tracking history could not be saved to the cloud. Automatic tracking was not started.");
-    if(!sbUser || sbUser.id !== userId) return;
-    localStorage.setItem("jfs_tracking", JSON.stringify(DgTracking.mergeManualStores(trackAll(), merged)));
-  });
-  return _trackingPush;
-}
 async function cloudPush(key){
   if(!sb || !sbUser) return;
   setSync("busy");
-  if(key === "jfs_tracking"){
-    try{ await trackCloudPush(); setSync("ok"); }catch(e){ setSync("err"); }
-    return;
-  }
   try{
     let val = null;
     try{ val = JSON.parse(localStorage.getItem(key)); }catch(e){ val = localStorage.getItem(key); }
@@ -8053,7 +8144,7 @@ async function cloudPullShared(mode){   // mode: "merge" (login — union, nothi
     if(!ALL_KEYS.includes(row.key) || PRIVATE_KEYS.includes(row.key) || row.value === null) return;
     if(syncTimers[row.key]) return;                              // a local save is about to push — don't clobber it
     let loc = null; try{ loc = JSON.parse(localStorage.getItem(row.key)); }catch(e){}
-    if(mode === "merge" || COUNTER_KEYS.includes(row.key) || row.key === "jfs_tracking"){
+    if(mode === "merge" || COUNTER_KEYS.includes(row.key)){
       const merged = sharedMerge(row.key, loc, row.value);
       localStorage.setItem(row.key, JSON.stringify(merged));
       if(JSON.stringify(merged) !== JSON.stringify(row.value)) toPush.push(row.key);
@@ -8064,7 +8155,7 @@ async function cloudPullShared(mode){   // mode: "merge" (login — union, nothi
   for(const k of toPush) await cloudPush(k);                     // our extra local records go up for everyone
 }
 async function cloudPullAll(tell){
-  if(!sb || !sbUser){ if(tell) alert("Not logged in."); return false; }
+  if(!sb || !sbUser){ if(tell) alert("Not logged in."); return; }
   setSync("busy");
   try{
     await cloudPullShared("merge");
@@ -8078,8 +8169,7 @@ async function cloudPullAll(tell){
     const st = document.getElementById("cloud_status");
     if(st) st.textContent = "✓ Loaded from cloud " + new Date().toLocaleTimeString();
     if(tell) alert("Data reloaded from DGDOC cloud.");
-    return true;
-  }catch(e){ setSync("err"); if(tell) alert("Cloud pull failed: " + e.message); return false; }
+  }catch(e){ setSync("err"); if(tell) alert("Cloud pull failed: " + e.message); }
 }
 /* live team sync — pull others' saves every 90 s (quiet) */
 let _teamT = null;
@@ -8126,18 +8216,6 @@ refreshDraftList();
 ptRender();
 dgdLogoApply();
 refresh();
-if(window.DgTracking) DgTracking.init({
-  readStore: store,
-  milestones: TRK_MILESTONES,
-  getSession: () => sb ? sb.auth.getSession() : Promise.resolve(null),
-  onAuthStateChange: callback => sb ? sb.auth.onAuthStateChange(callback) : null,
-  prepareSync: trackCloudPush,
-  importAwbs: trackImport,
-  addManual: trackAddMs,
-  openDocument: index => loadDoc(index),
-  openJobReport: job => { document.getElementById("rpt_search").value = job; showTab("rpt"); },
-  refreshReports: () => { if(document.getElementById("tab-rpt").classList.contains("on")) rptRender(); if(document.getElementById("tab-dash").classList.contains("on")) renderDash(); }
-});
 authInit();
 </script>
 </body>
