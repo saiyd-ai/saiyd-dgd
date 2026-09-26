@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-S</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-T</span></span>
           </div>
         </div>
       </div>
@@ -7711,10 +7711,31 @@ async function enterApp(user){
   inboxPoll();
   if(_inboxT) clearInterval(_inboxT);
   _inboxT = setInterval(inboxPoll, 60000);
+  teamSyncStart();          // company-wide live sync — everyone sees everyone's saves
 }
 function setSync(state){ // green ok, orange syncing, red error
   const dot = document.getElementById("syncdot");
   dot.style.background = state === "ok" ? "#22c55e" : (state === "busy" ? "#f59e0b" : "#ef4444");
+}
+/* COMPANY-WIDE data: every key syncs to the SHARED table (all users see the same data).
+   Only jfs_dgd_defaults (personal defaults: sign name etc.) stays per-user. */
+const PRIVATE_KEYS = ["jfs_dgd_defaults"];
+const COUNTER_KEYS = ["jfs_job_counter","jfs_inv_counters"];
+function sharedMerge(key, loc, cld){
+  if(cld == null) return loc;
+  if(loc == null) return cld;
+  if(COUNTER_KEYS.includes(key) && typeof loc === "object" && typeof cld === "object"){
+    const out = Object.assign({}, cld);
+    Object.keys(loc).forEach(k => { const a = parseFloat(loc[k]) || 0, b = parseFloat(cld[k]) || 0; out[k] = Math.max(a, b); });
+    return out;
+  }
+  if(Array.isArray(loc) && Array.isArray(cld)){
+    const seen = new Set(), out = [];
+    cld.concat(loc).forEach(x => { const s = JSON.stringify(x); if(!seen.has(s)){ seen.add(s); out.push(x); } });
+    return out;
+  }
+  if(typeof loc === "object" && typeof cld === "object" && !Array.isArray(loc)) return Object.assign({}, cld, loc);
+  return cld;
 }
 async function cloudPush(key){
   if(!sb || !sbUser) return;
@@ -7722,7 +7743,10 @@ async function cloudPush(key){
   try{
     let val = null;
     try{ val = JSON.parse(localStorage.getItem(key)); }catch(e){ val = localStorage.getItem(key); }
-    await sb.from("saiyad_data").upsert({ user_id: sbUser.id, key, value: val, updated_at: new Date().toISOString() });
+    if(PRIVATE_KEYS.includes(key))
+      await sb.from("saiyad_data").upsert({ user_id: sbUser.id, key, value: val, updated_at: new Date().toISOString() });
+    else
+      await sb.from("saiyad_shared").upsert({ key, value: val, updated_at: new Date().toISOString(), updated_by: sbUser.email });
     setSync("ok");
   }catch(e){ setSync("err"); }
 }
@@ -7738,16 +7762,32 @@ async function cloudPushAll(tell){
   if(st) st.textContent = "✓ Synced " + new Date().toLocaleTimeString();
   if(tell) alert("All data pushed to DGDOC cloud.");
 }
+async function cloudPullShared(mode){   // mode: "merge" (login — union, nothing lost) | "replace" (periodic — others' saves land)
+  const { data, error } = await sb.from("saiyad_shared").select("key,value");
+  if(error) throw error;
+  const toPush = [];
+  (data||[]).forEach(row => {
+    if(!ALL_KEYS.includes(row.key) || PRIVATE_KEYS.includes(row.key) || row.value === null) return;
+    if(syncTimers[row.key]) return;                              // a local save is about to push — don't clobber it
+    let loc = null; try{ loc = JSON.parse(localStorage.getItem(row.key)); }catch(e){}
+    if(mode === "merge" || COUNTER_KEYS.includes(row.key)){
+      const merged = sharedMerge(row.key, loc, row.value);
+      localStorage.setItem(row.key, JSON.stringify(merged));
+      if(JSON.stringify(merged) !== JSON.stringify(row.value)) toPush.push(row.key);
+    } else {
+      localStorage.setItem(row.key, JSON.stringify(row.value));
+    }
+  });
+  for(const k of toPush) await cloudPush(k);                     // our extra local records go up for everyone
+}
 async function cloudPullAll(tell){
   if(!sb || !sbUser){ if(tell) alert("Not logged in."); return; }
   setSync("busy");
   try{
-    const { data, error } = await sb.from("saiyad_data").select("key,value").eq("user_id", sbUser.id);
-    if(error) throw error;
-    (data||[]).forEach(row => {
-      if(ALL_KEYS.includes(row.key) && row.value !== null)
-        localStorage.setItem(row.key, JSON.stringify(row.value));
-    });
+    await cloudPullShared("merge");
+    // personal defaults stay per-user
+    const { data } = await sb.from("saiyad_data").select("key,value").eq("user_id", sbUser.id).in("key", PRIVATE_KEYS);
+    (data||[]).forEach(row => { if(row.value !== null) localStorage.setItem(row.key, JSON.stringify(row.value)); });
     rebuildUNDB(); fillPickers(); loadDefaults(); refreshDraftList();
     if(typeof renderCustomers === "function" && document.getElementById("cu_table")) renderCustomers();
     refresh();
@@ -7756,6 +7796,21 @@ async function cloudPullAll(tell){
     if(st) st.textContent = "✓ Loaded from cloud " + new Date().toLocaleTimeString();
     if(tell) alert("Data reloaded from DGDOC cloud.");
   }catch(e){ setSync("err"); if(tell) alert("Cloud pull failed: " + e.message); }
+}
+/* live team sync — pull others' saves every 90 s (quiet) */
+let _teamT = null;
+function teamSyncStart(){
+  if(_teamT) clearInterval(_teamT);
+  _teamT = setInterval(async () => {
+    if(!sb || !sbUser) return;
+    try{
+      await cloudPullShared("replace");
+      rebuildUNDB(); refreshDraftList();
+      if(typeof renderCustomers === "function" && document.getElementById("cu_table")) renderCustomers();
+      if(typeof rptRender === "function") try{ rptRender(); }catch(e){}
+      setSync("ok");
+    }catch(e){}
+  }, 90000);
 }
 async function authInit(){
   if(!sb){ document.getElementById("authmsg").textContent = "Cloud unreachable — check internet and reload."; return; }
