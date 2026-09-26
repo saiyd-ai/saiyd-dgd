@@ -5,6 +5,22 @@ const path = require('node:path');
 const vm = require('node:vm');
 const tracking = require('../tracking.js');
 const AWB = '17612345675';
+const TRACKCARGO_ENDPOINT = '/.netlify/functions/trackcargo-tracking';
+
+function trackcargoPayload() {
+  const fetchedAt = '2026-09-27T01:00:00Z';
+  return {configured:true,mode:'read_only',message:'Read existing TrackCargo orders only.',shipments:[
+    {awb:'02018224861',provider:'trackcargo',orderId:'existing-lh',orderStatus:'active',dataStatus:'AVAILABLE',status:'RCF',statusDescription:'Received from flight',statusScope:'latest_actual_event',origin:'DWC',destination:'JFK',currentLocation:'VIE',lastUpdate:'2026-09-24T22:03:00Z',fetchedAt,departedAt:'2026-09-23T04:58:00Z',arrivedAt:null,deliveredAt:null,plannedArrivalAt:'2026-09-28T00:05:00Z',plannedDeliveryAt:'2026-09-28T18:05:00Z',events:[
+      {code:'RCF',description:'Received from flight',eventDate:'2026-09-24T22:03:00Z',eventLocation:'VIE',isPlanned:false,timeKind:'actual',pieces:7,weight:2721,flightNumber:'LH7562S',timezone:'Europe/Vienna'},
+      {code:'DLV',description:'Delivered to consignee',eventDate:'2026-09-28T18:05:00Z',eventLocation:'JFK',isPlanned:true,timeKind:'planned',pieces:null,weight:null,timezone:'America/New_York'}
+    ]},
+    ...['09832127141','09832123254'].map((awb,i)=>({awb,provider:'trackcargo',orderId:'existing-ai-'+i,orderStatus:'pending',dataStatus:'INCONCLUSIVE',status:'UNKNOWN',lastUpdate:null,fetchedAt,events:[]}))
+  ]};
+}
+
+function clickTrackcargo(fixture, action, awb) {
+  return fixture.listeners['trackcargo-panel:click']({target:{closest:()=>({dataset:{trackcargoAction:action,awb}})}});
+}
 
 test('MAWB validation accepts formatting, rejects house AWBs, bad check digits and missing digits', () => {
   assert.equal(tracking.normalizeAwb(' 176-1234 5675 '), AWB);
@@ -600,4 +616,144 @@ test('CSV retains a manual-only shipment route when airport fields are unavailab
   const csv = tracking.toCsv(rows);
   assert.ok(csv.includes('"Route","Origin","Destination"'));
   assert.ok(csv.includes('"DXB - LHR","",""'));
+});
+
+test('TrackCargo runs only on explicit refresh and keeps all five AWBs, CargoAi status and manual history separate', async () => {
+  const awbs = ['02018224861','09832127141','09832123254','14793884184','15505297176'];
+  const source = {jfs_joblog:awbs.map((awb,i)=>({awb,job:'JOB-'+i})),jfs_tracking:{'020-18224861':{awb:'020-18224861',milestones:[{code:'DEP',note:'Manual note',ts:1}]}}};
+  const f = fixture({configured:true,liveEnabled:false,shipments:awbs.map(awb=>({awb,status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}))},200,source);
+  assert.match(f.element('trackcargo-panel').innerHTML,/Refresh TrackCargo/);
+  assert.equal(f.requests.length,0);
+  f.api.onTab('track');
+  await new Promise(setImmediate);
+  f.intervals[0]();
+  await new Promise(setImmediate);
+  assert.equal(f.requests.length,2);
+  assert.ok(f.requests.every(request=>request.url === '/.netlify/functions/cargoai-tracking'));
+  const primary = f.element('tracking-body').innerHTML, report = f.api.reportCells('02018224861',''), before = JSON.stringify(source), csv = f.api.toCsv(awbs.map(awb=>f.api.getRow(awb)));
+  f.setResponse(trackcargoPayload());
+  await clickTrackcargo(f,'refresh');
+  assert.equal(f.requests.length,3);
+  assert.equal(f.requests.at(-1).url,TRACKCARGO_ENDPOINT);
+  assert.equal(f.requests.at(-1).init.method,'GET');
+  assert.equal(f.requests.at(-1).init.headers.Authorization,'Bearer fixture-only');
+  assert.equal(f.element('tracking-total').textContent,5);
+  assert.equal(f.element('tracking-delivered').textContent,0);
+  assert.equal(f.element('tracking-body').innerHTML,primary);
+  assert.equal((primary.match(/data-tracking-action="airline"/g)||[]).length,5);
+  assert.equal(f.api.reportCells('02018224861',''),report);
+  assert.equal(f.api.toCsv(awbs.map(awb=>f.api.getRow(awb))),csv);
+  assert.equal(JSON.stringify(source),before);
+  const panel = f.element('trackcargo-panel').innerHTML;
+  assert.match(panel,/Latest carrier event/);
+  assert.match(panel,/RCF/);
+  assert.equal((panel.match(/Awaiting carrier result/g)||[]).length,2);
+  assert.equal((panel.match(/TrackCargo order: Pending/g)||[]).length,2);
+  assert.match(panel,/24 Sept 2026, 22:03 UTC/);
+  assert.match(panel,/Fetched 27 Sept 2026, 01:00 UTC/);
+  assert.equal(f.confirmCount(),0);
+});
+
+test('TrackCargo details label actual and planned events, escape provider text, and preserve an unsaved manual note', async () => {
+  const payload = trackcargoPayload();
+  payload.shipments[0].events[0].description = '<img src=x onerror=alert(1)>';
+  payload.shipments[0].orderId = '<script>order</script>';
+  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02018224861',job:'LH'},{awb:'14793884184',job:'AT'}]});
+  f.api.renderDetail('02018224861');
+  f.element('trk_note').value = 'Unsaved note';
+  f.element('trk_ms').value = 'DEP';
+  f.element('trk_detail').querySelectorAll = () => ['manual','trackcargo'].map(detailSection=>({dataset:{detailSection}}));
+  f.setResponse(payload);
+  await clickTrackcargo(f,'refresh');
+  const detail = f.element('trk_detail').innerHTML;
+  assert.match(detail,/data-detail-section="trackcargo" open/);
+  assert.match(detail,/Origin departure event/);
+  assert.match(detail,/<dt>Verified arrival<\/dt><dd>—<\/dd>/);
+  assert.match(detail,/<dt>Verified delivery<\/dt><dd>—<\/dd>/);
+  assert.match(detail,/<dt>Planned arrival<\/dt><dd>28 Sept 2026, 00:05 UTC<\/dd>/);
+  assert.match(detail,/Actual · TrackCargo/);
+  assert.match(detail,/Planned · TrackCargo/);
+  assert.match(detail,/Event location timezone: Europe\/Vienna/);
+  assert.match(detail,/&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.ok(!detail.includes('&lt;script&gt;order&lt;/script&gt;'),'Raw provider order IDs are not shown to operators');
+  assert.ok(!detail.includes('<img src=x'));
+  assert.equal(f.element('trk_note').value,'Unsaved note');
+  assert.equal(f.element('trk_ms').value,'DEP');
+  await clickTrackcargo(f,'detail','14793884184');
+  assert.match(f.element('trk_detail').innerHTML,/No existing TrackCargo order was returned for this AWB/);
+  assert.equal(f.requests.length,1,'Viewing details must not request TrackCargo again');
+});
+
+test('TrackCargo partial and network failures retain clearly marked prior results while a valid pending result replaces them', async () => {
+  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02018224861',job:'LH'}]});
+  f.setResponse(trackcargoPayload());
+  await f.api.refreshTrackcargo();
+  const partial = trackcargoPayload();
+  partial.shipments[0] = {awb:'02018224861',provider:'trackcargo',orderId:'existing-lh',dataStatus:'ERROR',status:'UNKNOWN',message:'Carrier lookup unavailable',fetchedAt:'2026-09-27T02:00:00Z'};
+  f.setResponse(partial);
+  await f.api.refreshTrackcargo();
+  let panel = f.element('trackcargo-panel').innerHTML;
+  assert.match(panel,/Not refreshed: Carrier lookup unavailable/);
+  assert.match(panel,/Showing the previous TrackCargo result/);
+  assert.match(panel,/RCF/);
+  assert.match(panel,/Fetched 27 Sept 2026, 01:00 UTC/);
+  assert.ok(!panel.includes('Fetched 27 Sept 2026, 02:00 UTC'));
+  f.setResponse(null,502);
+  await f.api.refreshTrackcargo();
+  assert.match(f.element('trackcargo-panel').innerHTML,/TrackCargo could not be refreshed/);
+  assert.match(f.element('trackcargo-panel').innerHTML,/RCF/);
+  const pending = trackcargoPayload();
+  pending.shipments[0] = {...pending.shipments[1],awb:'02018224861',orderId:'existing-lh'};
+  f.setResponse(pending);
+  await f.api.refreshTrackcargo();
+  panel = f.element('trackcargo-panel').innerHTML;
+  assert.ok(!panel.includes('RCF'));
+  assert.ok(!panel.includes('Not refreshed'));
+  assert.equal((panel.match(/Awaiting carrier result/g)||[]).length,3);
+});
+
+test('TrackCargo logout clears prior data and a late response cannot overwrite or unlock the next account request', async () => {
+  const f = fixture(undefined,200,{jfs_joblog:[{awb:'02018224861',job:'LH'}]});
+  f.setResponse(trackcargoPayload());
+  await f.api.refreshTrackcargo();
+  const pending = [];
+  f.sandbox.fetch = () => new Promise(resolve=>pending.push(resolve));
+  const oldRequest = f.api.refreshTrackcargo();
+  await new Promise(setImmediate);
+  f.authListener()('SIGNED_OUT',null);
+  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('existing-lh'));
+  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('RCF'));
+  f.auth.user.id = 'next-user';
+  f.authListener()('SIGNED_IN',f.auth);
+  const newRequest = f.api.refreshTrackcargo();
+  await new Promise(setImmediate);
+  pending[0]({ok:true,status:200,json:async()=>trackcargoPayload()});
+  await oldRequest;
+  assert.match(f.element('trackcargo-panel').innerHTML,/Refreshing TrackCargo/);
+  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('RCF'));
+  await f.api.refreshTrackcargo();
+  assert.equal(pending.length,2,'The old response must not clear the new account loading guard');
+  const next = trackcargoPayload(); next.shipments = next.shipments.slice(1);
+  pending[1]({ok:true,status:200,json:async()=>next});
+  await newRequest;
+  assert.match(f.element('trackcargo-panel').innerHTML,/Awaiting carrier result/);
+  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('RCF'));
+});
+
+test('TrackCargo rejects a non-read-only contract and handles missing setup and access denial independently', async () => {
+  const f = fixture();
+  f.setResponse({configured:false,mode:'read_only',shipments:[],message:'TrackCargo is not configured.'},503);
+  await f.api.refreshTrackcargo();
+  assert.match(f.element('trackcargo-panel').innerHTML,/TrackCargo is not configured/);
+  f.setResponse({...trackcargoPayload(),mode:'automatic'});
+  await f.api.refreshTrackcargo();
+  assert.match(f.element('trackcargo-panel').innerHTML,/unexpected response/);
+  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('RCF'));
+  f.setResponse(trackcargoPayload());
+  await f.api.refreshTrackcargo();
+  f.setResponse({error:'denied'},403);
+  await f.api.refreshTrackcargo();
+  assert.match(f.element('trackcargo-panel').innerHTML,/Your account cannot access TrackCargo/);
+  assert.ok(!f.element('trackcargo-panel').innerHTML.includes('RCF'));
+  assert.ok(f.requests.every(request=>request.url === TRACKCARGO_ENDPOINT && request.init.method === 'GET'));
 });
