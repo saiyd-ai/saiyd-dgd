@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-O</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-P</span></span>
           </div>
         </div>
       </div>
@@ -2556,7 +2556,10 @@ async function aiExtractShipment(text, label, imgs){
     const c2 = document.getElementById("gc_goods"); if(c2) c2.value = gg;
   }
   // HOUSE AWB detected → fill HAWB fields AND add it to the HOUSE AWBs list automatically
-  if(j.hawb){
+  // STRICT: f_ref takes ONLY a real HOUSE AWB number — never routes, jobs, or any other text
+  const hawbOk = s => /^[A-Z0-9][A-Z0-9\/-]{3,19}$/.test(s) && (s.match(/\d/g)||[]).length >= 3 &&
+                      !/ROUTE|^DGS-|^GEN-/.test(s) && s.replace(/\D/g,"") !== (v("f_awb")||"").replace(/\D/g,"");
+  if(j.hawb && hawbOk(String(j.hawb).toUpperCase().trim())){
     const hno = String(j.hawb).toUpperCase().trim();
     document.getElementById("f_ref").value = hno;
     const gh = document.getElementById("gc_hawb"); if(gh) gh.value = hno;
@@ -2908,8 +2911,8 @@ function _ptHeaderApply(res){
   set("f_awb", h.awb);
   set("f_dep", h.org);
   set("f_dest", h.dest);
-  set("f_ref", h.job, true);                      // reference / booking no = job number from the packing list
-  set("f_job", h.job);                            // job no too, when still empty
+  // f_ref (Shipper's Reference) is NEVER auto-filled — HOUSE AWB only, entered manually
+  set("f_job", h.job);                            // job no, when still empty
   if(filled.length && typeof refresh === "function") refresh();
   return filled;
 }
