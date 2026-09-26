@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-U</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.09-V</span></span>
           </div>
         </div>
       </div>
@@ -1776,6 +1776,13 @@ function airportPlace(s){
   if(m && AIRPORT_CITY[m[1]]) return AIRPORT_CITY[m[1]];
   return s;                                               // unknown → prints as typed
 }
+/* keep "93 . 5 kg" / "26 . 090 kg G" together — the number and its unit NEVER wrap to the next line */
+function nbUnit(s){
+  return s
+    .replace(/(\d)\s\.\s(\d)/g, "$1 . $2")   // spaced decimals stay one piece
+    .replace(/(\d)\s+kg\b/g, "$1 kg")             // number sticks to kg
+    .replace(/kg\s+G\b/g, "kg G");                // kg sticks to G
+}
 function goodsRowsArr(split, qfs){
   // merge items with the same UN + PSN (ignoring old "(CONT. i/n)" labels) into ONE row —
   // ID/PSN print ONE TIME only, quantity blocks flow continuously with no dividing lines
@@ -1825,7 +1832,7 @@ function goodsRowsArr(split, qfs){
     <td style="text-transform:uppercase; font-weight:bold; ${S}">${withId ? esc(r.psn) : ""}</td>
     <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.cls) + (r.sub ? " " + esc(r.sub) : "") : ""}</td>
     <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.pg) : ""}</td>
-    <td style="white-space:pre-wrap; font-size:${QFS}pt; font-weight:bold; ${S}">${esc(chunk)}</td>
+    <td style="white-space:pre-wrap; font-size:${QFS}pt; font-weight:bold; ${S}">${nbUnit(esc(chunk))}</td>
     <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.pi) : ""}</td>
     <td class="center" style="${S}">${withId ? esc(r.auth) : ""}</td></tr>`;
       };
