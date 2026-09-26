@@ -194,7 +194,9 @@ export function normalizeTrackingPayload(data, now = new Date()) {
 export class SupabaseStore {
   constructor(config, fetchImpl = fetch) { this.config = config; this.fetchImpl = fetchImpl; }
   async request(path, { method = 'GET', body, prefer } = {}) {
-    const headers = { apikey: this.config.serviceKey, authorization: `Bearer ${this.config.serviceKey}`, 'content-type': 'application/json' };
+    const headers = { apikey: this.config.serviceKey, 'content-type': 'application/json' };
+    // Modern secret keys are API keys, not JWTs. Legacy service_role JWTs also use Bearer.
+    if (!this.config.serviceKey.startsWith('sb_secret_')) headers.authorization = `Bearer ${this.config.serviceKey}`;
     if (prefer) headers.prefer = prefer;
     const response = await this.fetchImpl(`${this.config.supabaseUrl}/rest/v1/${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: 'error', signal: AbortSignal.timeout(7000) });
     if (!response.ok) throw new HttpError(503, 'Tracking storage is unavailable. Complete the tracking database setup first.');
