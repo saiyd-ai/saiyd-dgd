@@ -1,6 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
-export const FREE_CREDIT_CEILING = 50;
+export const DEFAULT_PLAN_CREDIT_ALLOWANCE = 50;
+export const MAX_PLAN_CREDIT_ALLOWANCE = 3000;
 export const SUBSCRIPTION_CREDITS = 10;
 const PROVIDER_SUBSCRIBE_URL = 'https://api.cargoai.co/solutions/track/subscribe';
 const MAX_BODY_BYTES = 512 * 1024;
@@ -38,7 +39,10 @@ export function getConfig(env) {
   const allowedEmails = new Set((env.TRACKING_ALLOWED_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)));
   const rawCap = env.CARGOAI_MONTHLY_CREDIT_CAP ?? '0';
   const budget = /^\d+$/.test(rawCap) ? Number(rawCap) : NaN;
-  const budgetValid = Number.isSafeInteger(budget) && budget >= 0 && budget <= FREE_CREDIT_CEILING;
+  const rawAllowance = env.CARGOAI_PLAN_CREDIT_ALLOWANCE ?? String(DEFAULT_PLAN_CREDIT_ALLOWANCE);
+  const planAllowance = /^\d+$/.test(rawAllowance) ? Number(rawAllowance) : NaN;
+  const allowanceValid = Number.isSafeInteger(planAllowance) && planAllowance >= 0 && planAllowance <= MAX_PLAN_CREDIT_ALLOWANCE;
+  const budgetValid = allowanceValid && Number.isSafeInteger(budget) && budget >= 0 && budget <= planAllowance;
   const databaseConfigured = Boolean(supabase && env.SUPABASE_SERVICE_ROLE_KEY && allowedEmails.size);
   const callbackValid = callback && callback.pathname === '/.netlify/functions/cargoai-webhook' && !callback.search;
   const configured = Boolean(databaseConfigured && env.CARGOAI_API_KEY && callbackValid && env.CARGOAI_WEBHOOK_HMAC_ENABLED === 'true' && budgetValid);
@@ -46,11 +50,12 @@ export function getConfig(env) {
   const liveEnabled = configured && env.CARGOAI_LIVE_ENABLED === 'true' && deploymentAllowed && budget >= SUBSCRIPTION_CREDITS;
   let message = 'Live tracking is disabled. Saved AWBs can be reviewed without using CargoAi credits.';
   if (!configured) message = 'Tracking setup is incomplete. Live requests are disabled until the server configuration and signed callbacks are ready.';
-  if (!budgetValid) message = 'The free credit cap must be an integer from 0 to 50. Live requests are disabled.';
+  if (databaseConfigured && env.CARGOAI_WEBHOOK_HMAC_ENABLED !== 'true') message = 'Signed callbacks (HMAC) have not been confirmed. CargoAi must enable signing and server setup must be completed before live tracking can start.';
+  if (!budgetValid) message = 'The credit cap must be a nonnegative integer within the configured plan allowance (maximum 3000). Live requests are disabled.';
   if (!deploymentAllowed) message = 'Live tracking requests are disabled for deploy previews and branch deployments.';
   if (configured && budget < SUBSCRIPTION_CREDITS) message = 'The application credit cap is below one standard subscription (10 credits). No live requests can be sent.';
   if (liveEnabled) message = `Standard tracking only; the application reserves at most ${budget} credits per UTC calendar month. Existing CargoAi usage must be allowed for in this cap.`;
-  return { supabaseUrl: supabase?.origin, serviceKey: env.SUPABASE_SERVICE_ROLE_KEY, authKey: env.SUPABASE_ANON_KEY || env.SUPABASE_SERVICE_ROLE_KEY, allowedEmails, databaseConfigured, callbackUrl: callbackValid ? callback.href : null, apiKey: env.CARGOAI_API_KEY, hmacEnabled: env.CARGOAI_WEBHOOK_HMAC_ENABLED === 'true', budget, configured, liveEnabled, allowRenewals: env.CARGOAI_ALLOW_RENEWALS === 'true', message };
+  return { supabaseUrl: supabase?.origin, serviceKey: env.SUPABASE_SERVICE_ROLE_KEY, authKey: env.SUPABASE_ANON_KEY || env.SUPABASE_SERVICE_ROLE_KEY, allowedEmails, databaseConfigured, callbackUrl: callbackValid ? callback.href : null, apiKey: env.CARGOAI_API_KEY, hmacEnabled: env.CARGOAI_WEBHOOK_HMAC_ENABLED === 'true', budget, planAllowance, configured, liveEnabled, allowRenewals: env.CARGOAI_ALLOW_RENEWALS === 'true', message };
 }
 
 export function normalizeAwb(value) {
@@ -217,7 +222,7 @@ export class SupabaseStore {
     }
     return result;
   }
-  claim(awb, budget, allowRenewals) { return this.request('rpc/cargoai_claim_subscription', { method: 'POST', body: { p_awb: awb, p_budget: budget, p_allow_renewals: allowRenewals } }); }
+  claim(awb, budget, allowRenewals, planAllowance) { return this.request('rpc/cargoai_claim_subscription', { method: 'POST', body: { p_awb: awb, p_budget: budget, p_allow_renewals: allowRenewals, p_plan_allowance: planAllowance } }); }
   settle(claimToken, accepted) { return this.request('rpc/cargoai_settle_subscription', { method: 'POST', body: { p_claim_token: claimToken, p_accepted: accepted } }); }
   applyWebhook(shipment, hash) { return this.request('rpc/cargoai_apply_webhook', { method: 'POST', body: { p_shipment: shipment, p_payload_hash: hash } }); }
 }
@@ -264,9 +269,9 @@ export function createTrackingService({ env = process.env, fetchImpl = fetch, st
     if (!config.liveEnabled) return { scanned: selected ? 1 : awbs.length, attempted: 0, accepted: 0, unknown: 0, message: config.message };
     const targets = selected ? [selected] : awbs;
     const result = { scanned: targets.length, attempted: 0, accepted: 0, unknown: 0, message: 'Saved AWBs checked. Existing and unresolved subscriptions are not submitted again.' };
-    // One reservation per run bounds execution time and Free-plan request rate, including concurrent callers.
+    // One reservation per run bounds execution time and request rate, including concurrent callers.
     for (const awb of targets) {
-      const claim = await store.claim(awb, config.budget, config.allowRenewals);
+      const claim = await store.claim(awb, config.budget, config.allowRenewals, config.planAllowance);
       if (claim?.reason === 'budget_exhausted') { result.message = 'The application credit cap has been reached. No further requests were sent.'; break; }
       if (claim?.reason === 'rate_limited') { result.message = 'A tracking request was recently reserved. The next scheduled run will continue.'; break; }
       if (!claim?.claimed || !claim.claimToken) continue;
