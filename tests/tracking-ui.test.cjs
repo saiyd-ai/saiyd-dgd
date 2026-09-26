@@ -128,7 +128,11 @@ test('manual airline links stay beside AWBs while paid tracking is paused and do
     const firstCell = row.slice(0,row.indexOf('</td>'));
     assert.ok(firstCell.includes('data-tracking-action="airline"'));
     assert.ok(firstCell.includes('target="_blank" rel="noopener noreferrer"'));
-    assert.ok(row.includes('data-tracking-action="auto" disabled'));
+    assert.ok(!row.includes('data-tracking-action="auto"'));
+    f.api.renderDetail(awb);
+    const detail = f.element('trk_detail').innerHTML;
+    assert.match(detail,/<details class="tracking-automatic" data-detail-section="automatic">/);
+    assert.ok(detail.includes('data-detail-action="auto" disabled'));
     await clickTrackingAction(f,'airline',awb);
   }
   const manual = html.match(/<tr data-awb="manual:HOUSE-SAMPLE-01">(.*?)<\/tr>/)[1];
@@ -161,6 +165,108 @@ test('Copy AWB uses canonical text and leaves native navigation separate, includ
   assert.equal(f.requests.length,0);
   assert.equal(f.confirmCount(),0);
   assert.equal(f.api.getRow('09812345675').lastUpdate,null);
+});
+
+test('compact shipment rows keep airline actions and linked jobs while complete flights and history remain in details and export', async () => {
+  const flight = Array.from({length:18},(_,i)=>'DHL FLIGHT ' + (100 + i)).join(' / ');
+  const customer = 'Example consignee with a long address and operations contact';
+  const jobs = ['DG-1','GC-2','DG-3'].map(job=>({awb:AWB,job,shipper:'Example shipper',consignee:customer}));
+  const f = fixture({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'IN_TRANSIT',origin:'DXB',destination:'LHR',flight,
+    departedAt:'2026-09-24T09:00:00Z',lastUpdate:'2026-09-26T10:00:00Z',events:[{code:'DEP',eventDate:'2026-09-24T09:00:00Z',eventLocation:'DXB'}]}]},200,
+    {jfs_joblog:jobs,jfs_tracking:legacy});
+  await f.api.refresh();
+  const row = f.element('tracking-body').innerHTML.match(new RegExp('<tr data-awb="'+AWB+'">(.*?)</tr>'))[1];
+  assert.equal((row.match(/<td\b/g)||[]).length,6);
+  assert.ok(row.includes('data-tracking-action="airline"'));
+  assert.ok(row.includes('>View details</button>'));
+  assert.ok(row.includes('CargoAi · saved status'));
+  assert.ok(row.includes('title="'+customer+'"'));
+  assert.match(row,/<details class="tracking-more-jobs" data-job-group="17612345675"><summary>\+2 more jobs<\/summary>/);
+  assert.ok(row.indexOf('data-job="DG-1"') < row.indexOf('<details'));
+  assert.ok(row.indexOf('data-job="GC-2"') > row.indexOf('<details'));
+  assert.ok(!row.includes(flight));
+  assert.ok(!row.includes('Legacy imported entry'));
+  assert.ok(!row.includes('data-detail-action="auto"'));
+  assert.match(row,/26 Sept? 2026, 10:00 UTC/);
+
+  await clickTrackingAction(f,'timeline',AWB);
+  const detail = f.element('trk_detail').innerHTML;
+  assert.ok(detail.includes(flight));
+  assert.ok(detail.includes('Legacy imported entry'));
+  assert.ok(detail.includes('Actual departure'));
+  assert.match(detail,/24 Sept? 2026, 09:00 UTC/);
+  assert.match(detail,/<details class="tracking-flight-details" data-detail-section="flights">/);
+  assert.match(detail,/<details data-detail-section="events" open>/);
+  assert.match(detail,/<details class="tracking-automatic" data-detail-section="automatic">/);
+  assert.ok(detail.includes('data-detail-action="auto" disabled'));
+  const csv = f.api.toCsv([f.api.getRow(AWB)]);
+  for (const retained of [flight,'DG-1','GC-2','DG-3','Legacy imported entry']) assert.ok(csv.includes(retained));
+  f.listeners['trk_detail:click']({target:{closest:()=>({dataset:{detailAction:'close'}})}});
+  assert.equal(f.element('trk_detail').innerHTML,'');
+  f.api.render();
+  assert.equal(f.element('trk_detail').innerHTML,'');
+  assert.equal(f.requests.length,1);
+  assert.equal(f.requests[0].init.method || 'GET','GET');
+  assert.equal(f.confirmCount(),0);
+});
+
+test('opening details moves focus and view only on explicit action, then closing returns focus to the correct shipment', async () => {
+  const f = fixture({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'IN_TRANSIT'}]});
+  const navigation = [];
+  f.element('tracking-detail-title').focus = options => navigation.push({action:'heading-focus',...options});
+  f.element('trk_detail').scrollIntoView = options => navigation.push({action:'detail-scroll',...options});
+  const rowButton = awb => ({closest:()=>({dataset:{awb}}),focus:()=>navigation.push({action:'row-focus',awb})});
+  f.element('tracking-body').querySelectorAll = selector => selector === '[data-tracking-action="timeline"]' ? [rowButton('02012345675'),rowButton(AWB)] : [];
+  assert.equal(navigation.length,0);
+  await clickTrackingAction(f,'timeline',AWB);
+  assert.ok(f.element('trk_detail').innerHTML.includes('id="tracking-detail-title" tabindex="-1"'));
+  assert.deepEqual(navigation,[{action:'heading-focus',preventScroll:true},{action:'detail-scroll',behavior:'auto',block:'start'}]);
+  await f.api.refresh();
+  f.intervals[0]();
+  await new Promise(setImmediate);
+  assert.equal(navigation.length,2,'Stored-status refresh must not steal focus or scroll');
+  f.listeners['trk_detail:click']({target:{closest:()=>({dataset:{detailAction:'close'}})}});
+  assert.deepEqual(navigation.at(-1),{action:'row-focus',awb:AWB});
+  assert.equal(f.element('trk_detail').innerHTML,'');
+  f.api.render();
+  assert.equal(navigation.length,3);
+  assert.equal(f.element('trk_detail').innerHTML,'');
+  assert.equal(f.requests.length,2);
+  assert.ok(f.requests.every(request=>(request.init.method || 'GET') === 'GET'));
+  assert.equal(f.confirmCount(),0);
+});
+
+test('stored-status refresh preserves expanded jobs, detail sections and an unsaved manual note without paid requests', async () => {
+  const f = fixture({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'IN_TRANSIT',lastUpdate:'2026-09-26T10:00:00Z'}]},200,
+    {jfs_joblog:[{awb:AWB,job:'DG-1'},{awb:AWB,job:'GC-2'}],jfs_tracking:legacy});
+  await f.api.refresh();
+  f.api.renderDetail(AWB);
+  f.element('trk_note').value = 'Unsaved operations note';
+  f.element('trk_ms').value = 'DEP';
+  f.element('tracking-automatic').open = true;
+  f.element('tracking-body').querySelectorAll = selector => {
+    assert.equal(selector,'details[data-job-group][open]');
+    return [{dataset:{jobGroup:AWB}}];
+  };
+  f.element('trk_detail').querySelectorAll = selector => {
+    assert.equal(selector,'details[data-detail-section][open]');
+    return ['flights','manual','automatic'].map(detailSection=>({dataset:{detailSection}}));
+  };
+  f.setResponse({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'DELIVERED',lastUpdate:'2026-09-26T11:00:00Z'}]});
+  f.intervals[0]();
+  await new Promise(setImmediate);
+  const detail = f.element('trk_detail').innerHTML;
+  assert.match(f.element('tracking-body').innerHTML,/<details class="tracking-more-jobs" data-job-group="17612345675" open>/);
+  for (const name of ['flights','manual','automatic']) assert.ok(detail.includes('data-detail-section="'+name+'" open'));
+  assert.ok(detail.includes('data-detail-section="events">'));
+  assert.equal(f.element('trk_note').value,'Unsaved operations note');
+  assert.equal(f.element('trk_ms').value,'DEP');
+  assert.equal(f.element('tracking-automatic').open,true);
+  assert.match(f.element('tracking-body').innerHTML,/DELIVERED/);
+  assert.match(f.element('tracking-checked').textContent,/^Report refreshed /);
+  assert.equal(f.requests.length,2);
+  assert.ok(f.requests.every(request=>(request.init.method || 'GET') === 'GET'));
+  assert.equal(f.confirmCount(),0);
 });
 
 test('Dashboard loads and polls stored tracking, refreshes report cells, and never starts paid tracking', async () => {
@@ -238,7 +344,7 @@ test('unconfigured service lists real AWBs safely and makes no CargoAi or POST r
   assert.equal(f.requests[0].init.headers.Authorization,'Bearer fixture-only');
   assert.equal(f.requests[0].init.method,undefined);
   assert.equal(f.element('tracking-sync').disabled,true);
-  assert.equal(f.element('tracking-connection-title').textContent,'Automatic tracking setup incomplete');
+  assert.equal(f.element('tracking-connection-title').textContent,'Manual airline checks available · Automatic tracking not connected');
   assert.ok(f.element('tracking-body').innerHTML.includes('&lt;img src=x&gt;'));
   await f.listeners['tracking-sync:click']();
   assert.equal(f.requests.length,1);
@@ -266,31 +372,31 @@ test('pending signed callbacks show the server reason as text and cannot start t
   const message = 'Signed webhook (HMAC) setup is pending. <img src=x onerror=alert(1)>';
   const f = fixture({configured:false,liveEnabled:false,shipments:[{awb:AWB,status:'IN_TRANSIT'}],message});
   await f.api.refresh();
-  assert.equal(f.element('tracking-connection-title').textContent,'Automatic tracking setup incomplete');
-  assert.ok(f.element('tracking-connection-text').textContent.includes(message));
-  assert.equal(f.element('tracking-connection-text').innerHTML,'');
+  assert.equal(f.element('tracking-connection-title').textContent,'Manual airline checks available · Automatic tracking not connected');
+  assert.ok(f.element('tracking-auto-status').textContent.includes(message));
+  assert.equal(f.element('tracking-auto-status').innerHTML,'');
   assert.equal(f.api.reportInfo(AWB).status,'IN TRANSIT');
   assert.equal(f.element('tracking-sync').disabled,true);
   await f.listeners['tracking-sync:click']();
   assert.equal(f.requests.length,1);
   assert.equal(f.confirmCount(),0);
   f.authListener()('SIGNED_OUT',null);
-  assert.ok(!f.element('tracking-connection-text').textContent.includes(message));
+  assert.ok(!f.element('tracking-auto-status').textContent.includes(message));
 });
 
 test('credit messaging follows server setup without assuming a Free plan or enabling paused requests', async () => {
   const message = 'Verified allowance: 150 credits. Application cap: 10 credits. Live requests are paused.';
   const f = fixture({configured:true,liveEnabled:false,shipments:[],message});
   await f.api.refresh();
-  assert.equal(f.element('tracking-connection-title').textContent,'Tracking service configured · live requests paused');
-  assert.ok(f.element('tracking-connection-text').textContent.includes(message));
-  assert.ok(!/Free.plan/.test(f.element('tracking-connection-text').textContent));
+  assert.equal(f.element('tracking-connection-title').textContent,'Manual airline checks available · Automatic tracking paused');
+  assert.ok(f.element('tracking-auto-status').textContent.includes(message));
+  assert.ok(!/Free.plan/.test(f.element('tracking-auto-status').textContent));
   await f.listeners['tracking-sync:click']();
   assert.equal(f.confirmCount(),0);
   f.setResponse({configured:true,liveEnabled:true,shipments:[],message:{unexpected:'value'}});
   await f.api.refresh();
-  assert.ok(!f.element('tracking-connection-text').textContent.includes(message));
-  assert.ok(!f.element('tracking-connection-text').textContent.includes('[object Object]'));
+  assert.ok(!f.element('tracking-auto-status').textContent.includes(message));
+  assert.ok(!f.element('tracking-auto-status').textContent.includes('[object Object]'));
   await f.listeners['tracking-sync:click']();
   assert.match(f.confirmMessages[0],/10 CargoCONNECT credits/);
   assert.match(f.confirmMessages[0],/configured application credit cap/);
@@ -325,17 +431,17 @@ test('delivered KPI counts only terminal delivery statuses, not partial or negat
   f.setResponse({configured:true,liveEnabled:false,shipments:[{awb:AWB,status:'DLV'}]});
   await f.api.refresh();
   assert.equal(f.element('tracking-delivered').textContent,1);
-  assert.equal(f.element('tracking-connection-title').textContent,'Tracking service configured · live requests paused');
+  assert.equal(f.element('tracking-connection-title').textContent,'Manual airline checks available · Automatic tracking paused');
 });
 
 test('server 503 explains the service error rather than silently presenting incomplete setup', async () => {
   const message = 'Tracking storage is temporarily unavailable.';
   const f = fixture({configured:false,liveEnabled:false,shipments:[],error:message,message},503);
   await f.api.refresh();
-  assert.equal(f.element('tracking-connection-title').textContent,'Tracking temporarily unavailable');
+  assert.equal(f.element('tracking-connection-title').textContent,'Manual airline checks available · Saved updates unavailable');
   assert.equal(f.element('tracking-connection-text').textContent,message);
   assert.equal(f.element('tracking-sync').disabled,true);
-  assert.equal(f.element('tracking-checked').textContent,'No tracking updates retrieved yet.');
+  assert.equal(f.element('tracking-checked').textContent,'Saved updates not retrieved yet');
 });
 
 const legacy = {

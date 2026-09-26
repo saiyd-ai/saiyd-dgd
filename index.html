@@ -463,34 +463,38 @@
 
     <!-- ================= SHIPMENT TRACKING ================= -->
     <div class="tab" id="tab-track">
-      <div class="card tracking-card"><h2>&#9992; SHIPMENT TRACKING &mdash; shipment report</h2><div class="body">
-        <p class="tracking-intro">Follow your saved shipments from departure to delivery. Jobs using the same master AWB share one tracking record. Document approval stays separate from shipment progress. Existing manual history remains available in Timeline.</p>
+      <div class="card tracking-card"><h2>&#9992; SHIPMENT TRACKING</h2><div class="body">
+        <p class="tracking-intro">Check an airline, review saved progress, or open the full shipment history.</p>
         <div id="tracking-connection" class="tracking-connection pending" role="status">
-          <strong id="tracking-connection-title">Tracking not connected</strong>
-          <p id="tracking-connection-text">Your saved AWBs will appear below. Connect CargoCONNECT on the server to receive shipment updates.</p>
+          <strong id="tracking-connection-title">Manual airline checks available</strong>
+          <p id="tracking-connection-text">Airline links open an external report. They do not change the status saved in DGDOC.</p>
         </div>
         <div class="tracking-kpis">
-          <div class="tracking-kpi"><b id="tracking-total">0</b><span>UNIQUE MASTER AWBS</span></div>
-          <div class="tracking-kpi"><b id="tracking-moving">0</b><span>DEPARTED / ARRIVED</span></div>
+          <div class="tracking-kpi"><b id="tracking-total">0</b><span>MASTER AWBS</span></div>
+          <div class="tracking-kpi"><b id="tracking-moving">0</b><span>MOVING / ARRIVED</span></div>
           <div class="tracking-kpi"><b id="tracking-delivered">0</b><span>DELIVERED</span></div>
-          <div class="tracking-kpi"><b id="tracking-untracked">0</b><span>AWAITING FIRST UPDATE</span></div>
+          <div class="tracking-kpi"><b id="tracking-untracked">0</b><span>NO SAVED UPDATE</span></div>
         </div>
         <div class="tracking-controls">
           <div class="tracking-search"><label for="tracking-search">Search shipments</label><input type="text" id="tracking-search" placeholder="MAWB, job, customer, route or flight"></div>
           <div class="tracking-filter"><label for="tracking-filter">Shipment status</label><select id="tracking-filter"><option value="">All shipment statuses</option></select></div>
-          <button type="button" id="tracking-import" class="btn btn-load">Import new AWBs from jobs</button>
+          <button type="button" id="tracking-import" class="btn btn-load">Add saved AWBs</button>
           <button type="button" id="tracking-refresh" class="btn btn-load">Refresh report</button>
           <button type="button" id="tracking-export" class="btn btn-load" disabled>Export CSV</button>
-          <button type="button" id="tracking-sync" class="btn btn-save" disabled>Track next eligible AWB</button>
         </div>
         <div id="tracking-action-message" role="status" aria-live="polite"></div>
         <div class="tracking-meta"><span id="tracking-count">0 unique MAWBs</span><span id="tracking-checked">No tracking updates retrieved yet.</span></div>
-        <div class="tracking-table-wrap" tabindex="0" role="region" aria-label="Shipment tracking report, scroll horizontally for all dates">
-          <table class="tracking-table"><thead><tr><th scope="col">Master AWB</th><th scope="col">Linked jobs / doc status</th><th scope="col">Route</th><th scope="col">CargoAi status</th><th scope="col">Flight</th><th scope="col">CargoAi actual departure</th><th scope="col">CargoAi actual arrival</th><th scope="col">CargoAi delivery</th><th scope="col">Last CargoAi update</th><th scope="col">Manual / legacy entry</th><th scope="col">Actions</th></tr></thead><tbody id="tracking-body"></tbody></table>
+        <div class="tracking-table-wrap" role="region" aria-label="Saved shipment tracking report">
+          <table class="tracking-table"><thead><tr><th scope="col">AWB / airline</th><th scope="col">Route / customer</th><th scope="col">Saved status</th><th scope="col">Last update</th><th scope="col">Linked jobs</th><th scope="col">Details</th></tr></thead><tbody id="tracking-body"></tbody></table>
         </div>
-        <div id="trk_detail" style="margin-top:14px;"></div>
+        <div id="trk_detail"></div>
         <p id="tracking-invalid" class="tracking-note"></p>
-        <p class="tracking-note">All tracking times are UTC. A dash means no update has been received; it does not confirm a shipment milestone. This view refreshes stored updates every 90 seconds while open. Refreshing or exporting this report does not request CargoAi tracking credits.</p>
+        <p class="tracking-note">Saved status comes from CargoAi. “Last update” is when that stored record changed; refreshing this page does not mean a new airline event. Times are UTC. Open details for dates, flights and manual history.</p>
+        <details class="tracking-automatic" id="tracking-automatic"><summary>Automatic tracking <span>Optional · CargoAi</span></summary><div class="tracking-automatic-body">
+          <p id="tracking-auto-status" class="tracking-note">Automatic tracking settings have not been checked yet.</p>
+          <button type="button" id="tracking-sync" class="btn btn-save" disabled>Track next AWB · CargoAi</button>
+          <p class="tracking-note">Starting a subscription uses CargoCONNECT credits and asks for confirmation. Manual airline checks, report refresh and export do not start subscriptions.</p>
+        </div></details>
       </div></div>
     </div>
 
