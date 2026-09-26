@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const tracking = require('../tracking.js');
 const AWB = '17612345675';
 const TRACKCARGO_ENDPOINT = '/.netlify/functions/trackcargo-tracking';
+const SNAPSHOT_PREFIX = 'dgdoc:trackcargo:snapshot:v1:';
 const AWBS = ['02012345675','09812345675','09812345686','14712345675','15512345675'];
 const legacy = {
   '176-12345675':{awb:'176-12345675',job:'DG-1',route:'DXB - LHR',milestones:[{code:'BKD',ts:1700000000000,note:'Booking entered',by:'Operator'}],updated:1700000000000},
@@ -24,24 +25,32 @@ function trackcargoPayload() {
   ]};
 }
 
-function fixture(payload = {configured:false,mode:'read_only',shipments:[]}, status = 200, source = {}) {
+function fixture(payload = {configured:false,mode:'read_only',shipments:[]}, status = 200, source = {}, config = {}) {
   const elements = new Map(), listeners = {}, requests = [], intervals = [], reportRenders = [];
   const element = id => {
     if (!elements.has(id)) elements.set(id, {id,value:'',innerHTML:'',textContent:'',disabled:false,options:[{value:''}],classList:{contains:() => id === 'tab-track'},addEventListener:(name, fn) => {listeners[id + ':' + name]=fn;}});
     return elements.get(id);
   };
   let authListener, confirmCount = 0;
-  const auth = {access_token:'fixture-only',user:{id:'fixture-user'}};
-  const sandbox = {module:{exports:{}},AbortController,console,Date,Blob,URL,
+  const auth = Object.prototype.hasOwnProperty.call(config,'auth') ? config.auth : {access_token:'fixture-only',user:{id:'fixture-user'}};
+  const storage = config.storage || new Map(), storageControl = config.storageControl || {};
+  const localStorage = {
+    get length(){return storage.size;}, key:index=>[...storage.keys()][index] || null,
+    getItem:key=>{if(storageControl.read) throw new Error('Storage read denied');return storage.has(key)?storage.get(key):null;},
+    setItem:(key,value)=>{if(storageControl.write) throw new Error('Storage quota exceeded');storage.set(key,String(value));},
+    removeItem:key=>{if(storageControl.remove) throw new Error('Storage removal denied');storage.delete(key);},
+    clear:()=>storage.clear()
+  };
+  const sandbox = {module:{exports:{}},AbortController,console,Date,Blob,URL,localStorage,
     document:{hidden:false,getElementById:element,addEventListener:(name,fn)=>{listeners['document:'+name]=fn;}},
-    window:{addEventListener:(name,fn)=>{listeners['window:'+name]=fn;},confirm:()=>{confirmCount++;throw new Error('Tracking view must not prompt to start paid subscriptions');}},
+    window:{localStorage,addEventListener:(name,fn)=>{listeners['window:'+name]=fn;},confirm:()=>{confirmCount++;throw new Error('Tracking view must not prompt to start paid subscriptions');}},
     setInterval:fn=>{intervals.push(fn);return 1;},clearInterval:()=>{},setTimeout:()=>1,clearTimeout:()=>{},
     fetch:async (url, init) => { requests.push({url,init});return {ok:status>=200&&status<300,status,json:async()=>payload}; }
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../tracking.js'),'utf8'), sandbox);
   const api = sandbox.module.exports;
-  api.init({readStore:key=>Object.prototype.hasOwnProperty.call(source,key) ? source[key] : key==='jfs_joblog'?[{awb:AWB,job:'<img src=x>',shipper:'Example'}]:[],getSession:async()=>({data:{session:auth}}),onAuthStateChange:cb=>{authListener=cb;},refreshReports:()=>reportRenders.push(api.reportCells(AWB,'')),milestones:{BKD:'BOOKED',DEP:'DEPARTED',DLV:'DELIVERED'}});
-  return {api,requests,element,listeners,sandbox,auth,intervals,reportRenders,authListener:()=>authListener,confirmCount:()=>confirmCount,setResponse:(p,s=200)=>{payload=p;status=s;}};
+  const ready=Promise.resolve(api.init({readStore:key=>Object.prototype.hasOwnProperty.call(source,key) ? source[key] : key==='jfs_joblog'?[{awb:AWB,job:'<img src=x>',shipper:'Example'}]:[],getSession:config.getSession || (async()=>({data:{session:auth}})),onAuthStateChange:cb=>{authListener=cb;},refreshReports:()=>reportRenders.push(api.reportCells(AWB,'')),milestones:{BKD:'BOOKED',DEP:'DEPARTED',DLV:'DELIVERED'}}));
+  return {api,requests,element,listeners,sandbox,auth,storage,storageControl,ready,intervals,reportRenders,authListener:()=>authListener,confirmCount:()=>confirmCount,setResponse:(p,s=200)=>{payload=p;status=s;}};
 }
 
 function clickTrackingAction(fixture, name, awb) {
@@ -483,4 +492,203 @@ test('page and document exports present TrackCargo only and retain a single trac
   const js=fs.readFileSync(path.join(__dirname,'../tracking.js'),'utf8');
   assert.ok(!js.includes('/.netlify/functions/cargoai-tracking'));
   assert.ok(!/method\s*:\s*['"]POST['"]/.test(js));
+});
+
+async function savedSnapshot(config = {}) {
+  const f=fixture(trackcargoPayload(),200,localSource(),config);
+  await f.ready;
+  await f.api.refreshTrackcargo();
+  const key=SNAPSHOT_PREFIX+f.auth.user.id;
+  assert.ok(f.storage.has(key),'An explicit successful refresh must save a browser snapshot');
+  return {f,key,envelope:JSON.parse(f.storage.get(key))};
+}
+
+test('same-account reload and new tabs restore timestamped saved results without requesting the provider', async () => {
+  const {f,key,envelope}=await savedSnapshot();
+  for(let i=0;i<2;i++) {
+    const next=fixture(undefined,200,localSource(),{storage:f.storage});
+    assert.equal(next.api.getRow(AWBS[0]).status,'Not retrieved','No data should render before the async session gate');
+    await next.ready;
+    assert.equal(next.api.getRow(AWBS[0]).status,'RCF');
+    assert.equal(next.element('tracking-pending').textContent,2);
+    assert.equal(next.element('tracking-unlinked').textContent,2);
+    assert.match(view(next),/saved snapshot/i);
+    assert.match(view(next),/24 Sept? 2026, 22:03 UTC/);
+    assert.match(next.element('tracking-checked').textContent,new RegExp(tracking.dateText(envelope.checkedAt).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+    assert.equal(next.requests.length,0);
+    assert.equal(JSON.parse(next.storage.get(key)).checkedAt,envelope.checkedAt,'Opening a page must not advance retrieval time');
+  }
+});
+
+test('snapshot serialization whitelists normalized data and excludes credentials, order IDs and raw payloads', async () => {
+  const payload=trackcargoPayload();
+  payload.shipments[0].apiKey='secret-sentinel';
+  payload.shipments[0].rawResponse={access_token:'raw-token-sentinel',parties:['private-party-sentinel']};
+  payload.shipments[0].events[0].debugToken='event-secret-sentinel';
+  const f=fixture(payload,200,localSource()); await f.ready; await f.api.refreshTrackcargo();
+  const serialized=f.storage.get(SNAPSHOT_PREFIX+f.auth.user.id), data=JSON.parse(serialized);
+  assert.equal(data.version,1); assert.equal(data.userId,f.auth.user.id); assert.equal(data.configured,true);
+  assert.equal(data.shipments.length,3);
+  assert.equal(data.shipments[0].awb,AWBS[0]); assert.equal(data.shipments[0].events[0].isPlanned,false);
+  for(const forbidden of ['fixture-only','existing-lh','secret-sentinel','raw-token-sentinel','private-party-sentinel','event-secret-sentinel','apiKey','rawResponse','orderId','access_token']) assert.ok(!serialized.includes(forbidden),forbidden);
+});
+
+test('snapshots never restore for a missing, expired or different authenticated session', async () => {
+  const {f}=await savedSnapshot();
+  for(const auth of [null,{user:{id:'fixture-user'}},{access_token:'expired',user:{id:'fixture-user'},expires_at:Math.floor(Date.now()/1000)-1},{access_token:'other',user:{id:'other-user'},expires_at:Math.floor(Date.now()/1000)+3600}]) {
+    const next=fixture(undefined,200,localSource(),{storage:new Map(f.storage),auth});
+    await next.ready;
+    assert.ok(!view(next).includes('RCF'));
+    assert.equal(next.requests.length,0);
+  }
+});
+
+test('corrupt, mismatched and oversized snapshot envelopes are ignored before rendering', async () => {
+  const {key,envelope}=await savedSnapshot();
+  const clone=()=>JSON.parse(JSON.stringify(envelope));
+  const wrongVersion=clone(); wrongVersion.version=2;
+  const wrongUser=clone(); wrongUser.userId='someone-else';
+  const wrongDate=clone(); wrongDate.checkedAt='not-a-date';
+  const duplicate=clone(); duplicate.shipments.push(duplicate.shipments[0]);
+  const nonCanonical=clone(); nonCanonical.shipments[0].awb='020-12345675';
+  const tooMany=clone(); tooMany.shipments=Array.from({length:6},()=>tooMany.shipments[0]);
+  const tooManyEvents=clone(); tooManyEvents.shipments[0].events=Array.from({length:2001},()=>tooManyEvents.shipments[0].events[0]);
+  const invalidEvent=clone(); invalidEvent.shipments[0].events[0].isPlanned='false';
+  const invalidProvider=clone(); invalidProvider.shipments[0].provider='cargoai';
+  const cases=['{broken',JSON.stringify(wrongVersion),JSON.stringify(wrongUser),JSON.stringify(wrongDate),JSON.stringify(duplicate),JSON.stringify(nonCanonical),JSON.stringify(tooMany),JSON.stringify(tooManyEvents),JSON.stringify(invalidEvent),JSON.stringify(invalidProvider),'x'.repeat(2*1024*1024+1)];
+  for(const [index,serialized] of cases.entries()) {
+    const next=fixture(undefined,200,localSource(),{storage:new Map([[key,serialized]])});
+    await next.ready;
+    assert.ok(!view(next).includes('RCF'),'Invalid cache case '+index+' must not present current carrier status');
+    assert.equal(next.requests.length,0);
+  }
+});
+
+test('local storage denial or quota failure keeps current retrieved results usable and reports unsaved snapshots', async () => {
+  const controls={read:true,write:true};
+  const f=fixture(trackcargoPayload(),200,localSource(),{storageControl:controls});
+  await f.ready;
+  await f.api.refreshTrackcargo();
+  assert.equal(f.api.getRow(AWBS[0]).status,'RCF');
+  assert.match(view(f),/could not be saved/i);
+  assert.equal(f.requests.length,1);
+  assert.equal(f.element('tracking-refresh').disabled,false);
+  controls.remove=true;
+  assert.doesNotThrow(()=>f.authListener()('SIGNED_OUT',null));
+  assert.ok(!view(f).includes('RCF'));
+});
+
+test('logout, account change and authorization or setup failures remove only this feature scoped snapshot', async () => {
+  for(const cause of ['logout','account-change',401,403,503]) {
+    const {f,key}=await savedSnapshot();
+    f.storage.set('unrelated-job-data','must-stay');
+    if(cause==='logout') f.authListener()('SIGNED_OUT',null);
+    else if(cause==='account-change') f.authListener()('SIGNED_IN',{access_token:'different',user:{id:'different-user'}});
+    else {
+      f.setResponse(cause===503?{configured:false,mode:'read_only',shipments:[],message:'TrackCargo is not configured.'}:{error:'denied'},cause);
+      await f.api.refreshTrackcargo();
+    }
+    await new Promise(setImmediate);
+    assert.equal(f.storage.has(key),false,String(cause));
+    assert.equal(f.storage.get('unrelated-job-data'),'must-stay');
+    assert.ok(!view(f).includes('RCF'),String(cause));
+  }
+});
+
+test('cross-tab snapshots update the same account without fetches and older or unrelated snapshots cannot replace them', async () => {
+  const {f,key,envelope}=await savedSnapshot();
+  const old=JSON.parse(JSON.stringify(envelope)); old.checkedAt=new Date(Date.now()-10000).toISOString();
+  f.storage.set(key,JSON.stringify(old));
+  const next=fixture(undefined,200,localSource(),{storage:f.storage}); await next.ready;
+  const newer=JSON.parse(JSON.stringify(envelope)); newer.checkedAt=new Date().toISOString(); newer.shipments[0].status='RCS'; newer.shipments[0].statusDescription='Newer saved carrier event';
+  const serialized=JSON.stringify(newer);
+  f.storage.set(key,serialized);
+  await next.listeners['window:storage']({key,newValue:serialized,storageArea:next.sandbox.localStorage});
+  await new Promise(setImmediate);
+  assert.equal(next.api.getRow(AWBS[0]).status,'RCS');
+  assert.match(view(next),/saved snapshot/i); assert.equal(next.requests.length,0);
+  f.storage.set(key,JSON.stringify(old));
+  await next.listeners['window:storage']({key,newValue:JSON.stringify(old),storageArea:next.sandbox.localStorage});
+  await next.listeners['window:storage']({key:SNAPSHOT_PREFIX+'other-user',newValue:JSON.stringify(old),storageArea:next.sandbox.localStorage});
+  await new Promise(setImmediate);
+  assert.equal(next.api.getRow(AWBS[0]).status,'RCS');
+  assert.equal(next.requests.length,0);
+  f.storage.delete(key);
+  await next.listeners['window:storage']({key,newValue:null,storageArea:next.sandbox.localStorage});
+  await new Promise(setImmediate);
+  assert.ok(!view(next).includes('RCS'));
+});
+
+test('stored refresh errors remain visible after reload while a later successful result replaces the saved snapshot', async () => {
+  const {f,key}=await savedSnapshot();
+  f.setResponse(null,502); await f.api.refreshTrackcargo();
+  const next=fixture(trackcargoPayload(),200,localSource(),{storage:f.storage}); await next.ready;
+  assert.equal(next.api.getRow(AWBS[0]).status,'RCF');
+  assert.match(view(next),/could not be refreshed|Not refreshed/);
+  assert.match(next.api.reportCells(AWBS[0],''),/Not refreshed/);
+  assert.equal(next.requests.length,0);
+  await next.api.refreshTrackcargo();
+  assert.ok(!/could not be refreshed|Not refreshed/.test(view(next)));
+  assert.equal(JSON.parse(next.storage.get(key)).error,'');
+});
+
+test('late startup restoration cannot overwrite an explicit refresh or resurrect data after logout', async () => {
+  const {f}=await savedSnapshot();
+  let resolveSession, calls=0;
+  const auth={access_token:'fixture-only',user:{id:'fixture-user'}};
+  const next=fixture(trackcargoPayload(),200,localSource(),{storage:new Map(f.storage),getSession:()=>++calls===1?new Promise(resolve=>{resolveSession=resolve;}):Promise.resolve({data:{session:auth}})});
+  const fresh=trackcargoPayload(); fresh.shipments[0].status='RCS'; next.setResponse(fresh);
+  await next.api.refreshTrackcargo();
+  resolveSession({data:{session:auth}}); await next.ready;
+  assert.equal(next.api.getRow(AWBS[0]).status,'RCS');
+  assert.equal(next.requests.length,1);
+  let resolveLoggedOut;
+  const loggedOut=fixture(undefined,200,localSource(),{storage:new Map(f.storage),getSession:()=>new Promise(resolve=>{resolveLoggedOut=resolve;})});
+  loggedOut.authListener()('SIGNED_OUT',null);
+  resolveLoggedOut({data:{session:auth}}); await loggedOut.ready;
+  assert.ok(!view(loggedOut).includes('RCF'));
+  assert.equal(loggedOut.requests.length,0);
+});
+
+test('auth callbacks restore from supplied sessions without reentering getSession', async () => {
+  const {f}=await savedSnapshot();
+  let getSessionCalls=0;
+  const next=fixture(undefined,200,localSource(),{storage:new Map(f.storage),getSession:async()=>{getSessionCalls++;return {data:{session:null}};}});
+  await next.ready;
+  const baseline=getSessionCalls;
+  next.authListener()('SIGNED_IN',{access_token:'fixture-only',user:{id:'fixture-user'}});
+  await new Promise(setImmediate);
+  assert.equal(getSessionCalls,baseline,'Auth callback must not reenter the Supabase auth lock');
+  assert.equal(next.api.getRow(AWBS[0]).status,'RCF');
+  assert.equal(next.requests.length,0);
+});
+
+test('a new account auth event wins over an older session lookup that started before identity was known', async () => {
+  const {f,envelope}=await savedSnapshot();
+  const second=JSON.parse(JSON.stringify(envelope));
+  second.userId='next-user'; second.shipments[0].status='RCS';
+  const storage=new Map(f.storage), key=SNAPSHOT_PREFIX+second.userId;
+  storage.set(key,JSON.stringify(second));
+  let resolveInitial;
+  const next=fixture(undefined,200,localSource(),{storage,getSession:()=>new Promise(resolve=>{resolveInitial=resolve;})});
+  next.authListener()('SIGNED_IN',{access_token:'next-account-token',user:{id:'next-user'}});
+  await new Promise(setImmediate);
+  assert.equal(next.api.getRow(AWBS[0]).status,'RCS');
+  resolveInitial({data:{session:f.auth}}); await next.ready;
+  assert.equal(next.api.getRow(AWBS[0]).status,'RCS','Stale startup identity must not replace the authenticated account');
+  assert.equal(storage.has(key),true,'Stale startup identity must not purge the new account snapshot');
+  assert.equal(next.requests.length,0);
+});
+
+test('cross-tab snapshot removal invalidates an outstanding response and cannot repopulate cleared results', async () => {
+  const {f,key}=await savedSnapshot();
+  let resolveResponse;
+  f.sandbox.fetch=()=>new Promise(resolve=>{resolveResponse=resolve;});
+  const request=f.api.refreshTrackcargo(); await new Promise(setImmediate);
+  f.storage.delete(key);
+  f.listeners['window:storage']({key,newValue:null,storageArea:f.sandbox.localStorage});
+  resolveResponse({ok:true,status:200,json:async()=>trackcargoPayload()}); await request;
+  assert.ok(!view(f).includes('RCF'));
+  assert.equal(f.storage.has(key),false);
+  assert.equal(f.element('tracking-refresh').disabled,false);
 });

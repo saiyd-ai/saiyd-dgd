@@ -56,6 +56,14 @@ The frontend now uses TrackCargo as the only provider in the main shipment table
 
 Only the explicit **Refresh TrackCargo** button reads provider data. Navigation, cloud updates, visibility changes, and the compatibility `refresh()` method render local/cached data without requesting either tracking provider. The former CargoAi start controls and request path have been removed from the UI. Its backend, credentials, stored records and callback receiver remain untouched. Manual/legacy history remains available separately. The existing three-order read-only scope is unchanged; no new tracking orders or scheduled requests are enabled.
 
+### Retaining the last result across reloads
+
+Successful normalized results are saved in this browser under `dgdoc:trackcargo:snapshot:v1:<Supabase user ID>`. After an active session is available, reloads and new tabs restore that account's snapshot without any provider request. The page, rows, details and exports identify restored results as a **Saved snapshot**, retaining their original retrieval and event times. This browser cache is not company-wide database persistence or an automatic tracking schedule.
+
+The cache contains only an explicit allowlist of normalized shipment/event fields; it excludes API keys, session tokens, provider order UUIDs, raw responses and shipment parties. Validation requires the correct version/user, unique canonical AWBs, UTC timestamps and bounded types, with at most five shipments, 2,000 events per shipment and 2 MiB serialized text. Oversized or malformed data is not restored, and history is never silently truncated. Storage failure leaves the fetched result usable and displays a warning that it could not be saved.
+
+Logout, account changes and authorization rejection clear the previous account's cached result. Missing server configuration removes that saved snapshot. Cross-tab updates restore only the current authenticated account's cache; deletion clears its display. Generation guards prevent a late auth/cache/provider response from replacing data for a newer account or explicit refresh. The cache is ordinary browser storage, not encryption or an authorization boundary; it is excluded from company/cloud synchronization and full-data exports. Existing saved job/document storage is unchanged.
+
 ## Preserve history and the existing pause
 
 Keep `CARGOAI_LIVE_ENABLED=false` and `CARGOAI_AUTO_SYNC_ENABLED=false`. Do not change CargoAi's existing subscription ledger, credit cap, renewal policy, or signed callback receiver. A TrackCargo read connection must not enable CargoAi's start-tracking controls.
@@ -66,7 +74,7 @@ Numerical API rate limits, general retrieval usage accounting, and webhook authe
 
 ## Verification and deployment status
 
-The TrackCargo-only display revision passes **82 relevant tests**: 26 frontend, 29 preserved CargoAi backend, and 27 TrackCargo backend tests (client 10, adapter 9, controller 8). Frontend checks cover explicit-only reads, source-correct reports/CSV, pending and unlinked AWBs, manual history, authentication races and stale-result labels. Tests use synthetic AWBs and credentials with mocked/redacted response shapes; the separately authorized six-GET probe verifies the real API. The adapter also normalized all three captured probe records successfully without returning raw records publicly.
+The TrackCargo display and snapshot revision passes **94 relevant tests**: 38 frontend, 29 preserved CargoAi backend, and 27 TrackCargo backend tests (client 10, adapter 9, controller 8). Frontend checks cover explicit-only reads, source-correct reports/CSV, pending and unlinked AWBs, manual history, reload/new-tab restoration, storage failures, cross-tab synchronization, authentication races and stale-result labels. Tests use synthetic AWBs and credentials with mocked/redacted response shapes; the separately authorized six-GET probe verifies the real API. The adapter also normalized all three captured probe records successfully without returning raw records publicly.
 
 ```text
 node --test --test-isolation=none tests/backend/trackcargo-client.test.mjs tests/backend/trackcargo.test.mjs tests/backend/trackcargo-tracking.test.mjs

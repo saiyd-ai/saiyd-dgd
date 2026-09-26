@@ -190,14 +190,100 @@
     const columns = ['AWB','Linked jobs','Document status','Shipper','Consignee','Route','Origin','Destination','TrackCargo latest carrier event (may cover part of shipment)','Flight','Origin departure event (UTC)','Verified arrival (UTC)','Verified delivery (UTC)','Last actual carrier event (UTC)','TrackCargo order status','Fetched from TrackCargo (UTC)','Refresh status','Manual / legacy status','Last manual / legacy entry recorded (UTC)','TrackCargo events (planned / actual labeled)','Manual / legacy history (recorded times, not actual milestones)'];
     return '\ufeff' + [columns, ...array(rows).map(row => [displayAwb(row.awb), row.jobs.map(job => job.job).join('; '),
       row.jobs.map(job => job.job + ': ' + (job.documentStatus || 'No saved document')).join('; '), row.shipper, row.consignee, [row.origin,row.destination].filter(Boolean).join(' → ') || row.route,
-      row.origin, row.destination, row.status, row.flight, dateText(row.departedAt), dateText(row.arrivedAt), dateText(row.deliveredAt), dateText(row.lastUpdate), row.orderStatus, dateText(row.fetchedAt), row.providerResult ? (row.refreshError || trackcargo.error || 'Retrieved') : 'No result retrieved',
+      row.origin, row.destination, row.status, row.flight, dateText(row.departedAt), dateText(row.arrivedAt), dateText(row.deliveredAt), dateText(row.lastUpdate), row.orderStatus, dateText(row.fetchedAt), row.providerResult ? (row.refreshError || trackcargo.error || (trackcargo.fromSnapshot ? 'Saved snapshot · not refreshed this visit' : 'Retrieved')) : 'No result retrieved',
       row.manualStatus || 'No manual update', dateText(row.lastManualEntry), array(row.events).map(eventSummary).join('\n'), array(row.manualEvents).map(event => [event.source,event.code,event.note,'Recorded: '+dateText(event.ts),event.by,event.recordKey].filter(Boolean).join(' | ')).join('\n')
     ])].map(cells => cells.map(csvCell).join(',')).join('\r\n');
   }
-  const state = {userId:null, generation:0};
-  const trackcargo = {configured:false, shipments:[], loaded:false, loading:false, error:'', message:'', checkedAt:null};
+  const state = {userId:null, generation:0, restoreRevision:0};
+  const trackcargo = {configured:false, shipments:[], loaded:false, loading:false, error:'', message:'', checkedAt:null, fromSnapshot:false, storageWarning:''};
+  const SNAPSHOT_PREFIX = 'dgdoc:trackcargo:snapshot:v1:';
+  const SNAPSHOT_LIMIT = 2 * 1024 * 1024;
   let options = {}, detailId = null;
   function node(id) { return typeof document === 'undefined' ? null : document.getElementById(id); }
+  function snapshotKey(userId) { return typeof userId === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(userId) ? SNAPSHOT_PREFIX + userId : null; }
+  function activeSession(auth) {
+    return !!(auth && typeof auth.access_token === 'string' && auth.access_token && auth.user && snapshotKey(auth.user.id) &&
+      (auth.expires_at == null || typeof auth.expires_at === 'number' && auth.expires_at * 1000 > Date.now()));
+  }
+  function snapshotText(value, limit = 1000) {
+    if (value == null) return null;
+    if (typeof value !== 'string' || value.length > limit) throw new Error('Invalid saved tracking text');
+    return value;
+  }
+  function snapshotDate(value) {
+    if (value == null) return null;
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value) || !Number.isFinite(Date.parse(value))) throw new Error('Invalid saved tracking date');
+    return value;
+  }
+  function snapshotEvent(event) {
+    if (!event || typeof event !== 'object' || Array.isArray(event)) throw new Error('Invalid saved event');
+    const clean = {provider:'trackcargo'};
+    for (const field of ['code','description','eventLocation','timezone','flightNumber','timeKind','weightUnit']) clean[field] = snapshotText(event[field]);
+    clean.eventDate = snapshotDate(event.eventDate);
+    for (const field of ['isPlanned','isPredicted','isSplit']) {
+      if (event[field] != null && typeof event[field] !== 'boolean') throw new Error('Invalid saved event flag');
+      clean[field] = event[field] == null ? null : event[field];
+    }
+    for (const field of ['pieces','weight']) {
+      if (event[field] != null && (typeof event[field] !== 'number' || !Number.isFinite(event[field]) || event[field] < 0)) throw new Error('Invalid saved quantity');
+      clean[field] = event[field] == null ? null : event[field];
+    }
+    if (event.flight != null) {
+      if (typeof event.flight !== 'object' || Array.isArray(event.flight)) throw new Error('Invalid saved flight');
+      clean.flight = {};
+      for (const field of ['number','origin','destination']) clean.flight[field] = snapshotText(event.flight[field]);
+      for (const field of ['actualDeparture','actualArrival','scheduledDeparture','scheduledArrival','estimatedDeparture','estimatedArrival']) clean.flight[field] = snapshotDate(event.flight[field]);
+    }
+    return clean;
+  }
+  function snapshotShipments(shipments, canonical = false) {
+    if (!Array.isArray(shipments) || shipments.length > 5) throw new Error('Invalid saved shipment list');
+    const seen = new Set();
+    return shipments.map(shipment => {
+      const awb = shipment && normalizeAwb(shipment.awb);
+      if (!awb || typeof shipment.awb !== 'string' || canonical && shipment.awb !== awb || shipment.provider !== 'trackcargo' || seen.has(awb) || !['AVAILABLE','INCONCLUSIVE','ERROR'].includes(shipment.dataStatus)) throw new Error('Invalid saved shipment');
+      seen.add(awb);
+      const clean = {awb,provider:'trackcargo',dataStatus:shipment.dataStatus};
+      for (const field of ['orderStatus','status','statusScope','statusDescription','origin','destination','currentLocation','message','refreshError']) clean[field] = snapshotText(shipment[field]);
+      for (const field of ['departedAt','arrivedAt','deliveredAt','plannedArrivalAt','plannedDeliveryAt','lastUpdate','fetchedAt']) clean[field] = snapshotDate(shipment[field]);
+      if (!Array.isArray(shipment.events) || shipment.events.length > 2000) throw new Error('Invalid saved event list');
+      clean.events = shipment.events.map(snapshotEvent);
+      return clean;
+    });
+  }
+  function removeSnapshot(userId) {
+    const key = snapshotKey(userId);
+    try { if (key && typeof localStorage !== 'undefined') localStorage.removeItem(key); } catch { /* Cache removal must not block signing out. */ }
+  }
+  function saveSnapshot() {
+    if (!state.userId || !trackcargo.loaded || !trackcargo.configured) return;
+    try {
+      const payload = {version:1,userId:state.userId,checkedAt:trackcargo.checkedAt,configured:true,shipments:snapshotShipments(trackcargo.shipments),error:snapshotText(trackcargo.error)};
+      const raw = JSON.stringify(payload);
+      if (raw.length > SNAPSHOT_LIMIT || typeof localStorage === 'undefined') throw new Error('Snapshot storage unavailable');
+      localStorage.setItem(snapshotKey(state.userId),raw);
+      trackcargo.storageWarning = '';
+    } catch { trackcargo.storageWarning = 'This result could not be saved in this browser. Use Refresh TrackCargo after reopening the page.'; }
+  }
+  async function restoreSnapshot(suppliedAuth) {
+    const generation = state.generation, revision = state.restoreRevision;
+    try {
+      const auth = suppliedAuth === undefined ? await session() : suppliedAuth;
+      if (generation !== state.generation || revision !== state.restoreRevision || trackcargo.loading) return;
+      if (!activeSession(auth)) { if (state.userId) clearState(); return; }
+      if (state.userId !== auth.user.id) clearState();
+      state.userId = auth.user.id;
+      if (typeof localStorage === 'undefined') return;
+      const raw = localStorage.getItem(snapshotKey(state.userId));
+      if (!raw || raw.length > SNAPSHOT_LIMIT) return;
+      const saved = JSON.parse(raw);
+      if (!saved || saved.version !== 1 || saved.userId !== state.userId || saved.configured !== true || !snapshotDate(saved.checkedAt)) return;
+      const shipments = snapshotShipments(saved.shipments,true), error = snapshotText(saved.error) || '';
+      if (trackcargo.checkedAt && Date.parse(saved.checkedAt) <= Date.parse(trackcargo.checkedAt)) return;
+      Object.assign(trackcargo,{configured:true,shipments,loaded:true,error,message:'',checkedAt:saved.checkedAt,fromSnapshot:true,storageWarning:''});
+      refresh();
+    } catch { /* Corrupt or unavailable local cache cannot replace a valid displayed result. */ }
+  }
   function localData() {
     const data = collectShipments(options.readStore ? options.readStore('jfs_joblog') : [], options.readStore ? options.readStore('jfs_documents') : []);
     data.shipments = withManualHistory(data.shipments, options.readStore ? options.readStore('jfs_tracking') : {});
@@ -227,7 +313,7 @@
     if (!normalized) return {status:txt(awb).trim() ? 'Manual only · invalid MAWB' : 'No MAWB', lastUpdate:'—',manualStatus:manual && manual.manualStatus || 'No manual update',lastManualEntry:dateText(manual && manual.lastManualEntry)};
     const shipment = allRows().find(item => normalizeAwb(item.awb) === normalized);
     const status = shipment ? shipment.status : !trackcargo.loaded ? 'Not retrieved' : trackcargo.configured ? 'Not linked to TrackCargo' : 'TrackCargo not connected';
-    return {status:status + (shipment && shipment.providerResult && (trackcargo.error || shipment.refreshError) ? ' · Not refreshed' : ''), lastUpdate:shipment ? dateText(shipment.lastUpdate) : '—',manualStatus:manual && manual.manualStatus || 'No manual update',lastManualEntry:dateText(manual && manual.lastManualEntry)};
+    return {status:status + (shipment && shipment.providerResult && (trackcargo.error || shipment.refreshError) ? ' · Not refreshed' : shipment && shipment.providerResult && trackcargo.fromSnapshot ? ' · Saved snapshot' : ''), lastUpdate:shipment ? dateText(shipment.lastUpdate) : '—',manualStatus:manual && manual.manualStatus || 'No manual update',lastManualEntry:dateText(manual && manual.lastManualEntry)};
   }
   function reportCells(awb, tdStyle) {
     const info = reportInfo(awb);
@@ -246,7 +332,7 @@
     return 'TrackCargo order: ' + order.charAt(0).toUpperCase() + order.slice(1);
   }
   function trackcargoNotice(shipment) {
-    return shipment.refreshError ? '<p class="trackcargo-message issue">Not refreshed: ' + escapeHtml(shipment.refreshError) + ' Showing the previous TrackCargo result.</p>' : shipment.message ? '<p class="trackcargo-message">' + escapeHtml(shipment.message) + '</p>' : '';
+    return (trackcargo.fromSnapshot ? '<small>Saved snapshot · not refreshed this visit</small>' : '') + (shipment.refreshError ? '<p class="trackcargo-message issue">Not refreshed: ' + escapeHtml(shipment.refreshError) + ' Showing the previous TrackCargo result.</p>' : shipment.message ? '<p class="trackcargo-message">' + escapeHtml(shipment.message) + '</p>' : '');
   }
   function trackcargoDetail(row, open) {
     if (!normalizeAwb(row.awb)) return '';
@@ -277,8 +363,8 @@
     node('tracking-invalid').textContent = manualOnly || local.invalid.length ? manualOnly + ' manual-only record(s) retained. Airline links require a valid master AWB; house AWBs and incomplete numbers remain available in saved history.' : '';
     const connection = node('tracking-connection');
     connection.className = 'tracking-connection ' + (trackcargo.error ? 'issue' : 'ready');
-    node('tracking-connection-title').textContent = trackcargo.loading ? 'Refreshing TrackCargo…' : trackcargo.error ? 'TrackCargo · refresh unavailable' : trackcargo.loaded && !trackcargo.configured ? 'TrackCargo not connected' : 'TrackCargo · refresh when needed';
-    node('tracking-connection-text').textContent = trackcargo.error ? trackcargo.error + (trackcargo.shipments.length ? ' Showing the last retrieved results.' : '') : trackcargo.loading ? 'Reading existing TrackCargo orders…' : trackcargo.loaded && trackcargo.message ? trackcargo.message : 'Refresh TrackCargo reads existing orders. New AWBs and scheduled updates are not enabled.';
+    node('tracking-connection-title').textContent = trackcargo.loading ? 'Refreshing TrackCargo…' : trackcargo.error ? 'TrackCargo · refresh unavailable' : trackcargo.fromSnapshot ? 'TrackCargo · saved snapshot' : trackcargo.loaded && !trackcargo.configured ? 'TrackCargo not connected' : 'TrackCargo · refresh when needed';
+    node('tracking-connection-text').textContent = (trackcargo.error ? trackcargo.error + (trackcargo.shipments.length ? ' Showing the last retrieved results.' : '') : trackcargo.loading ? 'Reading existing TrackCargo orders…' : trackcargo.fromSnapshot ? 'Showing the last result saved in this browser. Use Refresh TrackCargo for a new check; opening this page does not contact the tracking provider.' : trackcargo.loaded && trackcargo.message ? trackcargo.message : 'Refresh TrackCargo reads existing orders. New AWBs and scheduled updates are not enabled.') + (trackcargo.storageWarning ? ' ' + trackcargo.storageWarning : '');
     node('tracking-checked').textContent = trackcargo.checkedAt ? 'Last retrieval ' + dateText(trackcargo.checkedAt) : 'TrackCargo results not retrieved yet';
     node('tracking-refresh').disabled = trackcargo.loading;
     node('tracking-refresh').textContent = trackcargo.loading ? 'Refreshing TrackCargo…' : 'Refresh TrackCargo';
@@ -329,10 +415,12 @@
     const result = options.getSession ? await options.getSession() : null;
     return result && result.data ? result.data.session : result;
   }
-  function clearState() {
+  function clearState(purge = true) {
+    if (purge) removeSnapshot(state.userId);
     state.generation++;
+    state.restoreRevision++;
     state.userId = null;
-    Object.assign(trackcargo, {configured:false, shipments:[], loaded:false, loading:false, error:'', message:'', checkedAt:null});
+    Object.assign(trackcargo, {configured:false, shipments:[], loaded:false, loading:false, error:'', message:'', checkedAt:null, fromSnapshot:false, storageWarning:''});
     render();
     if (options.refreshReports) options.refreshReports();
   }
@@ -345,19 +433,22 @@
   }
   async function refreshTrackcargo() {
     if (trackcargo.loading) return;
+    state.restoreRevision++;
     trackcargo.loading = true; trackcargo.error = ''; render();
     let generation = state.generation;
     try {
       const auth = await session();
       if (generation !== state.generation) return;
-      if (!auth || !auth.access_token) { clearState(); generation = state.generation; trackcargo.error = 'Sign in to view TrackCargo orders.'; return; }
-      if (state.userId && state.userId !== auth.user.id) clearState();
+      if (!activeSession(auth)) { clearState(); generation = state.generation; trackcargo.error = 'Sign in to view TrackCargo orders.'; return; }
+      if (state.userId !== auth.user.id) clearState();
       state.userId = auth.user.id; generation = state.generation; trackcargo.loading = true;
       const response = await request({method:'GET', headers:{Authorization:'Bearer ' + auth.access_token}, cache:'no-store'}, TRACKCARGO_ENDPOINT);
       const payload = await response.json().catch(() => null);
       if (generation !== state.generation) return;
       if (response.status === 401 || response.status === 403) {
+        removeSnapshot(state.userId);
         trackcargo.shipments = []; trackcargo.loaded = false; trackcargo.checkedAt = null;
+        trackcargo.fromSnapshot = false;
         throw new Error('Your account cannot access TrackCargo. Sign in again or contact your administrator.');
       }
       if (!response.ok && !(response.status === 503 && payload && payload.configured === false)) throw new Error('TrackCargo could not be refreshed. Try again shortly.');
@@ -368,8 +459,9 @@
         return item.dataStatus === 'ERROR' && previous && previous.dataStatus !== 'ERROR' ? {...previous,refreshError:item.message || 'TrackCargo did not return an updated result.'} : item;
       });
       trackcargo.message = typeof payload.message === 'string' ? payload.message.trim() : '';
-      trackcargo.loaded = true; trackcargo.checkedAt = new Date().toISOString();
-    } catch (error) { if (generation === state.generation) trackcargo.error = error.message || 'TrackCargo could not be refreshed.'; }
+      trackcargo.loaded = true; trackcargo.checkedAt = new Date().toISOString(); trackcargo.fromSnapshot = false;
+      if (trackcargo.configured) saveSnapshot(); else removeSnapshot(state.userId);
+    } catch (error) { if (generation === state.generation) { trackcargo.error = error.message || 'TrackCargo could not be refreshed.'; saveSnapshot(); } }
     finally { if (generation === state.generation) { trackcargo.loading = false; refresh(); } }
   }
   // The host calls refresh during navigation/cloud updates: keep those reads local.
@@ -420,9 +512,19 @@
       if (button.dataset.detailAction === 'close') { closeDetail(); return; }
       if (button.dataset.detailAction === 'add' && options.addManual) options.addManual(button.dataset.recordKey);
     });
-    if (options.onAuthStateChange) options.onAuthStateChange((event, auth) => { if (!auth || state.userId && state.userId !== auth.user.id) clearState(); });
-    window.addEventListener('storage', event => { if (['jfs_joblog','jfs_documents','jfs_tracking'].includes(event.key)) render(); });
+    if (options.onAuthStateChange) options.onAuthStateChange((event, auth) => {
+      if (!activeSession(auth)) { clearState(); return; }
+      if (state.userId !== auth.user.id) clearState();
+      // The supplied session avoids requesting Supabase's auth lock inside its callback.
+      void restoreSnapshot(auth);
+    });
+    window.addEventListener('storage', event => {
+      if (event.key === null || state.userId && event.key === snapshotKey(state.userId) && event.newValue === null) { clearState(false); return; }
+      if (typeof event.key === 'string' && event.key.startsWith(SNAPSHOT_PREFIX)) { void restoreSnapshot(); return; }
+      if (['jfs_joblog','jfs_documents','jfs_tracking'].includes(event.key)) render();
+    });
     render();
+    return restoreSnapshot();
   }
-  return {normalizeAwb, displayAwb, airlineTrackingLink, collectShipments, withManualHistory, importSavedAwbs, mergeManualStores, eventKind, eventSummary, mergeTracking, mergeTrackcargo, filterShipments, csvCell, toCsv, dateText, escapeHtml, statusText, init, onTab, refresh, refreshTrackcargo, sync, render, renderDetail, getRow, reportInfo, reportCells};
+  return {normalizeAwb, displayAwb, airlineTrackingLink, collectShipments, withManualHistory, importSavedAwbs, mergeManualStores, eventKind, eventSummary, mergeTracking, mergeTrackcargo, filterShipments, csvCell, toCsv, dateText, escapeHtml, statusText, init, onTab, refresh, refreshTrackcargo, restoreSnapshot, sync, render, renderDetail, getRow, reportInfo, reportCells};
 });
