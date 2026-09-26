@@ -70,17 +70,18 @@ function fixture(payload = {configured:false,liveEnabled:false,shipments:[]}, st
     return elements.get(id);
   };
   let authListener, confirmResult = false, confirmCount = 0;
+  const confirmMessages = [];
   const auth = {access_token:'fixture-only',user:{id:'fixture-user'}};
   const sandbox = {module:{exports:{}},AbortController,console,Date,Blob,URL,
     document:{hidden:false,getElementById:element,addEventListener:()=>{}},
-    window:{addEventListener:()=>{},confirm:()=>{confirmCount++;return confirmResult;}},
+    window:{addEventListener:()=>{},confirm:message=>{confirmCount++;confirmMessages.push(message);return confirmResult;}},
     setInterval:fn=>{intervals.push(fn);return 1;},clearInterval:()=>{},setTimeout:()=>1,clearTimeout:()=>{},
     fetch:async (url, init) => { requests.push({url,init});return {ok:status>=200&&status<300,status,json:async()=>payload}; }
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../tracking.js'),'utf8'), sandbox);
   const api = sandbox.module.exports;
   api.init({readStore:key=>Object.prototype.hasOwnProperty.call(source,key) ? source[key] : key==='jfs_joblog'?[{awb:AWB,job:'<img src=x>',shipper:'Example'}]:[],getSession:async()=>({data:{session:auth}}),onAuthStateChange:cb=>{authListener=cb;},milestones:{BKD:'BOOKED',DEP:'DEPARTED',DLV:'DELIVERED'}});
-  return {api,requests,element,listeners,sandbox,auth,intervals,authListener:()=>authListener,confirm:yes=>{confirmResult=yes;},confirmCount:()=>confirmCount,setResponse:(p,s=200)=>{payload=p;status=s;}};
+  return {api,requests,element,listeners,sandbox,auth,intervals,confirmMessages,authListener:()=>authListener,confirm:yes=>{confirmResult=yes;},confirmCount:()=>confirmCount,setResponse:(p,s=200)=>{payload=p;status=s;}};
 }
 
 test('unconfigured service lists real AWBs safely and makes no CargoAi or POST request', async () => {
@@ -92,7 +93,7 @@ test('unconfigured service lists real AWBs safely and makes no CargoAi or POST r
   assert.equal(f.requests[0].init.headers.Authorization,'Bearer fixture-only');
   assert.equal(f.requests[0].init.method,undefined);
   assert.equal(f.element('tracking-sync').disabled,true);
-  assert.equal(f.element('tracking-connection-title').textContent,'Tracking not connected');
+  assert.equal(f.element('tracking-connection-title').textContent,'Automatic tracking setup incomplete');
   assert.ok(f.element('tracking-body').innerHTML.includes('&lt;img src=x&gt;'));
   await f.listeners['tracking-sync:click']();
   assert.equal(f.requests.length,1);
@@ -114,6 +115,43 @@ test('live tracking stays paused until backend enablement; enabled POST requires
   await f.listeners['tracking-sync:click']();
   const post = f.requests.find(r=>r.init.method==='POST');
   assert.equal(post.init.body,'{"action":"sync"}');
+});
+
+test('pending signed callbacks show the server reason as text and cannot start tracking', async () => {
+  const message = 'Signed webhook (HMAC) setup is pending. <img src=x onerror=alert(1)>';
+  const f = fixture({configured:false,liveEnabled:false,shipments:[{awb:AWB,status:'IN_TRANSIT'}],message});
+  await f.api.refresh();
+  assert.equal(f.element('tracking-connection-title').textContent,'Automatic tracking setup incomplete');
+  assert.ok(f.element('tracking-connection-text').textContent.includes(message));
+  assert.equal(f.element('tracking-connection-text').innerHTML,'');
+  assert.equal(f.api.reportInfo(AWB).status,'IN TRANSIT');
+  assert.equal(f.element('tracking-sync').disabled,true);
+  await f.listeners['tracking-sync:click']();
+  assert.equal(f.requests.length,1);
+  assert.equal(f.confirmCount(),0);
+  f.authListener()('SIGNED_OUT',null);
+  assert.ok(!f.element('tracking-connection-text').textContent.includes(message));
+});
+
+test('credit messaging follows server setup without assuming a Free plan or enabling paused requests', async () => {
+  const message = 'Verified allowance: 150 credits. Application cap: 10 credits. Live requests are paused.';
+  const f = fixture({configured:true,liveEnabled:false,shipments:[],message});
+  await f.api.refresh();
+  assert.equal(f.element('tracking-connection-title').textContent,'Tracking service configured · live requests paused');
+  assert.ok(f.element('tracking-connection-text').textContent.includes(message));
+  assert.ok(!/Free.plan/.test(f.element('tracking-connection-text').textContent));
+  await f.listeners['tracking-sync:click']();
+  assert.equal(f.confirmCount(),0);
+  f.setResponse({configured:true,liveEnabled:true,shipments:[],message:{unexpected:'value'}});
+  await f.api.refresh();
+  assert.ok(!f.element('tracking-connection-text').textContent.includes(message));
+  assert.ok(!f.element('tracking-connection-text').textContent.includes('[object Object]'));
+  await f.listeners['tracking-sync:click']();
+  assert.match(f.confirmMessages[0],/10 CargoCONNECT credits/);
+  assert.match(f.confirmMessages[0],/configured application credit cap/);
+  assert.match(f.confirmMessages[0],/does not change your plan/);
+  assert.ok(!/Free.plan|paid plan will be purchased/.test(f.confirmMessages[0]));
+  assert.equal(f.requests.filter(request=>request.init.method==='POST').length,0);
 });
 
 test('logout clears status and discards an old session response', async () => {
