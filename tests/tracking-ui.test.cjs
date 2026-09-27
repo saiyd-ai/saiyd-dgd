@@ -18,7 +18,7 @@ function trackcargoPayload() {
   const fetchedAt = '2026-09-27T01:00:00Z';
   return {configured:true,mode:'read_only',message:'Read existing TrackCargo orders only.',shipments:[
     {awb:AWBS[0],provider:'trackcargo',orderId:'existing-lh',orderStatus:'active',dataStatus:'AVAILABLE',status:'RCF',statusDescription:'Received from flight',statusScope:'latest_actual_event',origin:'DWC',destination:'JFK',currentLocation:'VIE',lastUpdate:'2026-09-24T22:03:00Z',fetchedAt,departedAt:'2026-09-23T04:58:00Z',arrivedAt:null,deliveredAt:null,plannedArrivalAt:'2026-09-28T00:05:00Z',plannedDeliveryAt:'2026-09-28T18:05:00Z',events:[
-      {code:'RCF',description:'Received from flight',eventDate:'2026-09-24T22:03:00Z',eventLocation:'VIE',isPlanned:false,timeKind:'actual',pieces:7,weight:2721,flightNumber:'LH7562S',timezone:'Europe/Vienna'},
+      {code:'RCF',description:'Received from flight',eventDate:'2026-09-24T22:03:00Z',eventLocation:'VIE',isPlanned:false,timeKind:'actual',pieces:'7',weight:'2721.5',flightNumber:'LH7562S',timezone:'Europe/Vienna'},
       {code:'DLV',description:'Delivered to consignee',eventDate:'2026-09-28T18:05:00Z',eventLocation:'JFK',isPlanned:true,timeKind:'planned',pieces:null,weight:null,timezone:'America/New_York'}
     ]},
     ...AWBS.slice(1,3).map((awb,i)=>({awb,provider:'trackcargo',orderId:'existing-ai-'+i,orderStatus:'pending',dataStatus:'INCONCLUSIVE',status:'UNKNOWN',lastUpdate:null,fetchedAt,events:[]}))
@@ -691,4 +691,48 @@ test('cross-tab snapshot removal invalidates an outstanding response and cannot 
   assert.ok(!view(f).includes('RCF'));
   assert.equal(f.storage.has(key),false);
   assert.equal(f.element('tracking-refresh').disabled,false);
+});
+
+test('actual adapter output with string quantities saves and restores without changing quantity types', async () => {
+  const {normalizeTrackCargoShipment}=await import('../netlify/functions/_lib/trackcargo.mjs');
+  const orderId='2a2da1ac-8647-4d5e-bfe6-6a3cdf0b8edc';
+  const envelope=data=>({success:true,error:null,data});
+  const quantities=[[7,2721.5],[0,1e-7],[1e12,1e12],[null,null]];
+  const events=quantities.map(([pieces,weight],index)=>({
+    carrier_event_code:'RCF',carrier_event_description:'Synthetic adapter quantity sample',location:'VIE',
+    date_utc_iso:{date:'2026-09-24T22:0'+index+':00.000Z'},elapsed:true,pieces,weight,weight_unit:'kg',timezone:'Europe/Vienna'
+  }));
+  const normalized=normalizeTrackCargoShipment({awb:'020-12345675',orderId,now:new Date('2026-09-27T01:00:00Z'),
+    order:envelope({orderId,trackingId:AWBS[0],trackingType:'air',deleted:false,status:'active'}),
+    tracking:envelope({status:'AVAILABLE',trackingData:{tracking_id:AWBS[0],awb:{prefix:'020',number:'12345675'},origin_airport_code:'DWC',destination_airport_code:'JFK',events}})
+  });
+  assert.deepEqual(normalized.events.map(event=>[event.pieces,event.weight]),[['7','2721.5'],['0','1e-7'],['1000000000000','1000000000000'],[null,null]]);
+  const f=fixture({configured:true,mode:'read_only',shipments:[normalized]},200,localSource());
+  await f.ready; await f.api.refreshTrackcargo();
+  assert.ok(!view(f).includes('could not be saved'));
+  const key=SNAPSHOT_PREFIX+f.auth.user.id, saved=JSON.parse(f.storage.get(key));
+  assert.equal(saved.shipments[0].awb,AWBS[0]);
+  assert.deepEqual(saved.shipments[0].events.map(event=>[event.pieces,event.weight]),normalized.events.map(event=>[event.pieces,event.weight]));
+  const next=fixture(undefined,200,localSource(),{storage:f.storage}); await next.ready;
+  assert.equal(next.api.getRow(AWBS[0]).status,'RCF');
+  assert.deepEqual(Array.from(next.api.getRow(AWBS[0]).events,event=>[event.pieces,event.weight]),normalized.events.map(event=>[event.pieces,event.weight]));
+  assert.equal(next.requests.length,0);
+  next.api.renderDetail(AWBS[0]);
+  assert.match(view(next),/7 pieces/); assert.match(view(next),/2721\.5 kg/);
+});
+
+test('snapshot quantities reject noncanonical strings, invalid types and bounds while numeric values remain compatible', async () => {
+  const {key,envelope}=await savedSnapshot();
+  const invalid={pieces:[-1,0.5,1e12+1,'-1','0.5','1e-7','1000000000001','', ' 7','7 ','07','+7','7.0','7e0','NaN','Infinity',true,{},[]],
+    weight:[-1,1e12+1,'-1','1000000000001','', ' 7','7 ','07','+7','7.0','7e0','NaN','Infinity',false,{},[]]};
+  for(const [field,values] of Object.entries(invalid)) for(const value of values) {
+    const changed=JSON.parse(JSON.stringify(envelope)); changed.shipments[0].events[0][field]=value;
+    const f=fixture(undefined,200,localSource(),{storage:new Map([[key,JSON.stringify(changed)]])}); await f.ready;
+    assert.ok(!view(f).includes('RCF'),'Reject '+field+'='+JSON.stringify(value));
+    assert.equal(f.requests.length,0);
+  }
+  const numeric=JSON.parse(JSON.stringify(envelope)); numeric.shipments[0].events[0].pieces=7; numeric.shipments[0].events[0].weight=2721.5;
+  const compatible=fixture(undefined,200,localSource(),{storage:new Map([[key,JSON.stringify(numeric)]])}); await compatible.ready;
+  assert.equal(compatible.api.getRow(AWBS[0]).events[0].pieces,7);
+  assert.equal(compatible.api.getRow(AWBS[0]).events[0].weight,2721.5);
 });
