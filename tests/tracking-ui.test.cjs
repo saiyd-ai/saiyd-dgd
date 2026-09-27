@@ -301,11 +301,11 @@ test('one explicit refresh powers main rows, KPIs and reports without old CargoA
   assert.equal((html.match(/Awaiting carrier result/g)||[]).length,2);
   assert.equal((html.match(/Not linked to TrackCargo/g)||[]).length,2);
   assert.match(html,/RCF/);
-  assert.match(html,/24 Sept? 2026/);
-  assert.match(html,/22:03/);
-  assert.ok(!html.includes('2026-09-27T01:00:00'),'Retrieval time must not appear as the main shipment date or time');
+  assert.match(html,/25 Sept? 2026/);
+  assert.match(html,/02:03 Dubai \(UTC\+4\)/);
+  assert.match(html,/tracking-last-check[\s\S]*Last checked/);
   f.api.renderDetail(AWBS[0]);
-  assert.match(f.element('trk_detail').innerHTML,/<time datetime="2026-09-27T01:00:00\.000Z" aria-label="Last checked 27 Sept? 2026, 01:00 UTC">/);
+  assert.match(f.element('trk_detail').innerHTML,/<time datetime="2026-09-27T01:00:00\.000Z" aria-label="Last checked 27 Sept? 2026, 05:00 Dubai \(UTC\+4\)">/);
   assert.ok(!/CargoAi|CargoCONNECT|Start tracking|saved status/i.test(view(f)));
   assert.equal(f.api.reportInfo(AWBS[0]).status,'RCF');
   assert.match(f.api.reportCells(AWBS[0],''),/TrackCargo/);
@@ -363,7 +363,7 @@ test('manual DLV and latest partial delivery events do not turn into whole-shipm
   assert.match(f.element('trk_detail').innerHTML,/<dt>Verified delivery<\/dt><dd>—<\/dd>/);
 });
 
-test('five-column list uses only actual carrier date and time while View retains source-specific times, notes and shipment details', async () => {
+test('route and plain carrier update are visible with Dubai event time separate from retrieval and manual time', async () => {
   const source=localSource(), recorded=Date.parse('2026-09-25T14:30:00Z');
   source.jfs_tracking['020-12345675'].milestones=[
     {code:'BKD',src:'MANUAL',ts:Date.parse('2026-09-21T09:00:00Z'),note:'Older operator note'},
@@ -379,36 +379,34 @@ test('five-column list uses only actual carrier date and time while View retains
   const html=f.element('tracking-body').innerHTML;
   const row=html.match(/<tr data-awb="02012345675"[^>]*>([\s\S]*?)<\/tr>/)[1];
   const cells=[...row.matchAll(/<td\b[^>]*data-label="([^"]+)"[^>]*>([\s\S]*?)<\/td>/g)];
-  assert.deepEqual(cells.map(cell=>cell[1]),['Date','AWB Number','Time','Status','View']);
-  assert.match(cells[0][2],/24 Sept? 2026/);
-  assert.match(cells[1][2],/020-12345675/);
-  assert.ok(!/airline|Copy|JOB-0|Example shipper|Example consignee/.test(cells[1][2]));
-  assert.match(cells[2][2],/22:03/);
-  assert.match(cells[2][2],/UTC/);
-  assert.match(cells[3][2],/>RCF</);
-  assert.match(cells[3][2],/Received from flight/);
-  assert.match(cells[3][2],/Manual[^<]*:?\s*DLV/);
+  assert.deepEqual(cells.map(cell=>cell[1]),['AWB / Airline','Origin → Destination','Carrier update','Event date &amp; time','View']);
+  assert.match(cells[0][2],/020-12345675/); assert.match(cells[0][2],/Lufthansa Cargo/);
+  assert.match(cells[1][2],/>DWC</); assert.match(cells[1][2],/>JFK</);
+  assert.match(cells[2][2],/>RCF</); assert.match(cells[2][2],/Received from flight/);
+  assert.match(cells[2][2],/Event location: <b>VIE/); assert.match(cells[2][2],/Manual: DLV/);
+  const actual=cells[3][2].split('<small class="tracking-last-check">')[0];
+  assert.match(actual,/datetime="2026-09-24T22:03:00.000Z"/);
+  assert.match(actual,/>25 Sept? 2026</); assert.match(actual,/>02:03 Dubai \(UTC\+4\)</);
+  assert.ok(!/2026-09-27T01:00:00|2026-09-25T14:30:00/.test(actual));
+  assert.match(cells[3][2],/Last checked[\s\S]*27 Sept? 2026, 05:00 Dubai/);
   assert.match(cells[4][2],/data-tracking-action="timeline"[^>]*>View<\/button>/);
-  assert.ok(!/2026-09-27T01:00:00|2026-09-25T14:30:00|27 Sept? 2026|25 Sept? 2026/.test(row));
-  assert.ok(!row.includes('Later legacy imported carrier entry'));
-  assert.ok(!row.includes('Older operator note'));
-  assert.ok(!row.includes('<img'));
-  assert.ok(!row.includes('operator note'),'Manual notes belong in View, not in the main status cell');
+  assert.ok(!row.includes('Later legacy imported carrier entry')); assert.ok(!row.includes('Older operator note'));
+  assert.ok(!row.includes('<img')); assert.ok(!row.includes('operator note'));
   const unlinked=html.match(/<tr data-awb="14712345675"[^>]*>([\s\S]*?)<\/tr>/)[1];
-  assert.match(unlinked,/Not linked to TrackCargo/); assert.match(unlinked,/Manual[^<]*:?\s*DLV/);
-  const unlinkedCells=[...unlinked.matchAll(/<td\b[^>]*data-label="([^"]+)"[^>]*>([\s\S]*?)<\/td>/g)];
-  assert.match(unlinkedCells[0][2],/—/); assert.match(unlinkedCells[2][2],/—/);
-  assert.ok(!unlinked.includes('<time'),'A manual-only report must not supply the carrier date or time');
+  assert.match(unlinked,/Not linked to TrackCargo/); assert.match(unlinked,/Manual: DLV/);
+  assert.match(unlinked,/No carrier event yet/); assert.match(unlinked,/AWB is not linked to tracking/);
+  assert.ok(!unlinked.includes('<time'),'Manual recording time cannot become carrier event time');
   const pending=html.match(/<tr data-awb="09812345675"[^>]*>([\s\S]*?)<\/tr>/)[1];
-  assert.ok(!pending.includes('<time'),'Pending results with fetchedAt but no actual event must retain empty date/time');
+  assert.match(pending,/Airline response pending/); assert.match(pending,/Last checked[\s\S]*05:00 Dubai/);
+  assert.ok(!pending.includes('tracking-event-date'),'Pending response cannot be presented as an actual event');
   assert.equal(f.api.getRow(AWBS[0]).status,'RCF');
   assert.equal(f.api.getRow(AWBS[3]).lastUpdate,null);
   assert.equal(f.element('tracking-updates').textContent,1);
   f.api.renderDetail(AWBS[0]);
   const detail=f.element('trk_detail').innerHTML;
-  assert.match(detail,/<time datetime="2026-09-24T22:03:00\.000Z" aria-label="Carrier event 24 Sept? 2026, 22:03 UTC">/);
-  assert.match(detail,/<time datetime="2026-09-27T01:00:00\.000Z" aria-label="Last checked 27 Sept? 2026, 01:00 UTC">/);
-  assert.match(detail,/<time datetime="2026-09-25T14:30:00\.000Z" aria-label="Manual entry recorded 25 Sept? 2026, 14:30 UTC">/);
+  assert.match(detail,/<time datetime="2026-09-24T22:03:00\.000Z" aria-label="Carrier event 25 Sept? 2026, 02:03 Dubai \(UTC\+4\)">/);
+  assert.match(detail,/<time datetime="2026-09-27T01:00:00\.000Z" aria-label="Last checked 27 Sept? 2026, 05:00 Dubai \(UTC\+4\)">/);
+  assert.match(detail,/<time datetime="2026-09-25T14:30:00\.000Z" aria-label="Manual entry recorded 25 Sept? 2026, 18:30 Dubai \(UTC\+4\)">/);
   for (const text of ['Later legacy imported carrier entry','Older operator note','Example shipper','Example consignee','JOB-0','OTHER-JOB','DWC','JFK']) assert.ok(detail.includes(text),text);
   assert.match(detail,/data-tracking-action="airline"/);
   assert.ok(detail.includes('&lt;img src=x onerror=alert(1)&gt; operator note'));
@@ -447,7 +445,7 @@ test('TrackCargo details label actual and planned events, escape provider text a
   assert.match(detail,/Origin departure event/);
   assert.match(detail,/<dt>Verified arrival<\/dt><dd>—<\/dd>/);
   assert.match(detail,/<dt>Verified delivery<\/dt><dd>—<\/dd>/);
-  assert.match(detail,/<dt>Planned arrival<\/dt><dd>28 Sept? 2026, 00:05 UTC<\/dd>/);
+  assert.match(detail,/<dt>Planned arrival<\/dt><dd>28 Sept? 2026, 04:05 Dubai \(UTC\+4\)<\/dd>/);
   assert.match(detail,/Actual · TrackCargo/); assert.match(detail,/Planned · TrackCargo/);
   assert.match(detail,/Event location timezone: Europe\/Vienna/);
   assert.match(detail,/&lt;img src=x onerror=alert\(1\)&gt;/);
@@ -509,7 +507,7 @@ test('partial and network failures retain prior results marked stale in table, d
   assert.match(html,/Not refreshed/); assert.match(html,/RCF/);
   f.api.renderDetail(AWBS[0]);
   const detail=f.element('trk_detail').innerHTML;
-  assert.match(detail,/<time datetime="2026-09-27T01:00:00\.000Z" aria-label="Last checked 27 Sept? 2026, 01:00 UTC">/);
+  assert.match(detail,/<time datetime="2026-09-27T01:00:00\.000Z" aria-label="Last checked 27 Sept? 2026, 05:00 Dubai \(UTC\+4\)">/);
   assert.ok(!detail.includes('aria-label="Last checked 27 Sept 2026, 02:00 UTC"'));
   assert.match(f.api.reportCells(AWBS[0],''),/Not refreshed/i);
   assert.match(f.api.toCsv([f.api.getRow(AWBS[0])]),/Carrier lookup unavailable|Not refreshed/i);
@@ -600,8 +598,8 @@ test('same-account reload and new tabs restore timestamped saved results without
     assert.equal(next.element('tracking-pending').textContent,2);
     assert.equal(next.element('tracking-unlinked').textContent,2);
     assert.match(view(next),/saved snapshot/i);
-    assert.match(view(next),/24 Sept? 2026, 22:03 UTC/);
-    assert.match(next.element('tracking-checked').textContent,new RegExp(tracking.dateText(envelope.checkedAt).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+    assert.match(view(next),/25 Sept? 2026, 02:03 Dubai/);
+    assert.match(next.element('tracking-checked').textContent,new RegExp(tracking.dateText(envelope.checkedAt,'Asia/Dubai').replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
     assert.equal(next.requests.length,0);
     assert.equal(JSON.parse(next.storage.get(key)).checkedAt,envelope.checkedAt,'Opening a page must not advance retrieval time');
   }
@@ -822,4 +820,28 @@ test('snapshot quantities reject noncanonical strings, invalid types and bounds 
   const compatible=fixture(undefined,200,localSource(),{storage:new Map([[key,JSON.stringify(numeric)]])}); await compatible.ready;
   assert.equal(compatible.api.getRow(AWBS[0]).events[0].pieces,7);
   assert.equal(compatible.api.getRow(AWBS[0]).events[0].weight,2721.5);
+});
+
+
+test('main route distinguishes airport codes from PDF form labels without mutating original shipment data', () => {
+  const source={jfs_joblog:[{awb:AWBS[3],origin:'DUBAI INTERNATIONAL (DXB)',destination:'MIAMI INTERNATIONAL (MIA)'},{awb:AWBS[4],origin:'(ADDR. OF FIRST CARRIER) AND REQUESTED ROUTING',destination:'DESTINATION TO BY FIRST CARRIER CURRENCY WT VAL OTHER'}],jfs_documents:[],jfs_tracking:{}};
+  const before=JSON.stringify(source),f=fixture(undefined,200,source),html=f.element('tracking-body').innerHTML;
+  assert.match(html,/>DXB</); assert.match(html,/>MIA</); assert.match(html,/DUBAI INTERNATIONAL/);
+  const invalid=html.match(/<tr data-awb="15512345675"[^>]*>([\s\S]*?)<\/tr>/)[1];
+  assert.match(invalid,/Needs review/); assert.match(invalid,/Check saved AWB details/);
+  assert.ok(!invalid.includes('WT VAL')); assert.ok(!invalid.includes('ADDR. OF FIRST CARRIER'));
+  f.api.renderDetail(AWBS[4]);assert.match(f.element('trk_detail').innerHTML,/WT VAL/);
+  assert.equal(JSON.stringify(source),before);assert.equal(f.requests.length,0);
+});
+
+test('Dubai display rolls the date forward without changing stored instants or UTC reports and CSV', async () => {
+  const payload=trackcargoPayload(),before=JSON.stringify(payload),f=fixture(payload,200,localSource());
+  await f.api.refreshTrackcargo();
+  assert.match(f.element('tracking-body').innerHTML,/>25 Sept? 2026</);
+  assert.match(f.element('tracking-body').innerHTML,/>02:03 Dubai \(UTC\+4\)</);
+  assert.equal(f.api.getRow(AWBS[0]).lastUpdate,'2026-09-24T22:03:00Z');
+  const csv=f.api.toCsv([f.api.getRow(AWBS[0])]);
+  assert.match(csv,/24 Sept? 2026, 22:03 UTC/);assert.ok(!csv.includes('Dubai'));
+  assert.match(f.api.reportInfo(AWBS[0]).lastUpdate,/24 Sept? 2026, 22:03 UTC/);
+  assert.equal(JSON.stringify(payload),before);
 });
