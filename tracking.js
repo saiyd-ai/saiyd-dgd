@@ -46,22 +46,17 @@
       return false;
     }
   }
-  function dateText(value) {
+  function dateText(value, zone = 'UTC') {
     if (!value) return '—';
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-GB', {timeZone: 'UTC', day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) + ' UTC';
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-GB', {timeZone: zone, day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) + (zone === 'Asia/Dubai' ? ' Dubai (UTC+4)' : ' UTC');
   }
+  function dubaiDateText(value) { return dateText(value,'Asia/Dubai'); }
   function timeBlock(label, value, variant, emptyText, detail) {
     const date = value ? new Date(value) : null, valid = date && !Number.isNaN(date.getTime());
     return '<div class="tracking-time-block ' + variant + '"><span class="tracking-time-label">' + escapeHtml(label) + '</span>' + (valid
-      ? '<time datetime="' + date.toISOString() + '" aria-label="' + escapeHtml(label + ' ' + dateText(value)) + '"><strong>' + escapeHtml(date.toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'})) + '</strong><span>' + escapeHtml(date.toLocaleTimeString('en-GB',{timeZone:'UTC',hour:'2-digit',minute:'2-digit'})) + ' UTC</span></time>'
+      ? '<time datetime="' + date.toISOString() + '" aria-label="' + escapeHtml(label + ' ' + dubaiDateText(value)) + '"><strong>' + escapeHtml(date.toLocaleDateString('en-GB',{timeZone:'Asia/Dubai',day:'2-digit',month:'short',year:'numeric'})) + '</strong><span>' + escapeHtml(date.toLocaleTimeString('en-GB',{timeZone:'Asia/Dubai',hour:'2-digit',minute:'2-digit'})) + ' Dubai (UTC+4)</span></time>'
       : '<span class="tracking-time-empty">' + escapeHtml(emptyText || 'Not available') + '</span>') + (detail ? '<small class="tracking-location">' + escapeHtml(detail) + '</small>' : '') + '</div>';
-  }
-  function eventDatePart(value, clock) {
-    const date = value ? new Date(value) : null;
-    if (!date || Number.isNaN(date.getTime())) return '<span class="tracking-no-time" aria-label="No carrier event time">—</span>';
-    const display = clock ? date.toLocaleTimeString('en-GB',{timeZone:'UTC',hour:'2-digit',minute:'2-digit'}) + ' UTC' : date.toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'});
-    return '<time datetime="' + date.toISOString() + '" aria-label="' + escapeHtml('Carrier event ' + dateText(value)) + '">' + escapeHtml(display) + '</time>';
   }
   function statusText(value) { return txt(value).trim().replace(/_/g, ' ') || 'Awaiting update'; }
   function shipmentStatus(shipment, configured) {
@@ -90,6 +85,30 @@
   function routeSummary(row) {
     if (!row.origin && !row.destination) return '<strong class="tracking-route">' + escapeHtml(row.route || 'Route not saved') + '</strong>';
     return '<div class="tracking-route-points"><div><small>Origin</small><strong>' + escapeHtml(row.origin || 'Not saved') + '</strong></div><div><small>Destination</small><strong>' + escapeHtml(row.destination || 'Not saved') + '</strong></div></div>';
+  }
+  function routeOverview(row) {
+    function stop(value, label) {
+      const name = txt(value).trim();
+      const placeholder = /ADDR\.? OF FIRST CARRIER|REQUESTED ROUTING|ROUTING REFERENCE|OPTIONAL SHIPPING|DESTINATION TO BY|BY FIRST CARRIER|WT VAL/i.test(name);
+      const match = !placeholder && (name.match(/^([A-Z]{3})$/) || name.match(/\(([A-Z]{3})\)/));
+      const primary = placeholder ? 'Needs review' : match ? match[1] : name || 'Not provided';
+      const secondary = placeholder ? 'Check saved AWB details' : match && name !== match[1] ? name.replace(/\s*\([A-Z]{3}\)\s*/g,' ').trim() : '';
+      return '<div class="tracking-route-stop' + (!name || placeholder ? ' incomplete' : '') + '"><small>' + label + '</small><strong>' + escapeHtml(primary) + '</strong>' + (secondary ? '<span>' + escapeHtml(secondary) + '</span>' : '') + '</div>';
+    }
+    return '<div class="tracking-route-overview">' + stop(row.origin,'Origin') + '<span class="tracking-route-arrow" aria-hidden="true">→</span>' + stop(row.destination,'Destination') + '</div>';
+  }
+  function carrierOverview(row) {
+    const result = row.providerResult, manual = latestManual(row);
+    const meanings = {RCF:'Received from flight',RCS:'Received from shipper',DEP:'Departed',ARR:'Arrived',DLV:'Delivery event',NFD:'Consignee notified',BKD:'Booked'};
+    const description = result && result.dataStatus === 'AVAILABLE' ? result.statusDescription || meanings[row.status] || statusText(row.status) : row.status === 'Awaiting carrier result' ? 'Waiting for an airline response' : row.status === 'Not linked to TrackCargo' ? 'No tracking order linked to this AWB' : row.status === 'Not retrieved' ? 'Use Refresh TrackCargo to check' : 'Open View for tracking information';
+    return '<div class="tracking-carrier-update"><span class="tracking-source-label">Latest carrier event</span><span class="tracking-status ' + tone(row.status) + '">' + escapeHtml(row.status) + '</span><strong class="tracking-carrier-title">' + escapeHtml(description) + '</strong>' + (result && result.currentLocation ? '<small class="tracking-carrier-location">Event location: <b>' + escapeHtml(result.currentLocation) + '</b></small>' : '') + (manual ? '<small class="tracking-list-manual"><b>Manual: ' + escapeHtml(manual.code || 'NOTE') + '</b> · ' + escapeHtml((options.milestones || {})[manual.code] || 'Saved operator update') + '</small>' : '') + (result && (row.refreshError || trackcargo.error) ? '<small class="tracking-list-warning">Not refreshed · showing previous result</small>' : '') + '</div>';
+  }
+  function eventTiming(row) {
+    const date = row.lastUpdate ? new Date(row.lastUpdate) : null;
+    const available = date && !Number.isNaN(date.getTime());
+    const reason = row.status === 'Awaiting carrier result' ? 'Airline response pending' : row.status === 'Not linked to TrackCargo' ? 'AWB is not linked to tracking' : row.status === 'Not retrieved' ? 'Tracking has not been checked' : 'No timestamp returned by carrier';
+    const event = available ? '<div class="tracking-event-date"><time datetime="' + date.toISOString() + '" aria-label="' + escapeHtml('Carrier event ' + dubaiDateText(row.lastUpdate)) + '" title="' + escapeHtml('Original UTC: ' + dateText(row.lastUpdate)) + '"><strong>' + escapeHtml(date.toLocaleDateString('en-GB',{timeZone:'Asia/Dubai',day:'2-digit',month:'short',year:'numeric'})) + '</strong><span>' + escapeHtml(date.toLocaleTimeString('en-GB',{timeZone:'Asia/Dubai',hour:'2-digit',minute:'2-digit'})) + ' Dubai (UTC+4)</span></time></div>' : '<div class="tracking-event-missing"><strong>No carrier event yet</strong><span>' + escapeHtml(reason) + '</span></div>';
+    return event + '<small class="tracking-last-check"><span>Last checked</span>' + (row.fetchedAt ? '<time datetime="' + escapeHtml(row.fetchedAt) + '" aria-label="' + escapeHtml('Last checked ' + dubaiDateText(row.fetchedAt)) + '">' + escapeHtml(dubaiDateText(row.fetchedAt)) + '</time>' : '<span>Not checked for this AWB</span>') + '</small>';
   }
   function collectShipments(joblog, documents) {
     const rows = new Map(), invalid = new Set();
@@ -176,9 +195,10 @@
   function eventKind(event) {
     return [event.isPredicted === true ? 'Predicted' : event.isPlanned === true ? 'Planned' : event.isPlanned === false ? 'Actual' : 'Timing unclassified', event.isSplit === true ? 'Split shipment' : ''].filter(Boolean).join(' · ');
   }
-  function eventSummary(event) {
+  function eventSummary(event, format) {
+    const displayDate = typeof format === 'function' ? format : dateText;
     const flight = event.flight || {};
-    return [event.code || event.status || 'Event',eventKind(event),dateText(event.eventDate),event.eventLocation || '',flight.number || event.flightNumber || '',event.pieces == null ? '' : event.pieces + ' pieces',event.weight == null ? '' : event.weight + ' kg',flight.actualDeparture ? 'Flight actual departure: ' + dateText(flight.actualDeparture) : '',flight.actualArrival ? 'Flight actual arrival: ' + dateText(flight.actualArrival) : ''].filter(Boolean).join(' | ');
+    return [event.code || event.status || 'Event',eventKind(event),displayDate(event.eventDate),event.eventLocation || '',flight.number || event.flightNumber || '',event.pieces == null ? '' : event.pieces + ' pieces',event.weight == null ? '' : event.weight + ' kg',flight.actualDeparture ? 'Flight actual departure: ' + displayDate(flight.actualDeparture) : '',flight.actualArrival ? 'Flight actual arrival: ' + displayDate(flight.actualArrival) : ''].filter(Boolean).join(' | ');
   }
   function mergeTracking(localRows, trackingRows, configured) {
     const remote = new Map();
@@ -366,7 +386,7 @@
     let body = '<p class="tracking-note">' + escapeHtml(trackcargo.error || (trackcargo.loaded ? 'No existing TrackCargo order was returned for this AWB.' : 'Use Refresh TrackCargo above to read existing orders.')) + '</p>';
     if (shipment) {
       const events = array(shipment.events).slice().sort((a,b) => (Date.parse(b.eventDate) || 0) - (Date.parse(a.eventDate) || 0));
-      body = (trackcargo.error ? '<p class="trackcargo-message issue">' + escapeHtml(trackcargo.error) + ' Showing the last retrieved result.</p>' : '') + '<p class="trackcargo-detail-status">Latest carrier event <span class="tracking-status ' + (shipment.dataStatus === 'ERROR' ? 'issue' : tone(trackcargoStatus(shipment))) + '">' + escapeHtml(trackcargoStatus(shipment)) + '</span> ' + escapeHtml(trackcargoMetadata(shipment)) + '</p>' + (shipment.statusDescription ? '<p class="tracking-note">' + escapeHtml(shipment.statusDescription) + '</p>' : '') + (shipment.currentLocation ? '<p class="tracking-note">Current location ' + escapeHtml(shipment.currentLocation) + '</p>' : '') + trackcargoNotice(shipment) + '<dl class="tracking-dates trackcargo-dates">' + [['Origin departure event',shipment.departedAt],['Verified arrival',shipment.arrivedAt],['Verified delivery',shipment.deliveredAt],['Last actual event',shipment.lastUpdate],['Planned arrival',shipment.plannedArrivalAt],['Planned delivery',shipment.plannedDeliveryAt]].map(([label,value]) => '<div><dt>' + label + '</dt><dd>' + dateText(value) + '</dd></div>').join('') + '</dl><p class="tracking-note">Fetched from TrackCargo ' + dateText(shipment.fetchedAt) + '. TrackCargo times are UTC. The latest carrier event can refer to part of a shipment. Planned events are forecasts; they do not confirm arrival or delivery. Fetch time shows when this result was retrieved.</p><div class="tracking-history-list" tabindex="0" role="region" aria-label="TrackCargo event history">' + (events.map(event => '<div class="tracking-history-row"><b>' + escapeHtml(event.code || 'UPDATE') + '</b><div><strong>' + escapeHtml(eventKind(event)) + ' · TrackCargo</strong><p>' + escapeHtml(event.description || '') + '</p><p>' + escapeHtml(eventSummary(event)) + '</p>' + (event.timezone ? '<small>Event location timezone: ' + escapeHtml(event.timezone) + '</small>' : '') + '</div></div>').join('') || '<p class="tracking-note">No carrier events returned by TrackCargo.</p>') + '</div>';
+      body = (trackcargo.error ? '<p class="trackcargo-message issue">' + escapeHtml(trackcargo.error) + ' Showing the last retrieved result.</p>' : '') + '<p class="trackcargo-detail-status">Latest carrier event <span class="tracking-status ' + (shipment.dataStatus === 'ERROR' ? 'issue' : tone(trackcargoStatus(shipment))) + '">' + escapeHtml(trackcargoStatus(shipment)) + '</span> ' + escapeHtml(trackcargoMetadata(shipment)) + '</p>' + (shipment.statusDescription ? '<p class="tracking-note">' + escapeHtml(shipment.statusDescription) + '</p>' : '') + (shipment.currentLocation ? '<p class="tracking-note">Current location ' + escapeHtml(shipment.currentLocation) + '</p>' : '') + trackcargoNotice(shipment) + '<dl class="tracking-dates trackcargo-dates">' + [['Origin departure event',shipment.departedAt],['Verified arrival',shipment.arrivedAt],['Verified delivery',shipment.deliveredAt],['Last actual event',shipment.lastUpdate],['Planned arrival',shipment.plannedArrivalAt],['Planned delivery',shipment.plannedDeliveryAt]].map(([label,value]) => '<div><dt>' + label + '</dt><dd>' + dubaiDateText(value) + '</dd></div>').join('') + '</dl><p class="tracking-note">Fetched from TrackCargo ' + dubaiDateText(shipment.fetchedAt) + '. Displayed times are Dubai (UTC+4). The latest carrier event can refer to part of a shipment. Planned events are forecasts; they do not confirm arrival or delivery. Fetch time shows when this result was retrieved.</p><div class="tracking-history-list" tabindex="0" role="region" aria-label="TrackCargo event history">' + (events.map(event => '<div class="tracking-history-row"><b>' + escapeHtml(event.code || 'UPDATE') + '</b><div><strong>' + escapeHtml(eventKind(event)) + ' · TrackCargo</strong><p>' + escapeHtml(event.description || '') + '</p><p>' + escapeHtml(eventSummary(event,dubaiDateText)) + '</p>' + (event.timezone ? '<small>Event location timezone: ' + escapeHtml(event.timezone) + '</small>' : '') + '</div></div>').join('') || '<p class="tracking-note">No carrier events returned by TrackCargo.</p>') + '</div>';
     }
     return '<details class="trackcargo-detail" data-detail-section="trackcargo"' + open + '><summary>TrackCargo <span>Carrier event history</span></summary><div class="trackcargo-detail-body">' + body + '</div></details>';
   }
@@ -389,15 +409,15 @@
     connection.className = 'tracking-connection ' + (trackcargo.error ? 'issue' : 'ready');
     node('tracking-connection-title').textContent = trackcargo.loading ? 'Refreshing TrackCargo…' : trackcargo.error ? 'TrackCargo · refresh unavailable' : trackcargo.fromSnapshot ? 'TrackCargo · saved snapshot' : trackcargo.loaded && !trackcargo.configured ? 'TrackCargo not connected' : 'TrackCargo · refresh when needed';
     node('tracking-connection-text').textContent = (trackcargo.error ? trackcargo.error + (trackcargo.shipments.length ? ' Showing the last retrieved results.' : '') : trackcargo.loading ? 'Reading existing TrackCargo orders…' : trackcargo.fromSnapshot ? 'Showing the last result saved in this browser. Use Refresh TrackCargo for a new check; opening this page does not contact the tracking provider.' : trackcargo.loaded && trackcargo.message ? trackcargo.message : 'Refresh TrackCargo reads existing orders. New AWBs and scheduled updates are not enabled.') + (trackcargo.storageWarning ? ' ' + trackcargo.storageWarning : '');
-    node('tracking-checked').textContent = trackcargo.checkedAt ? 'Last retrieval ' + dateText(trackcargo.checkedAt) : 'TrackCargo results not retrieved yet';
+    node('tracking-checked').textContent = trackcargo.checkedAt ? 'Last retrieval ' + dubaiDateText(trackcargo.checkedAt) : 'TrackCargo results not retrieved yet';
     node('tracking-refresh').disabled = trackcargo.loading;
     node('tracking-refresh').textContent = trackcargo.loading ? 'Refreshing TrackCargo…' : 'Refresh TrackCargo';
     node('tracking-export').disabled = !rows.length;
     node('tracking-body').innerHTML = rows.length ? rows.map(row => {
       const id = row.id || row.awb;
-      const result = row.providerResult, manual = latestManual(row), rowTone = tone(row.status);
-      const status = '<span class="tracking-status ' + rowTone + '">' + escapeHtml(row.status) + '</span>' + (result && result.statusDescription ? '<small class="tracking-list-description">' + escapeHtml(result.statusDescription) + '</small>' : '') + (manual ? '<small class="tracking-list-manual">Manual: ' + escapeHtml(manual.code || 'NOTE') + ' · see View</small>' : '') + (result && (row.refreshError || trackcargo.error) ? '<small class="tracking-list-warning">Not refreshed · see View</small>' : '');
-      return '<tr data-awb="' + escapeHtml(id) + '" class="tracking-row--' + rowTone + '"><td class="tracking-date" data-label="Date">' + eventDatePart(row.lastUpdate,false) + '</td><td class="tracking-awb" data-label="AWB Number"><span class="tracking-awb-number">' + escapeHtml(displayAwb(row.awb)) + '</span></td><td class="tracking-clock" data-label="Time">' + eventDatePart(row.lastUpdate,true) + '</td><td class="tracking-list-status" data-label="Status">' + status + '</td><td class="tracking-row-actions" data-label="View"><button type="button" class="smallbtn sb-blue tracking-details-link" data-tracking-action="timeline" aria-label="View shipment ' + escapeHtml(displayAwb(row.awb)) + '">View</button></td></tr>';
+      const rowTone = tone(row.status), airline = airlineTrackingLink(row.awb);
+      const airlineName = airline && airline.carrier !== 'track-trace airline directory' ? airline.carrier : normalizeAwb(row.awb) ? 'Airline prefix ' + normalizeAwb(row.awb).slice(0,3) : 'Manual record';
+      return '<tr data-awb="' + escapeHtml(id) + '" class="tracking-row--' + rowTone + '"><td class="tracking-awb" data-label="AWB / Airline"><span class="tracking-awb-number">' + escapeHtml(displayAwb(row.awb)) + '</span><small class="tracking-airline-name">' + escapeHtml(airlineName) + '</small></td><td class="tracking-route-cell" data-label="Origin → Destination">' + routeOverview(row) + '</td><td class="tracking-list-status" data-label="Carrier update">' + carrierOverview(row) + '</td><td class="tracking-event-time" data-label="Event date &amp; time">' + eventTiming(row) + '</td><td class="tracking-row-actions" data-label="View"><button type="button" class="smallbtn sb-blue tracking-details-link" data-tracking-action="timeline" aria-label="View shipment ' + escapeHtml(displayAwb(row.awb)) + '">View</button></td></tr>';
     }).join('') : '<tr><td colspan="5" class="tracking-empty">' + (all.length ? 'No shipments match these filters.' : 'No saved AWBs yet. Save a shipment or add AWBs from your jobs.') + '</td></tr>';
     if (detailId) renderDetail(detailId);
   }
@@ -412,7 +432,7 @@
     const openSection = (name, initiallyOpen = false) => (opened ? opened.has(name) : initiallyOpen) ? ' open' : '';
     detailId = row.id || row.awb;
     const labels = options.milestones || {}, key = row.manualRecords.length ? row.manualRecords[0].key : displayAwb(row.awb);
-    const history = row.manualEvents.slice().reverse().map(event => '<div class="tracking-history-row"><b>' + escapeHtml(event.code || 'UPDATE') + '</b><div><strong>' + escapeHtml(labels[event.code] || 'Saved update') + '</strong><p>' + escapeHtml(event.note || '') + '</p><small>' + escapeHtml(event.source) + ' · Recorded ' + dateText(event.ts) + (event.by ? ' · ' + escapeHtml(event.by) : '') + ' · Record ' + escapeHtml(event.recordKey) + '</small></div></div>').join('');
+    const history = row.manualEvents.slice().reverse().map(event => '<div class="tracking-history-row"><b>' + escapeHtml(event.code || 'UPDATE') + '</b><div><strong>' + escapeHtml(labels[event.code] || 'Saved update') + '</strong><p>' + escapeHtml(event.note || '') + '</p><small>' + escapeHtml(event.source) + ' · Recorded ' + dubaiDateText(event.ts) + (event.by ? ' · ' + escapeHtml(event.by) : '') + ' · Record ' + escapeHtml(event.recordKey) + '</small></div></div>').join('');
     const route = [row.origin,row.destination].filter(Boolean).join(' → ') || row.route || 'Route not saved';
     const manual = latestManual(row), result = row.providerResult;
     const overview = '<div class="tracking-detail-overview"><div class="tracking-detail-route">' + routeSummary(row) + '</div><div class="tracking-detail-actions">' + airlineActions(row.awb) + '</div><div class="tracking-detail-jobs"><span class="tracking-source-label">Linked jobs</span>' + (row.jobs.map(jobLink).join('') || '<small>No linked job</small>') + '</div><div class="tracking-time-stack">' + timeBlock('Carrier event',row.lastUpdate,'event-time','No carrier event yet',result && result.currentLocation ? 'At ' + result.currentLocation : '') + timeBlock('Last checked',row.fetchedAt,'retrieval-time','No result retrieved') + (manual ? timeBlock('Manual entry recorded',manual.ts,'manual-time','Recording time unavailable') : '') + '</div></div>' + manualSummary(manual);
