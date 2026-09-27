@@ -57,6 +57,12 @@
       ? '<time datetime="' + date.toISOString() + '" aria-label="' + escapeHtml(label + ' ' + dateText(value)) + '"><strong>' + escapeHtml(date.toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'})) + '</strong><span>' + escapeHtml(date.toLocaleTimeString('en-GB',{timeZone:'UTC',hour:'2-digit',minute:'2-digit'})) + ' UTC</span></time>'
       : '<span class="tracking-time-empty">' + escapeHtml(emptyText || 'Not available') + '</span>') + (detail ? '<small class="tracking-location">' + escapeHtml(detail) + '</small>' : '') + '</div>';
   }
+  function eventDatePart(value, clock) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return '<span class="tracking-no-time" aria-label="No carrier event time">—</span>';
+    const display = clock ? date.toLocaleTimeString('en-GB',{timeZone:'UTC',hour:'2-digit',minute:'2-digit'}) + ' UTC' : date.toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'});
+    return '<time datetime="' + date.toISOString() + '" aria-label="' + escapeHtml('Carrier event ' + dateText(value)) + '">' + escapeHtml(display) + '</time>';
+  }
   function statusText(value) { return txt(value).trim().replace(/_/g, ' ') || 'Awaiting update'; }
   function shipmentStatus(shipment, configured) {
     const unknown = !shipment || !txt(shipment.status).trim() || txt(shipment.status).trim().toUpperCase() === 'UNKNOWN';
@@ -366,8 +372,6 @@
   }
   function render() {
     if (!node('tracking-body')) return;
-    const tableBody = node('tracking-body');
-    const expandedJobs = new Set(typeof tableBody.querySelectorAll === 'function' ? [...tableBody.querySelectorAll('details[data-job-group][open]')].map(detail => detail.dataset.jobGroup) : []);
     const all = allRows(), local = localData();
     const select = node('tracking-filter'), previous = select.value;
     select.innerHTML = '<option value="">All carrier results</option>' + [...new Set(all.map(row => row.status))].sort().map(status => '<option value="' + escapeHtml(status) + '">' + escapeHtml(status) + '</option>').join('');
@@ -391,13 +395,10 @@
     node('tracking-export').disabled = !rows.length;
     node('tracking-body').innerHTML = rows.length ? rows.map(row => {
       const id = row.id || row.awb;
-      const jobs = row.jobs.slice(0,1).map(jobLink).join('') + (row.jobs.length > 1 ? '<details class="tracking-more-jobs" data-job-group="' + escapeHtml(id) + '"' + (expandedJobs.has(id) ? ' open' : '') + '><summary>+' + (row.jobs.length - 1) + ' more job' + (row.jobs.length > 2 ? 's' : '') + '</summary>' + row.jobs.slice(1).map(jobLink).join('') + '</details>' : '');
-      const customer = row.consignee || row.shipper || '';
       const result = row.providerResult, manual = latestManual(row), rowTone = tone(row.status);
-      const carrier = '<div class="tracking-status-block"><span class="tracking-source-label">TrackCargo</span><span class="tracking-status ' + rowTone + '">' + escapeHtml(row.status) + '</span>' + (result ? (result.statusDescription ? '<strong class="tracking-event-description">' + escapeHtml(result.statusDescription) + '</strong>' : '') + '<small class="tracking-provider-meta">' + escapeHtml(trackcargoMetadata(result)) + '</small>' + trackcargoNotice(result) : '<small class="tracking-provider-meta">' + (trackcargo.loaded && trackcargo.configured ? 'No linked tracking order' : 'Use Refresh TrackCargo to check') + '</small>') + '</div>';
-      const timing = '<div class="tracking-time-stack">' + timeBlock('Carrier event',row.lastUpdate,'event-time','No carrier event yet',result && result.currentLocation ? 'At ' + result.currentLocation : '') + timeBlock('Last checked',row.fetchedAt,'retrieval-time','No result retrieved') + (manual ? timeBlock('Manual entry recorded',manual.ts,'manual-time','Recording time unavailable') : '') + '</div>';
-      return '<tr data-awb="' + escapeHtml(id) + '" class="tracking-row--' + rowTone + '"><td class="tracking-awb" data-label="AWB / airline"><span class="tracking-awb-number">' + escapeHtml(displayAwb(row.awb)) + '</span>' + airlineActions(row.awb) + '</td><td data-label="Route / customer">' + routeSummary(row) + (customer ? '<small class="tracking-source-label">' + (row.consignee ? 'Consignee' : 'Shipper') + '</small><span class="tracking-customer" title="' + escapeHtml(customer) + '">' + escapeHtml(customer) + '</span>' : '<small>Customer not saved</small>') + '</td><td data-label="Tracking updates">' + carrier + manualSummary(manual) + '</td><td data-label="Update timing">' + timing + '</td><td data-label="Linked jobs">' + (jobs || '<small>No linked job</small>') + '</td><td class="tracking-row-actions" data-label="Details"><button type="button" class="smallbtn sb-blue tracking-details-link" data-tracking-action="timeline">View details</button></td></tr>';
-    }).join('') : '<tr><td colspan="6" class="tracking-empty">' + (all.length ? 'No shipments match these filters.' : 'No saved AWBs yet. Save a shipment or add AWBs from your jobs.') + '</td></tr>';
+      const status = '<span class="tracking-status ' + rowTone + '">' + escapeHtml(row.status) + '</span>' + (result && result.statusDescription ? '<small class="tracking-list-description">' + escapeHtml(result.statusDescription) + '</small>' : '') + (manual ? '<small class="tracking-list-manual">Manual: ' + escapeHtml(manual.code || 'NOTE') + ' · see View</small>' : '') + (result && (row.refreshError || trackcargo.error) ? '<small class="tracking-list-warning">Not refreshed · see View</small>' : '');
+      return '<tr data-awb="' + escapeHtml(id) + '" class="tracking-row--' + rowTone + '"><td class="tracking-date" data-label="Date">' + eventDatePart(row.lastUpdate,false) + '</td><td class="tracking-awb" data-label="AWB Number"><span class="tracking-awb-number">' + escapeHtml(displayAwb(row.awb)) + '</span></td><td class="tracking-clock" data-label="Time">' + eventDatePart(row.lastUpdate,true) + '</td><td class="tracking-list-status" data-label="Status">' + status + '</td><td class="tracking-row-actions" data-label="View"><button type="button" class="smallbtn sb-blue tracking-details-link" data-tracking-action="timeline" aria-label="View shipment ' + escapeHtml(displayAwb(row.awb)) + '">View</button></td></tr>';
+    }).join('') : '<tr><td colspan="5" class="tracking-empty">' + (all.length ? 'No shipments match these filters.' : 'No saved AWBs yet. Save a shipment or add AWBs from your jobs.') + '</td></tr>';
     if (detailId) renderDetail(detailId);
   }
   function getRow(id) {
@@ -413,7 +414,9 @@
     const labels = options.milestones || {}, key = row.manualRecords.length ? row.manualRecords[0].key : displayAwb(row.awb);
     const history = row.manualEvents.slice().reverse().map(event => '<div class="tracking-history-row"><b>' + escapeHtml(event.code || 'UPDATE') + '</b><div><strong>' + escapeHtml(labels[event.code] || 'Saved update') + '</strong><p>' + escapeHtml(event.note || '') + '</p><small>' + escapeHtml(event.source) + ' · Recorded ' + dateText(event.ts) + (event.by ? ' · ' + escapeHtml(event.by) : '') + ' · Record ' + escapeHtml(event.recordKey) + '</small></div></div>').join('');
     const route = [row.origin,row.destination].filter(Boolean).join(' → ') || row.route || 'Route not saved';
-    box.innerHTML = '<section class="tracking-detail"><div class="tracking-detail-header"><div><small>SHIPMENT DETAILS · TRACKCARGO</small><h3 id="tracking-detail-title" tabindex="-1">' + escapeHtml(displayAwb(row.awb)) + ' <span>' + escapeHtml(route) + '</span></h3></div><button type="button" class="smallbtn sb-blue" data-detail-action="close">Close details</button></div><div class="tracking-detail-body"><div class="tracking-parties"><p><b>Shipper</b>' + escapeHtml(row.shipper || 'Not saved') + '</p><p><b>Consignee</b>' + escapeHtml(row.consignee || 'Not saved') + '</p></div>' + trackcargoDetail(row, openSection('trackcargo',true)) + '<details class="trackcargo-detail" data-detail-section="manual"' + openSection('manual') + '><summary>Manual / legacy history <span>' + row.manualEvents.length + '</span></summary><div class="tracking-history-list" tabindex="0" role="region" aria-label="Manual event history">' + (history || '<p class="tracking-note">No manual entries yet.</p>') + '</div></details><p class="tracking-note">Manual entry times show when an update was recorded, not a verified departure, arrival or delivery.</p><div class="tracking-manual-form"><div><label for="trk_ms">Manual milestone</label><select id="trk_ms">' + Object.entries(labels).map(([code,label]) => '<option value="' + escapeHtml(code) + '">' + escapeHtml(label) + '</option>').join('') + '</select></div><div><label for="trk_note">Manual note / flight reference</label><input type="text" id="trk_note" placeholder="Flight number or operations remark"></div><button type="button" class="smallbtn sb-green" data-detail-action="add" data-record-key="' + escapeHtml(key) + '">Add manual update</button></div></div></section>';
+    const manual = latestManual(row), result = row.providerResult;
+    const overview = '<div class="tracking-detail-overview"><div class="tracking-detail-route">' + routeSummary(row) + '</div><div class="tracking-detail-actions">' + airlineActions(row.awb) + '</div><div class="tracking-detail-jobs"><span class="tracking-source-label">Linked jobs</span>' + (row.jobs.map(jobLink).join('') || '<small>No linked job</small>') + '</div><div class="tracking-time-stack">' + timeBlock('Carrier event',row.lastUpdate,'event-time','No carrier event yet',result && result.currentLocation ? 'At ' + result.currentLocation : '') + timeBlock('Last checked',row.fetchedAt,'retrieval-time','No result retrieved') + (manual ? timeBlock('Manual entry recorded',manual.ts,'manual-time','Recording time unavailable') : '') + '</div></div>' + manualSummary(manual);
+    box.innerHTML = '<section class="tracking-detail" data-awb="' + escapeHtml(row.id || row.awb) + '"><div class="tracking-detail-header"><div><small>SHIPMENT DETAILS · TRACKCARGO</small><h3 id="tracking-detail-title" tabindex="-1">' + escapeHtml(displayAwb(row.awb)) + ' <span>' + escapeHtml(route) + '</span></h3></div><button type="button" class="smallbtn sb-blue" data-detail-action="close">Close details</button></div><div class="tracking-detail-body">' + overview + '<div class="tracking-parties"><p><b>Shipper</b>' + escapeHtml(row.shipper || 'Not saved') + '</p><p><b>Consignee</b>' + escapeHtml(row.consignee || 'Not saved') + '</p></div>' + trackcargoDetail(row, openSection('trackcargo',true)) + '<details class="trackcargo-detail" data-detail-section="manual"' + openSection('manual') + '><summary>Manual / legacy history <span>' + row.manualEvents.length + '</span></summary><div class="tracking-history-list" tabindex="0" role="region" aria-label="Manual event history">' + (history || '<p class="tracking-note">No manual entries yet.</p>') + '</div></details><p class="tracking-note">Manual entry times show when an update was recorded, not a verified departure, arrival or delivery.</p><div class="tracking-manual-form"><div><label for="trk_ms">Manual milestone</label><select id="trk_ms">' + Object.entries(labels).map(([code,label]) => '<option value="' + escapeHtml(code) + '">' + escapeHtml(label) + '</option>').join('') + '</select></div><div><label for="trk_note">Manual note / flight reference</label><input type="text" id="trk_note" placeholder="Flight number or operations remark"></div><button type="button" class="smallbtn sb-green" data-detail-action="add" data-record-key="' + escapeHtml(key) + '">Add manual update</button></div></div></section>';
     if (savedCode && node('trk_ms')) node('trk_ms').value = savedCode;
     if (savedNote && node('trk_note')) node('trk_note').value = savedNote;
     if (scroll) {
@@ -506,7 +509,7 @@
     node('tracking-refresh').addEventListener('click', refreshTrackcargo);
     node('tracking-export').addEventListener('click', exportCsv);
     node('tracking-import').addEventListener('click', () => { if (options.importAwbs) options.importAwbs(); render(); });
-    node('tracking-body').addEventListener('click', event => {
+    function onShipmentClick(event) {
       const action = event.target.closest('[data-tracking-action]');
       if (action) {
         const parent = action.closest('[data-awb]'), row = parent && getRow(parent.dataset.awb);
@@ -527,8 +530,11 @@
       const linked = current && current.jobs.find(job => job.job === button.dataset.job);
       if (linked && Number.isInteger(linked.documentIndex) && options.openDocument) options.openDocument(linked.documentIndex);
       else if (options.openJobReport) options.openJobReport(button.dataset.job);
-    });
+    }
+    node('tracking-body').addEventListener('click', onShipmentClick);
     node('trk_detail').addEventListener('click', event => {
+      onShipmentClick(event);
+
       const button = event.target.closest('[data-detail-action]'); if (!button) return;
       if (button.dataset.detailAction === 'close') { closeDetail(); return; }
       if (button.dataset.detailAction === 'add' && options.addManual) options.addManual(button.dataset.recordKey);

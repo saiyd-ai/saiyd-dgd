@@ -482,15 +482,14 @@
           <button type="button" id="tracking-refresh" class="btn btn-load">Refresh TrackCargo</button>
           <button type="button" id="tracking-export" class="btn btn-load" disabled>Export CSV</button>
         </div>
-        <div class="tracking-legend" aria-label="Tracking colour key"><b>At a glance</b><span class="moving">Carrier event</span><span class="delivered">Delivery event</span><span class="pending">Awaiting result</span><span class="unlinked">Not linked</span><span class="manual">Manual update</span></div>
         <div id="tracking-action-message" role="status" aria-live="polite"></div>
         <div class="tracking-meta"><span id="tracking-count">0 unique MAWBs</span><span id="tracking-checked">No tracking updates retrieved yet.</span></div>
         <div class="tracking-table-wrap" role="region" aria-label="TrackCargo shipment tracking report">
-          <table class="tracking-table"><thead><tr><th scope="col">AWB / airline</th><th scope="col">Route / customer</th><th scope="col">Tracking updates</th><th scope="col">Update timing</th><th scope="col">Linked jobs</th><th scope="col">Details</th></tr></thead><tbody id="tracking-body"></tbody></table>
+          <table class="tracking-table"><thead><tr><th scope="col">Date</th><th scope="col">AWB Number</th><th scope="col">Time</th><th scope="col">Status</th><th scope="col">View</th></tr></thead><tbody id="tracking-body"></tbody></table>
         </div>
         <div id="trk_detail"></div>
         <p id="tracking-invalid" class="tracking-note"></p>
-        <p class="tracking-note">TrackCargo shows the latest actual carrier event, which may cover part of a shipment. Planned events do not confirm arrival or delivery. Times are UTC; fetch time is when the result was retrieved. Airline links are available for manual checks.</p>
+        <p class="tracking-note">Date and Time show the latest carrier event in UTC; — means no event time is available. Open View for shipment details, last-checked time and manual history. Manual entries are labelled separately.</p>
       </div></div>
     </div>
 
