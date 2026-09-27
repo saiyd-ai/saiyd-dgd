@@ -225,8 +225,11 @@
       clean[field] = event[field] == null ? null : event[field];
     }
     for (const field of ['pieces','weight']) {
-      if (event[field] != null && (typeof event[field] !== 'number' || !Number.isFinite(event[field]) || event[field] < 0)) throw new Error('Invalid saved quantity');
-      clean[field] = event[field] == null ? null : event[field];
+      const value = event[field];
+      // The server adapter represents valid quantities as canonical numeric strings.
+      const numeric = typeof value === 'number' ? value : typeof value === 'string' && value.length <= 32 && String(Number(value)) === value ? Number(value) : NaN;
+      if (value != null && (!Number.isFinite(numeric) || numeric < 0 || numeric > 1e12 || field === 'pieces' && !Number.isSafeInteger(numeric))) throw new Error('Invalid saved quantity');
+      clean[field] = value == null ? null : value;
     }
     if (event.flight != null) {
       if (typeof event.flight !== 'object' || Array.isArray(event.flight)) throw new Error('Invalid saved flight');
