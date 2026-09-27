@@ -364,7 +364,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-H</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-I</span></span>
           </div>
         </div>
       </div>
@@ -488,10 +488,13 @@
     <!-- ================= GENERAL CARGO TAB ================= -->
     <div class="tab" id="tab-gc">
       <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#128230; GENERAL CARGO JOB &mdash; <span id="gc_jobno"></span></h2><div class="body">
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+        <div style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px;">
           <button class="btn btn-save" style="background:#1d6b34;" onclick="jobNew()">&#10133; NEW JOB (auto number)</button>
-          <select id="job_type_gc" style="width:250px;"></select>
-          <span style="font-size:12px; color:#5b6b7d;">Type is auto (GEN) &mdash; change if needed; job number fills automatically, editable.</span>
+          <div><label>Job type (auto GEN &mdash; change if needed)</label><select id="job_type_gc" style="width:250px;"></select></div>
+          <div><label>JFS JOB NUMBER (auto &mdash; editable)</label>
+            <input type="text" id="gc_job" placeholder="e.g. GEN-C00032" style="width:210px; font-weight:bold;"
+              oninput="document.getElementById('f_job').value=this.value.toUpperCase(); const j=document.getElementById('gc_jobno'); if(j) j.textContent=this.value.toUpperCase()||'—';"></div>
+          <span id="gc_jobmsg" style="font-size:12.5px; color:#5b6b7d;"></span>
         </div>
         <div class="warnbar" style="margin-top:0;">Type the AWB, paste the AWB text, or upload the AWB PDF &mdash; the airline is detected automatically. Then use the buttons below for LABELS, AIRLINE DOCUMENTS and DNATA. No DGD needed.</div>
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
@@ -4196,6 +4199,7 @@ function gcSyncFromMain(){
     if(ge && fe && fe.value) ge.value = fe.value;
   });
   const jn = document.getElementById("gc_jobno"); if(jn) jn.textContent = v("f_job") || "—";
+  const gj = document.getElementById("gc_job"); if(gj) gj.value = v("f_job") || "";
   gcAirline();
 }
 function gcAiExtract(){
@@ -4261,6 +4265,9 @@ function jobStart(type){
   document.getElementById("jg_job").value = "";
   document.getElementById("jobgate").style.display = "none";
   document.getElementById("jobmsg").textContent = "Job " + j + " started " + new Date().toLocaleString("en-GB");
+  const gj = document.getElementById("gc_job"); if(gj) gj.value = j;
+  const gm = document.getElementById("gc_jobmsg"); if(gm) gm.textContent = JOBTYPE === "GC" ? "Job " + j + " started " + new Date().toLocaleString("en-GB") : "";
+  const gn = document.getElementById("gc_jobno"); if(gn) gn.textContent = j;
   if(_acceptRow){
     applyQueuePayload(_acceptRow.payload || {});
     const nts = (_acceptRow.payload || {}).notes;
