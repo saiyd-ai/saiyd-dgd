@@ -110,3 +110,4 @@
 }
 
 .tracking-last-check>span,.tracking-last-check>time{display:block}.tracking-last-check>span:first-child{font-weight:600}.tracking-route-stop.incomplete strong{font-size:14px;color:#916009}
+.tracking-awb .tracking-airline-actions{margin-top:10px;gap:6px}#tab-track .tracking-awb .tracking-airline-actions .smallbtn{font-size:11px;padding:7px 9px}.tracking-awb .tracking-airline-actions small{font-size:10px;line-height:1.5}
