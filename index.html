@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-D</span></span>
           </div>
         </div>
       </div>
@@ -410,9 +410,7 @@
     <!-- ============ DASHBOARD TAB ============ -->
     <div class="tab on" id="tab-dash">
       <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#128202; DGD DASHBOARD &mdash; jobs &amp; printed declarations</h2><div class="body">
-        <div id="dashkpi" style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px;"></div>
-        <div style="font-weight:bold; color:var(--navy); font-size:13.5px; margin:6px 0;">MONTH-WISE &mdash; DGD PRINTED</div>
-        <div id="dashbars" style="max-width:640px;"></div>
+        <div id="dashkpi" style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:6px;"></div>
       </div></div>
 
       <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#128229; INBOX &mdash; packing lists from the warehouse <span id="inbox_badge"></span> <span style="font-weight:normal; font-size:11px; color:#8a97a5;">(last 10 &mdash; full list in WAREHOUSE REPORT)</span></h2><div class="body">
@@ -4391,20 +4389,6 @@ function renderDash(){
     kpiChip(gcN, "GENERAL CARGO JOBS", "#b45309", "rpt", "#fff8ec") +
     kpiChip(log.length, "TOTAL JOBS", "#0f2b4c", "rpt", "#f2f6fb") +
     kpiChip(Object.keys((function(){try{return JSON.parse(localStorage.getItem("jfs_tracking")||"{}")}catch(e){return{}}})()).length, "TRACKING AWBS", "#0e7490", "track", "#eefafd");
-  // month-wise bars (last 8 months)
-  const months = {};
-  log.forEach(e => Object.entries(e.months||{}).forEach(([m,n]) => months[m] = (months[m]||0) + n));
-  const keys = Object.keys(months).sort().slice(-8);
-  const max = Math.max(1, ...keys.map(k => months[k]));
-  document.getElementById("dashbars").innerHTML = keys.length ? keys.map(k => {
-    const d = new Date(k + "-01");
-    const nm = d.toLocaleDateString("en-GB", {month:"short", year:"2-digit"}).toUpperCase();
-    return `<div style="display:flex; align-items:center; gap:8px; margin:3px 0;">
-      <div style="width:64px; font-size:11px; font-weight:bold; color:#5b6b7d;">${nm}</div>
-      <div style="flex:1; background:#e8edf3; border-radius:6px; overflow:hidden;">
-        <div style="width:${Math.round(months[k]/max*100)}%; background:linear-gradient(90deg,#0f2b4c,#3ec9a7); color:#fff; font-size:11px; font-weight:bold; padding:3px 8px; min-width:26px;">${months[k]}</div>
-      </div></div>`;
-  }).join("") : "<div style='color:#8a97a5; font-size:12.5px;'>No DGDs printed yet — the chart fills automatically every time a DGD is printed.</div>";
   // jobs table
   const q = (document.getElementById("dash_search").value||"").toLowerCase();
   const TH = "padding:6px 8px; font-size:11.5px; background:#0f2b4c; color:#fff; border:1px solid #0f2b4c; text-align:left;";
