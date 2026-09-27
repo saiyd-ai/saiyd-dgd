@@ -297,7 +297,7 @@ test('one explicit refresh powers main rows, KPIs and reports without old CargoA
   assert.equal(f.element('tracking-unlinked').textContent,2);
   const html = f.element('tracking-body').innerHTML;
   assert.equal((html.match(/data-tracking-action="timeline"/g)||[]).length,5);
-  assert.ok(!html.includes('data-tracking-action="airline"'),'Airline actions belong in View, not the compact list');
+  assert.match(html,/data-tracking-action="airline"/,'Manual airline checks remain available directly on the main list');
   assert.equal((html.match(/Awaiting carrier result/g)||[]).length,2);
   assert.equal((html.match(/Not linked to TrackCargo/g)||[]).length,2);
   assert.match(html,/RCF/);
@@ -418,6 +418,13 @@ test('route and plain carrier update are visible with Dubai event time separate 
 test('manual airline links and legacy sync compatibility never initiate tracking or alter stored data', async () => {
   const source = localSource(), before = JSON.stringify(source), f = fixture(trackcargoPayload(),200,source);
   for (const awb of AWBS) {
+    const mainRow=f.element('tracking-body').innerHTML.match(new RegExp('<tr data-awb="'+awb+'"[^>]*>([\\s\\S]*?)</tr>'))[1];
+    const link=tracking.airlineTrackingLink(awb);
+    assert.ok(mainRow.includes('href="'+link.url+'"'));
+    assert.match(mainRow,/data-tracking-action="airline"/);
+    if(link.mode==='copy') assert.match(mainRow,/data-tracking-action="copy-awb"/);
+    await clickTrackingAction(f,'airline',awb);
+    assert.match(f.element('tracking-action-message').textContent,/Opening .* for a manual check/);
     f.api.renderDetail(awb);
     assert.match(f.element('trk_detail').innerHTML,/data-tracking-action="airline"/);
     await clickTrackingAction(f,'airline',awb,'trk_detail');
