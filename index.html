@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-Q</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-R</span></span>
           </div>
         </div>
       </div>
@@ -566,11 +566,12 @@
 
     <!-- ============ WAREHOUSE TAB ============ -->
     <div class="tab" id="tab-wh">
-      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#127981; WAREHOUSE &mdash; create packing list &amp; send to operations</h2><div class="body">
-        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px;">
-          <button class="btn btn-save" style="background:#0f2b4c;" onclick="whCreateJob()">&#10133; CREATE JOB (DGS-C standard)</button>
-          <div><label>JOB NUMBER</label><input type="text" id="wh_job" placeholder="DGS-C00001" style="width:160px; font-weight:bold;"></div>
-          <div><label>Customer name</label><input type="text" id="wh_customer" list="whcustlist" placeholder="e.g. LATTAFA PERFUMES" style="width:230px; font-weight:bold;"></div>
+      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#127981; WAREHOUSE JOB &mdash; <span id="wh_jobno"></span> <span id="wh_jobstart" style="font-weight:normal; font-size:12px; color:#5b6b7d; margin-left:10px;"></span></h2><div class="body">
+        <div style="display:flex; gap:12px; flex-wrap:nowrap; overflow-x:auto; align-items:flex-end; margin-bottom:10px;">
+          <button class="btn btn-save" style="background:#b45309; white-space:nowrap;" onclick="whCreateJob()">&#10133; NEW JOB (auto number)</button>
+          <div style="min-width:190px;"><label>Job type (auto DGS)</label><select id="job_type_wh" style="width:190px;"></select></div>
+          <div style="min-width:165px;"><label>JFS JOB NUMBER</label><input type="text" id="wh_job" placeholder="e.g. DGS-C00001" style="width:165px; font-weight:bold;" oninput="const w=document.getElementById('wh_jobno'); if(w) w.textContent=this.value.toUpperCase();"></div>
+          <div style="min-width:200px;"><label>Customer name</label><input type="text" id="wh_customer" list="whcustlist" placeholder="e.g. LATTAFA PERFUMES" style="width:200px; font-weight:bold;" onfocus="if(typeof whFillCustList==='function')whFillCustList()"></div>
           <datalist id="whcustlist"></datalist>
         </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; background:#faf5ec; border:1px dashed #d8b98a; border-radius:8px; padding:9px 12px;">
@@ -660,11 +661,11 @@
     </div>
 
     <!-- JOB NUMBER BAR -->
-    <div class="card" style="border-left:5px solid #0f2b4c;"><div class="body" style="display:flex; gap:14px; align-items:flex-end; flex-wrap:nowrap; overflow-x:auto;">
-      <button class="btn btn-save" style="background:#0f2b4c; white-space:nowrap;" onclick="jobNew()">&#10133; NEW DGD (new job)</button>
+    <div class="card" style="border-left:5px solid #a40000;"><h2 style="background:#fdecec; color:#a40000;">&#129513; DG SHIPMENT JOB &mdash; <span id="dg_jobno"></span> <span id="dg_jobstart" style="font-weight:normal; font-size:12px; color:#5b6b7d; margin-left:10px;"></span></h2><div class="body" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:nowrap; overflow-x:auto;">
+      <button class="btn btn-save" style="background:#0f2b4c; white-space:nowrap;" onclick="jobNew()">&#10133; NEW JOB (auto number)</button>
       <div style="min-width:190px;"><label>Job type (auto DGS)</label><select id="job_type_dg" style="width:190px;"></select></div>
       <div style="min-width:165px;"><label>JFS JOB NUMBER</label>
-        <input type="text" id="f_job" placeholder="e.g. DGS-C00032" style="width:165px; font-weight:bold;"></div>
+        <input type="text" id="f_job" placeholder="e.g. DGS-C00032" oninput="const d=document.getElementById('dg_jobno'); if(d) d.textContent=this.value.toUpperCase();" style="width:165px; font-weight:bold;"></div>
       <div style="min-width:200px;"><label>Customer name</label>
         <input type="text" id="f_customer" list="whcustlist" onfocus="if(typeof whFillCustList==='function')whFillCustList()" placeholder="e.g. LATTAFA PERFUMES" style="width:200px; font-weight:bold;"></div>
       <span id="jobmsg" style="display:none;"></span>
@@ -2010,6 +2011,7 @@ function snapshot(){
 function applySnapshot(s){
   window._labelSC = !!s.labelsc;
   document.getElementById("f_job").value = s.job||"";
+  { const dn = document.getElementById("dg_jobno"); if(dn) dn.textContent = s.job||""; }
   const fc = document.getElementById("f_customer"); if(fc) fc.value = s.customer||"";
   const gcc = document.getElementById("gc_customer"); if(gcc) gcc.value = s.customer||"";
   document.getElementById("f_shipper").value = s.shipper||"";
@@ -4173,6 +4175,8 @@ function jobStart(type){
   const gm = document.getElementById("gc_jobmsg"); if(gm) gm.textContent = JOBTYPE === "GC" ? "Job " + j + " started " + new Date().toLocaleString("en-GB") : "";
   const gn = document.getElementById("gc_jobno"); if(gn) gn.textContent = j;
   const gs = document.getElementById("gc_jobstart"); if(gs) gs.textContent = "started " + new Date().toLocaleString("en-GB");
+  const dn = document.getElementById("dg_jobno"); if(dn) dn.textContent = j;
+  const ds = document.getElementById("dg_jobstart"); if(ds) ds.textContent = "started " + new Date().toLocaleString("en-GB");
   if(_acceptRow){
     applyQueuePayload(_acceptRow.payload || {});
     const nts = (_acceptRow.payload || {}).notes;
@@ -4269,6 +4273,7 @@ function jobNew(){
 function jobTypeFill(){
   const d = document.getElementById("job_type_dg"); if(d && !d.options.length) d.innerHTML = jobTypeOptions("DGS");
   const g = document.getElementById("job_type_gc"); if(g && !g.options.length) g.innerHTML = jobTypeOptions("GEN");
+  const w = document.getElementById("job_type_wh"); if(w && !w.options.length) w.innerHTML = jobTypeOptions("DGS");
 }
 document.addEventListener("DOMContentLoaded", jobTypeFill);
 function jobLogPrint(){
@@ -4457,17 +4462,19 @@ function whPayload(){
 }
 async function whCreateJob(){
   let maxN = 0;
-  const scan = s => { const m = /^DGS-C(\d{5})$/i.exec((s||"").trim()); if(m) maxN = Math.max(maxN, parseInt(m[1], 10)); };
+  const whSel = document.getElementById("job_type_wh"); const whCode = (whSel && whSel.value) || "DGS";
+  const scan = s => { const m = new RegExp("^" + whCode + "-C(\\d{5})$", "i").exec((s||"").trim()); if(m) maxN = Math.max(maxN, parseInt(m[1], 10)); };
   store("jfs_joblog").forEach(e => scan(e.job));
   Object.keys(whDrafts()).forEach(scan);
   if(sb && sbUser){
     try{
-      const { data } = await sb.from("dgd_queue").select("job_no").ilike("job_no", "DGS-C%").order("created_at", {ascending:false}).limit(200);
+      const { data } = await sb.from("dgd_queue").select("job_no").ilike("job_no", whCode + "-C%").order("created_at", {ascending:false}).limit(200);
       (data||[]).forEach(r => scan(r.job_no));
     }catch(e){}
   }
-  const next = "DGS-C" + String(maxN + 1).padStart(5, "0");
+  const next = whCode + "-C" + String(maxN + 1).padStart(5, "0");
   document.getElementById("wh_job").value = next;
+  { const w = document.getElementById("wh_jobno"); if(w) w.textContent = next; const ws = document.getElementById("wh_jobstart"); if(ws) ws.textContent = "started " + new Date().toLocaleString("en-GB"); }
   _whConfirmed = false;
   whMsg("✓ New job created: " + next + " — fill the details, then SAVE DRAFT.", "#1d6b34");
 }
