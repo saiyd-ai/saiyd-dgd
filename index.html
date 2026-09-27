@@ -364,7 +364,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-J</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-K</span></span>
           </div>
         </div>
       </div>
@@ -494,6 +494,9 @@
           <div><label>JFS JOB NUMBER (auto &mdash; editable)</label>
             <input type="text" id="gc_job" placeholder="e.g. GEN-C00032" style="width:210px; font-weight:bold;"
               oninput="document.getElementById('f_job').value=this.value.toUpperCase(); const j=document.getElementById('gc_jobno'); if(j) j.textContent=this.value.toUpperCase()||'—';"></div>
+          <div><label>Customer name</label>
+            <input type="text" id="gc_customer" list="whcustlist" placeholder="e.g. LATTAFA PERFUMES" style="width:230px; font-weight:bold;"
+              oninput="const f=document.getElementById('f_customer'); if(f) f.value=this.value;"></div>
           <span id="gc_jobmsg" style="font-size:12.5px; color:#5b6b7d;"></span>
         </div>
         <div class="warnbar" style="margin-top:0;">Type the AWB, paste the AWB text, or upload the AWB PDF &mdash; the airline is detected automatically. Then use the buttons below for LABELS, AIRLINE DOCUMENTS and DNATA. No DGD needed.</div>
@@ -645,6 +648,8 @@
       <div><label>Job type (auto DGS &mdash; change if needed)</label><select id="job_type_dg" style="width:250px;"></select></div>
       <div><label>JFS JOB NUMBER (auto &mdash; editable)</label>
         <input type="text" id="f_job" placeholder="e.g. DGS-C00032" style="width:210px; font-weight:bold;"></div>
+      <div><label>Customer name</label>
+        <input type="text" id="f_customer" list="whcustlist" placeholder="e.g. LATTAFA PERFUMES" style="width:230px; font-weight:bold;"></div>
       <span id="jobmsg" style="font-size:12.5px; color:#5b6b7d;"></span>
     </div></div>
 
@@ -1969,7 +1974,7 @@ function refresh(){
 
 /* ---------- drafts (localStorage) ---------- */
 function snapshot(){
-  return { job:v("f_job"), shipper:v("f_shipper"), consignee:v("f_consignee"), awb:v("f_awb"), page:v("f_page"),
+  return { job:v("f_job"), customer:v("f_customer"), shipper:v("f_shipper"), consignee:v("f_consignee"), awb:v("f_awb"), page:v("f_page"),
     ref:v("f_ref"), dep:v("f_dep"), dest:v("f_dest"), pax:rv("f_pax"), radio:rv("f_radio"),
     handling:v("f_handling"), emergency:v("f_emergency"), signname:v("f_signname"),
     place:v("f_place"), date:v("f_date"), items:getItems(),
@@ -1988,6 +1993,8 @@ function snapshot(){
 function applySnapshot(s){
   window._labelSC = !!s.labelsc;
   document.getElementById("f_job").value = s.job||"";
+  const fc = document.getElementById("f_customer"); if(fc) fc.value = s.customer||"";
+  const gcc = document.getElementById("gc_customer"); if(gcc) gcc.value = s.customer||"";
   document.getElementById("f_shipper").value = s.shipper||"";
   document.getElementById("f_consignee").value = s.consignee||"";
   document.getElementById("f_awb").value = s.awb||"";
@@ -4200,6 +4207,7 @@ function gcSyncFromMain(){
   });
   const jn = document.getElementById("gc_jobno"); if(jn) jn.textContent = v("f_job") || "—";
   const gj = document.getElementById("gc_job"); if(gj) gj.value = v("f_job") || "";
+  const gcc2 = document.getElementById("gc_customer"); if(gcc2) gcc2.value = v("f_customer") || "";
   gcAirline();
 }
 function gcAiExtract(){
@@ -4311,6 +4319,7 @@ function applyQueuePayload(p){
     if(pr[1]) document.getElementById("f_dest").value = pr[1].toUpperCase();
   }
   if(p.tare) document.getElementById("pt_tare").value = p.tare;
+  const fcx = document.getElementById("f_customer"); if(fcx && p.customer) fcx.value = p.customer;
   PT = (p.pallets || []).map(r => ({w: r.w, d: r.d, q: r.q, rm: String(r.rm || "").toUpperCase()}));
   ptRender();
   if(PT.length) plSet("Warehouse packing list" + (p.job ? " — job " + p.job : ""));   // warehouse data = packing list, DGD unlocked
@@ -4372,7 +4381,7 @@ function jobLogPrint(){
   const list = store("jfs_joblog");
   let e = list.find(x => x.job === key);
   if(!e){ e = {job:key, first: Date.now(), prints: 0, months:{}}; list.unshift(e); }
-  e.awb = s.awb; e.shipper = (s.shipper||"").split("\n")[0]; e.consignee = (s.consignee||"").split("\n")[0];
+  e.awb = s.awb; e.customer = s.customer || e.customer || ""; e.shipper = (s.shipper||"").split("\n")[0]; e.consignee = (s.consignee||"").split("\n")[0];
   e.route = [s.dep, s.dest].filter(Boolean).join(" - ");
   e.un = (s.items||[]).map(r => r.un).filter(Boolean).join(", ");
   e.prints = (e.prints||0) + 1; e.last = Date.now(); e.type = e.type || JOBTYPE || "DG";
@@ -4432,7 +4441,7 @@ function renderDash(){
 function _jobRowsHtml(log, docs, q, limit){
   const TH = "padding:6px 8px; font-size:11.5px; background:#0f2b4c; color:#fff; border:1px solid #0f2b4c; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #e2e8f0; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">STATUS</th><th style="${TH}">LAST UPDATE</th><th style="${TH}">AWB</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
+  let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">CUSTOMER</th><th style="${TH}">STATUS</th><th style="${TH}">LAST UPDATE</th><th style="${TH}">AWB</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
   let rows = log.slice().sort((a,b) => (b.last||0) - (a.last||0))
     .filter(e => !q || ((e.job||"")+" "+(e.awb||"")+" "+(e.shipper||"")+" "+(e.consignee||"")).toLowerCase().includes(q));
   if(limit && !q) rows = rows.slice(0, limit);
@@ -4440,6 +4449,7 @@ function _jobRowsHtml(log, docs, q, limit){
     const di = docs.findIndex(d => (d.job||"") === e.job);
     const st = di >= 0 ? (docs[di].status || "DRAFT") : "";
     h += `<tr><td style="${TD} font-weight:bold;">${e.type === "GC" ? "&#128230; " : "&#129513; "}${esc(e.job)}</td>
+      <td style="${TD} font-weight:bold; color:#7b2d8b;">${esc(e.customer||"")}</td>
       <td style="${TD} white-space:nowrap;">${statusBadgeHtml(st)}${di >= 0 && st !== "CONFIRMED" ? ` <button class="smallbtn sb-green" onclick="docConfirm(${di})" title="Confirm this DGD">&#10004;</button>` : ""}</td>
       <td style="${TD}">${e.last ? new Date(e.last).toLocaleString("en-GB") : ""}</td>
       <td style="${TD}">${esc(e.awb||"")}</td><td style="${TD}">${esc(e.shipper||"")}</td>
@@ -4448,7 +4458,7 @@ function _jobRowsHtml(log, docs, q, limit){
       <td style="${TD} text-align:center; font-weight:bold; color:#0f2b4c;">${e.prints||0}</td>
       <td style="${TD}">${di >= 0 ? `<button class="smallbtn sb-green" onclick="loadDoc(${di})">Open</button>` : ""}</td></tr>`;
   });
-  if(rows.length === 0) h += `<tr><td colspan="10" style="${TD} color:#8a97a5;">No jobs.</td></tr>`;
+  if(rows.length === 0) h += `<tr><td colspan="11" style="${TD} color:#8a97a5;">No jobs.</td></tr>`;
   return h;
 }
 /* DOCUMENT REPORT — full list, DG and NON-DG split */
@@ -5272,7 +5282,7 @@ function jobLogTouch(){
   const list = store("jfs_joblog");
   let e = list.find(x => x.job === key);
   if(!e){ e = {job:key, first: Date.now(), prints: 0, months:{}}; list.unshift(e); }
-  e.awb = s.awb; e.shipper = (s.shipper||"").split("\n")[0]; e.consignee = (s.consignee||"").split("\n")[0];
+  e.awb = s.awb; e.customer = s.customer || e.customer || ""; e.shipper = (s.shipper||"").split("\n")[0]; e.consignee = (s.consignee||"").split("\n")[0];
   e.route = [s.dep, s.dest].filter(Boolean).join(" - ");
   e.un = (s.items||[]).map(r => r.un).filter(Boolean).join(", ");
   e.last = e.last || Date.now(); e.type = e.type || JOBTYPE || "DG";
