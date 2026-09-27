@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-S</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-T</span></span>
           </div>
         </div>
       </div>
@@ -447,6 +447,8 @@
       <div class="card" style="border-left:5px solid #1a5fb4;"><h2>&#128209; DOCUMENT REPORT &mdash; all jobs</h2><div class="body">
         <div style="display:flex; gap:12px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
           <input type="text" id="rpt_search" placeholder="Search job / AWB / customer..." style="width:280px;" oninput="rptRender()">
+          <button class="smallbtn sb-red" id="adm_delbtn" style="display:none; font-weight:800;" onclick="admDeleteSelected()">&#128465; DELETE SELECTED (<span id="adm_cnt">0</span>)</button>
+          <span id="adm_note" style="display:none; font-size:11.5px; color:#a40000; font-weight:bold;">ADMIN: tick jobs, then DELETE SELECTED</span>
           <button class="smallbtn sb-green" onclick="dashReport()">&#11015; DOWNLOAD REPORT (Excel)</button>
         </div>
         <div style="font-weight:bold; color:#a40000; font-size:14px; margin:6px 0;">&#129513; DG CARGO &mdash; <span id="rpt_dg_n"></span> jobs</div>
@@ -2446,6 +2448,56 @@ function trackRemove(awb){
   const all = trackAll(); delete all[awb]; trackSave(all);
   document.getElementById("trk_detail").innerHTML = ""; trackRender();
 }
+
+/* ============ ADMIN: bulk delete jobs (owner only) ============ */
+const ADMIN_EMAILS = ["ms@jfslogistics.com"];
+function isAdmin(){
+  try{ if(typeof sbUser !== "undefined" && sbUser && ADMIN_EMAILS.includes(String(sbUser.email||"").toLowerCase())) return true; }catch(e){}
+  const p = document.getElementById("uc_plan"); return !!(p && /owner/i.test(p.textContent||""));
+}
+function admCount(){ const n = document.querySelectorAll(".adm_sel:checked").length; const c = document.getElementById("adm_cnt"); if(c) c.textContent = n; }
+function admSelAll(cb){ const tb = cb.closest("table"); if(tb) tb.querySelectorAll(".adm_sel").forEach(x => x.checked = cb.checked); admCount(); }
+function admTombstones(){ try{ const a = JSON.parse(localStorage.getItem("jfs_deleted_jobs")||"[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
+/* remove every trace of the deleted jobs from local shared stores; returns keys that changed (to push) */
+function admApplyTombstones(){
+  const dead = new Set(admTombstones().map(x => String((x && x.job) || x || "").toUpperCase()).filter(Boolean));
+  if(!dead.size) return [];
+  const changed = [];
+  const isDead = j => dead.has(String(j||"").trim().toUpperCase());
+  const arr = k => { try{ const a = JSON.parse(localStorage.getItem(k)||"[]"); return Array.isArray(a) ? a : null; }catch(e){ return null; } };
+  const obj = k => { try{ const o = JSON.parse(localStorage.getItem(k)||"{}"); return (o && typeof o === "object" && !Array.isArray(o)) ? o : null; }catch(e){ return null; } };
+  const log = arr("jfs_joblog");
+  if(log){ const f = log.filter(e => !isDead(e && e.job)); if(f.length !== log.length){ localStorage.setItem("jfs_joblog", JSON.stringify(f)); changed.push("jfs_joblog"); } }
+  const docs = arr("jfs_documents");
+  if(docs){ const f = docs.filter(d => !isDead(d && (d.job || (d.snap && d.snap.job)))); if(f.length !== docs.length){ localStorage.setItem("jfs_documents", JSON.stringify(f)); changed.push("jfs_documents"); } }
+  ["jfs_dgd_drafts","jfs_wh_drafts"].forEach(k => {
+    const o = obj(k); if(!o) return; let hit = false;
+    Object.keys(o).forEach(n => { const s = o[n]; if(isDead(n) || isDead(s && (s.job || (s.snap && s.snap.job)))){ delete o[n]; hit = true; } });
+    if(hit){ localStorage.setItem(k, JSON.stringify(o)); changed.push(k); }
+  });
+  return changed;
+}
+async function admDeleteSelected(){
+  if(!isAdmin()){ alert("Only the admin can delete jobs."); return; }
+  const jobs = [...new Set([...document.querySelectorAll(".adm_sel:checked")].map(x => x.dataset.job).filter(Boolean))];
+  if(!jobs.length){ alert("Tick the jobs to delete first."); return; }
+  const list = jobs.slice(0, 15).join(", ") + (jobs.length > 15 ? " ... (+" + (jobs.length - 15) + " more)" : "");
+  if(!confirm("DELETE " + jobs.length + " JOB(S) PERMANENTLY?\n\n" + list + "\n\nThis removes the job, its saved DGD documents and drafts for ALL users. It cannot be undone.")) return;
+  const typed = prompt("Type DELETE to confirm removing " + jobs.length + " job(s):", "");
+  if(String(typed||"").trim().toUpperCase() !== "DELETE"){ alert("Cancelled — nothing was deleted."); return; }
+  const by = (typeof sbUser !== "undefined" && sbUser) ? sbUser.email : "";
+  const tomb = admTombstones();
+  jobs.forEach(j => tomb.push({job: String(j).toUpperCase(), at: new Date().toISOString(), by}));
+  localStorage.setItem("jfs_deleted_jobs", JSON.stringify(tomb));
+  const changed = admApplyTombstones();
+  if(typeof cloudPush === "function"){ try{ await cloudPush("jfs_deleted_jobs"); for(const k of changed) await cloudPush(k); }catch(e){} }
+  // warehouse inbox rows for these jobs (best effort)
+  if(typeof sb !== "undefined" && sb){ try{ await sb.from("dgd_queue").delete().in("job_no", jobs); }catch(e){} }
+  try{ if(typeof inboxPoll === "function") inboxPoll(); }catch(e){}
+  try{ rptRender(); }catch(e){} try{ renderDash(); }catch(e){} try{ if(typeof renderDocs === "function" && document.getElementById("doc_table")) renderDocs(); }catch(e){}
+  alert("✓ Deleted " + jobs.length + " job(s).");
+}
+
 /* ---------- alt print (checklist / stickers / labels) ---------- */
 function printAlt(srcId){
   const src = document.getElementById(srcId);
@@ -4337,16 +4389,17 @@ function renderDash(){
 }
 /* shared job-report rows (used by dashboard + DOCUMENT REPORT) */
 function _jobRowsHtml(log, docs, q, limit){
+  const admOn = !limit && typeof isAdmin === "function" && isAdmin();   // select boxes only in the full DOCUMENT REPORT, admin only
   const TH = "padding:6px 8px; font-size:11.5px; background:#0f2b4c; color:#fff; border:1px solid #0f2b4c; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #e2e8f0; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">CUSTOMER</th><th style="${TH}">DOCUMENT STATUS</th><th style="${TH}">LAST JOB LOG UPDATE</th><th style="${TH}">AWB</th><th style="${TH}">TRACKCARGO CARRIER EVENT</th><th style="${TH}">LAST ACTUAL CARRIER EVENT</th><th style="${TH}">MANUAL / LEGACY STATUS</th><th style="${TH}">LAST MANUAL ENTRY</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
+  let h = `<tr>${admOn ? `<th style="${TH} width:28px;"><input type="checkbox" title="Select all" onclick="admSelAll(this)"></th>` : ""}<th style="${TH}">JOB NO</th><th style="${TH}">CUSTOMER</th><th style="${TH}">DOCUMENT STATUS</th><th style="${TH}">LAST JOB LOG UPDATE</th><th style="${TH}">AWB</th><th style="${TH}">TRACKCARGO CARRIER EVENT</th><th style="${TH}">LAST ACTUAL CARRIER EVENT</th><th style="${TH}">MANUAL / LEGACY STATUS</th><th style="${TH}">LAST MANUAL ENTRY</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">ROUTE</th><th style="${TH}">UN/ID</th><th style="${TH}">PRINTS</th><th style="${TH}"></th></tr>`;
   let rows = log.slice().sort((a,b) => (b.last||0) - (a.last||0))
     .filter(e => !q || ((e.job||"")+" "+(e.awb||"")+" "+(e.shipper||"")+" "+(e.consignee||"")).toLowerCase().includes(q));
   if(limit && !q) rows = rows.slice(0, limit);
   rows.forEach(e => {
     const di = docs.findIndex(d => (d.job||"") === e.job);
     const st = di >= 0 ? (docs[di].status || "DRAFT") : "";
-    h += `<tr><td style="${TD} font-weight:bold;">${e.type === "GC" ? "&#128230; " : "&#129513; "}${esc(e.job)}</td>
+    h += `<tr>${admOn ? `<td style="${TD} text-align:center;"><input type="checkbox" class="adm_sel" data-job="${esc(e.job)}" onchange="admCount()"></td>` : ""}<td style="${TD} font-weight:bold;">${e.type === "GC" ? "&#128230; " : "&#129513; "}${esc(e.job)}</td>
       <td style="${TD} font-weight:bold; color:#7b2d8b;">${esc(e.customer||"")}</td>
       <td style="${TD} white-space:nowrap;">${statusBadgeHtml(st)}${di >= 0 && st !== "CONFIRMED" ? ` <button class="smallbtn sb-green" onclick="docConfirm(${di})" title="Confirm this DGD">&#10004;</button>` : ""}</td>
       <td style="${TD}">${e.last ? new Date(e.last).toLocaleString("en-GB") : ""}</td>
@@ -4356,11 +4409,13 @@ function _jobRowsHtml(log, docs, q, limit){
       <td style="${TD} text-align:center; font-weight:bold; color:#0f2b4c;">${e.prints||0}</td>
       <td style="${TD}">${di >= 0 ? `<button class="smallbtn sb-green" onclick="loadDoc(${di})">Open</button>` : ""}</td></tr>`;
   });
-  if(rows.length === 0) h += `<tr><td colspan="15" style="${TD} color:#8a97a5;">No jobs.</td></tr>`;
+  if(rows.length === 0) h += `<tr><td colspan="${admOn ? 16 : 15}" style="${TD} color:#8a97a5;">No jobs.</td></tr>`;
   return h;
 }
 /* DOCUMENT REPORT — full list, DG and NON-DG split */
 function rptRender(){
+  { const on = typeof isAdmin === "function" && isAdmin(); const b = document.getElementById("adm_delbtn"), n = document.getElementById("adm_note");
+    if(b) b.style.display = on ? "" : "none"; if(n) n.style.display = on ? "" : "none"; const c = document.getElementById("adm_cnt"); if(c) c.textContent = "0"; }
   const log = store("jfs_joblog"), docs = store("jfs_documents");
   const q = (v("rpt_search") || "").toLowerCase();
   const dg = log.filter(e => e.type !== "GC");
@@ -5782,7 +5837,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log","jfs_inv_counters","jfs_job_counter","jfs_msds_history","jfs_tracking"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log","jfs_inv_counters","jfs_job_counter","jfs_msds_history","jfs_tracking","jfs_deleted_jobs"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
@@ -8139,6 +8194,7 @@ async function cloudPullShared(mode){   // mode: "merge" (login — union, nothi
       localStorage.setItem(row.key, JSON.stringify(row.value));
     }
   });
+  try{ if(typeof admApplyTombstones === "function") admApplyTombstones().forEach(k => { if(!toPush.includes(k)) toPush.push(k); }); }catch(e){}
   for(const k of toPush) await cloudPush(k);                     // our extra local records go up for everyone
 }
 async function cloudPullAll(tell){
@@ -8167,6 +8223,7 @@ function teamSyncStart(){
     if(!sb || !sbUser) return;
     try{
       await cloudPullShared("replace");
+      try{ if(typeof admApplyTombstones === "function") admApplyTombstones().forEach(k => cloudPush(k)); }catch(e){}
       rebuildUNDB(); refreshDraftList();
       if(typeof renderCustomers === "function" && document.getElementById("cu_table")) renderCustomers();
       if(typeof rptRender === "function") try{ rptRender(); }catch(e){}
