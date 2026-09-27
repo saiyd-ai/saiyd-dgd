@@ -51,6 +51,12 @@
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-GB', {timeZone: 'UTC', day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) + ' UTC';
   }
+  function timeBlock(label, value, variant, emptyText, detail) {
+    const date = value ? new Date(value) : null, valid = date && !Number.isNaN(date.getTime());
+    return '<div class="tracking-time-block ' + variant + '"><span class="tracking-time-label">' + escapeHtml(label) + '</span>' + (valid
+      ? '<time datetime="' + date.toISOString() + '" aria-label="' + escapeHtml(label + ' ' + dateText(value)) + '"><strong>' + escapeHtml(date.toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'})) + '</strong><span>' + escapeHtml(date.toLocaleTimeString('en-GB',{timeZone:'UTC',hour:'2-digit',minute:'2-digit'})) + ' UTC</span></time>'
+      : '<span class="tracking-time-empty">' + escapeHtml(emptyText || 'Not available') + '</span>') + (detail ? '<small class="tracking-location">' + escapeHtml(detail) + '</small>' : '') + '</div>';
+  }
   function statusText(value) { return txt(value).trim().replace(/_/g, ' ') || 'Awaiting update'; }
   function shipmentStatus(shipment, configured) {
     const unknown = !shipment || !txt(shipment.status).trim() || txt(shipment.status).trim().toUpperCase() === 'UNKNOWN';
@@ -65,8 +71,19 @@
     const status = statusText(value).toUpperCase();
     if (['DELIVERED', 'DLV', 'DELIVERY COMPLETED'].includes(status)) return 'delivered';
     if (['DEPARTED', 'DEP', 'IN TRANSIT', 'ARRIVED', 'ARR', 'RCF', 'RECEIVED FROM FLIGHT', 'AT DESTINATION', 'EN ROUTE'].includes(status)) return 'moving';
-    if (/error|fail|reject|cancel/i.test(value)) return 'issue';
+    if (/error|fail|reject|cancel|unavailable/i.test(value)) return 'issue';
+    if (/not linked|not retrieved|not connected|manual only/i.test(value)) return 'unlinked';
     return 'pending';
+  }
+  function latestManual(row) { return array(row.manualEvents).filter(event => event.source === 'Manual entry').at(-1); }
+  function manualSummary(event) {
+    if (!event) return '';
+    const title = txt((options.milestones || {})[event.code] || 'Saved manual update').split(' — ')[0];
+    return '<div class="tracking-manual-summary"><div class="tracking-manual-heading"><span class="tracking-source-label">Manual update</span><span class="tracking-status manual">' + escapeHtml(event.code || 'NOTE') + '</span></div><strong class="tracking-manual-title">' + escapeHtml(title) + '</strong>' + (event.note ? '<p class="tracking-manual-note">' + escapeHtml(event.note) + '</p>' : '') + '<small>Operator entry · source and notes in details</small></div>';
+  }
+  function routeSummary(row) {
+    if (!row.origin && !row.destination) return '<strong class="tracking-route">' + escapeHtml(row.route || 'Route not saved') + '</strong>';
+    return '<div class="tracking-route-points"><div><small>Origin</small><strong>' + escapeHtml(row.origin || 'Not saved') + '</strong></div><div><small>Destination</small><strong>' + escapeHtml(row.destination || 'Not saved') + '</strong></div></div>';
   }
   function collectShipments(joblog, documents) {
     const rows = new Map(), invalid = new Set();
@@ -335,7 +352,7 @@
     return 'TrackCargo order: ' + order.charAt(0).toUpperCase() + order.slice(1);
   }
   function trackcargoNotice(shipment) {
-    return (trackcargo.fromSnapshot ? '<small>Saved snapshot · not refreshed this visit</small>' : '') + (shipment.refreshError ? '<p class="trackcargo-message issue">Not refreshed: ' + escapeHtml(shipment.refreshError) + ' Showing the previous TrackCargo result.</p>' : shipment.message ? '<p class="trackcargo-message">' + escapeHtml(shipment.message) + '</p>' : '');
+    return (trackcargo.fromSnapshot ? '<small class="tracking-snapshot-tag">Saved snapshot · not refreshed this visit</small>' : '') + (shipment.refreshError ? '<p class="trackcargo-message issue">Not refreshed: ' + escapeHtml(shipment.refreshError) + ' Showing the previous TrackCargo result.</p>' : shipment.message ? '<p class="trackcargo-message">' + escapeHtml(shipment.message) + '</p>' : '');
   }
   function trackcargoDetail(row, open) {
     if (!normalizeAwb(row.awb)) return '';
@@ -375,10 +392,11 @@
     node('tracking-body').innerHTML = rows.length ? rows.map(row => {
       const id = row.id || row.awb;
       const jobs = row.jobs.slice(0,1).map(jobLink).join('') + (row.jobs.length > 1 ? '<details class="tracking-more-jobs" data-job-group="' + escapeHtml(id) + '"' + (expandedJobs.has(id) ? ' open' : '') + '><summary>+' + (row.jobs.length - 1) + ' more job' + (row.jobs.length > 2 ? 's' : '') + '</summary>' + row.jobs.slice(1).map(jobLink).join('') + '</details>' : '');
-      const route = [row.origin, row.destination].filter(Boolean).join(' → ') || row.route || 'Route not saved';
       const customer = row.consignee || row.shipper || '';
-      const result = row.providerResult;
-      return '<tr data-awb="' + escapeHtml(id) + '"><td class="tracking-awb" data-label="AWB / airline"><span class="tracking-awb-number">' + escapeHtml(displayAwb(row.awb)) + '</span>' + airlineActions(row.awb) + '</td><td data-label="Route / customer"><strong class="tracking-route">' + escapeHtml(route) + '</strong>' + (customer ? '<span class="tracking-customer" title="' + escapeHtml(customer) + '">' + escapeHtml(customer) + '</span>' : '<small>Customer not saved</small>') + '</td><td data-label="Latest carrier event"><span class="tracking-status ' + tone(row.status) + '">' + escapeHtml(row.status) + '</span>' + (result ? (result.statusDescription ? '<small>' + escapeHtml(result.statusDescription) + '</small>' : '') + '<small>' + escapeHtml(trackcargoMetadata(result)) + '</small>' + trackcargoNotice(result) : '') + '</td><td data-label="Last actual event"><span class="tracking-update">' + dateText(row.lastUpdate) + '</span>' + (result && result.currentLocation ? '<small>At ' + escapeHtml(result.currentLocation) + '</small>' : '') + (row.fetchedAt ? '<small>Fetched ' + dateText(row.fetchedAt) + '</small>' : '<small>No result retrieved</small>') + '</td><td data-label="Linked jobs">' + (jobs || '<small>No linked job</small>') + '</td><td class="tracking-row-actions" data-label="Details"><button type="button" class="smallbtn sb-blue" data-tracking-action="timeline">View details</button></td></tr>';
+      const result = row.providerResult, manual = latestManual(row), rowTone = tone(row.status);
+      const carrier = '<div class="tracking-status-block"><span class="tracking-source-label">TrackCargo</span><span class="tracking-status ' + rowTone + '">' + escapeHtml(row.status) + '</span>' + (result ? (result.statusDescription ? '<strong class="tracking-event-description">' + escapeHtml(result.statusDescription) + '</strong>' : '') + '<small class="tracking-provider-meta">' + escapeHtml(trackcargoMetadata(result)) + '</small>' + trackcargoNotice(result) : '<small class="tracking-provider-meta">' + (trackcargo.loaded && trackcargo.configured ? 'No linked tracking order' : 'Use Refresh TrackCargo to check') + '</small>') + '</div>';
+      const timing = '<div class="tracking-time-stack">' + timeBlock('Carrier event',row.lastUpdate,'event-time','No carrier event yet',result && result.currentLocation ? 'At ' + result.currentLocation : '') + timeBlock('Last checked',row.fetchedAt,'retrieval-time','No result retrieved') + (manual ? timeBlock('Manual entry recorded',manual.ts,'manual-time','Recording time unavailable') : '') + '</div>';
+      return '<tr data-awb="' + escapeHtml(id) + '" class="tracking-row--' + rowTone + '"><td class="tracking-awb" data-label="AWB / airline"><span class="tracking-awb-number">' + escapeHtml(displayAwb(row.awb)) + '</span>' + airlineActions(row.awb) + '</td><td data-label="Route / customer">' + routeSummary(row) + (customer ? '<small class="tracking-source-label">' + (row.consignee ? 'Consignee' : 'Shipper') + '</small><span class="tracking-customer" title="' + escapeHtml(customer) + '">' + escapeHtml(customer) + '</span>' : '<small>Customer not saved</small>') + '</td><td data-label="Tracking updates">' + carrier + manualSummary(manual) + '</td><td data-label="Update timing">' + timing + '</td><td data-label="Linked jobs">' + (jobs || '<small>No linked job</small>') + '</td><td class="tracking-row-actions" data-label="Details"><button type="button" class="smallbtn sb-blue tracking-details-link" data-tracking-action="timeline">View details</button></td></tr>';
     }).join('') : '<tr><td colspan="6" class="tracking-empty">' + (all.length ? 'No shipments match these filters.' : 'No saved AWBs yet. Save a shipment or add AWBs from your jobs.') + '</td></tr>';
     if (detailId) renderDetail(detailId);
   }

@@ -295,7 +295,7 @@ test('one explicit refresh powers main rows, KPIs and reports without old CargoA
   assert.equal((html.match(/Not linked to TrackCargo/g)||[]).length,2);
   assert.match(html,/RCF/);
   assert.match(html,/24 Sept? 2026, 22:03 UTC/);
-  assert.match(html,/Fetched 27 Sept? 2026, 01:00 UTC/);
+  assert.match(html,/<time datetime="2026-09-27T01:00:00\.000Z" aria-label="Last checked 27 Sept? 2026, 01:00 UTC">/);
   assert.ok(!/CargoAi|CargoCONNECT|Start tracking|saved status/i.test(view(f)));
   assert.equal(f.api.reportInfo(AWBS[0]).status,'RCF');
   assert.match(f.api.reportCells(AWBS[0],''),/TrackCargo/);
@@ -351,6 +351,38 @@ test('manual DLV and latest partial delivery events do not turn into whole-shipm
   assert.equal(f.api.getRow(AWB).deliveredAt,null);
   f.api.renderDetail(AWB);
   assert.match(f.element('trk_detail').innerHTML,/<dt>Verified delivery<\/dt><dd>—<\/dd>/);
+});
+
+test('main row separates carrier, retrieval and manual recorded times without promoting legacy notes into manual or carrier progress', async () => {
+  const source=localSource(), recorded=Date.parse('2026-09-25T14:30:00Z');
+  source.jfs_tracking['020-12345675'].milestones=[
+    {code:'BKD',src:'MANUAL',ts:Date.parse('2026-09-21T09:00:00Z'),note:'Older operator note'},
+    {code:'DLV',src:'MANUAL',ts:recorded,note:'<img src=x onerror=alert(1)> operator note'},
+    {code:'DEP',src:'CARGO CONNECT',ts:Date.parse('2026-09-26T16:45:00Z'),note:'Later legacy imported carrier entry'}
+  ];
+  source.jfs_tracking['147-12345675']={awb:'147-12345675',milestones:[{code:'DLV',src:'MANUAL',ts:recorded,note:'Manual-only report'}]};
+  const before=JSON.stringify(source), f=fixture(trackcargoPayload(),200,source);
+  await f.ready; await f.api.refreshTrackcargo();
+  const html=f.element('tracking-body').innerHTML;
+  const row=html.match(/<tr data-awb="02012345675"[^>]*>([\s\S]*?)<\/tr>/)[1];
+  assert.match(row,/TrackCargo<\/span><span[^>]*>RCF<\/span>/);
+  assert.match(row,/Manual update<\/span><span[^>]*>DLV<\/span>/);
+  assert.match(row,/<time datetime="2026-09-24T22:03:00\.000Z" aria-label="Carrier event 24 Sept? 2026, 22:03 UTC">/);
+  assert.match(row,/<time datetime="2026-09-27T01:00:00\.000Z" aria-label="Last checked 27 Sept? 2026, 01:00 UTC">/);
+  assert.match(row,/<time datetime="2026-09-25T14:30:00\.000Z" aria-label="Manual entry recorded 25 Sept? 2026, 14:30 UTC">/);
+  assert.ok(!row.includes('Later legacy imported carrier entry'));
+  assert.ok(!row.includes('Older operator note'));
+  assert.ok(!row.includes('<img'));
+  assert.ok(row.includes('&lt;img src=x onerror=alert(1)&gt; operator note'));
+  const unlinked=html.match(/<tr data-awb="14712345675"[^>]*>([\s\S]*?)<\/tr>/)[1];
+  assert.match(unlinked,/Not linked to TrackCargo/); assert.match(unlinked,/Manual update/);
+  assert.match(unlinked,/No carrier event yet/); assert.ok(!unlinked.includes('aria-label="Carrier event '));
+  assert.equal(f.api.getRow(AWBS[0]).status,'RCF');
+  assert.equal(f.api.getRow(AWBS[3]).lastUpdate,null);
+  assert.equal(f.element('tracking-updates').textContent,1);
+  f.api.renderDetail(AWBS[0]); assert.match(f.element('trk_detail').innerHTML,/Later legacy imported carrier entry/);
+  assert.equal(JSON.stringify(source),before);
+  assert.equal(f.requests.length,1);
 });
 
 test('manual airline links and legacy sync compatibility never initiate tracking or alter stored data', async () => {
@@ -422,8 +454,8 @@ test('partial and network failures retain prior results marked stale in table, d
   f.setResponse(partial); await f.api.refreshTrackcargo();
   let html=f.element('tracking-body').innerHTML;
   assert.match(html,/Not refreshed/); assert.match(html,/RCF/);
-  assert.match(html,/Fetched 27 Sept? 2026, 01:00 UTC/);
-  assert.ok(!html.includes('Fetched 27 Sept 2026, 02:00 UTC'));
+  assert.match(html,/<time datetime="2026-09-27T01:00:00\.000Z" aria-label="Last checked 27 Sept? 2026, 01:00 UTC">/);
+  assert.ok(!html.includes('aria-label="Last checked 27 Sept 2026, 02:00 UTC"'));
   assert.match(f.api.reportCells(AWBS[0],''),/Not refreshed/i);
   assert.match(f.api.toCsv([f.api.getRow(AWBS[0])]),/Carrier lookup unavailable|Not refreshed/i);
   f.setResponse(null,502); await f.api.refreshTrackcargo();
