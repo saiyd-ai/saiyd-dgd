@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-P</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-Q</span></span>
           </div>
         </div>
       </div>
@@ -512,7 +512,7 @@
             <input type="text" id="gc_job" placeholder="e.g. GEN-C00032" style="width:165px; font-weight:bold;"
               oninput="document.getElementById('f_job').value=this.value.toUpperCase(); const j=document.getElementById('gc_jobno'); if(j) j.textContent=this.value.toUpperCase()||'—';"></div>
           <div style="min-width:200px;"><label>Customer name</label>
-            <input type="text" id="gc_customer" list="whcustlist" placeholder="e.g. LATTAFA PERFUMES" style="width:200px; font-weight:bold;"
+            <input type="text" id="gc_customer" list="whcustlist" onfocus="if(typeof whFillCustList==='function')whFillCustList()" placeholder="e.g. LATTAFA PERFUMES" style="width:200px; font-weight:bold;"
               oninput="const f=document.getElementById('f_customer'); if(f) f.value=this.value;"></div>
           <span id="gc_jobmsg" style="display:none;"></span>
         </div>
@@ -666,7 +666,7 @@
       <div style="min-width:165px;"><label>JFS JOB NUMBER</label>
         <input type="text" id="f_job" placeholder="e.g. DGS-C00032" style="width:165px; font-weight:bold;"></div>
       <div style="min-width:200px;"><label>Customer name</label>
-        <input type="text" id="f_customer" list="whcustlist" placeholder="e.g. LATTAFA PERFUMES" style="width:200px; font-weight:bold;"></div>
+        <input type="text" id="f_customer" list="whcustlist" onfocus="if(typeof whFillCustList==='function')whFillCustList()" placeholder="e.g. LATTAFA PERFUMES" style="width:200px; font-weight:bold;"></div>
       <span id="jobmsg" style="display:none;"></span>
     </div></div>
 
@@ -2362,7 +2362,7 @@ function showTab(name){
   const nb = document.getElementById("nav-"+name); if(nb) nb.classList.add("on");
   document.querySelector(".previewwrap").style.display = (name === "dgd") ? "" : "none";
   if(name === "dash"){ renderDash(); inboxPoll(); }
-  if(name === "dgd"){ try{ renderInbox(); inboxPoll(); }catch(e){} }
+  if(name === "dgd"){ try{ renderInbox(); inboxPoll(); whFillCustList(); }catch(e){} }
   if(name === "pl") plvRender();
   if(name === "wh"){ whRender(); whRefreshSent(); whRenderDrafts(); whFillCustList(); whPastedRender(); }
   if(name === "customers") renderCustomers();
@@ -2380,7 +2380,7 @@ function showTab(name){
   }
   if(name === "dnata") dnataFill();
   if(name === "alforms") airlineFormFill();
-  if(name === "gc") gcSyncFromMain();
+  if(name === "gc"){ gcSyncFromMain(); try{ whFillCustList(); }catch(e){} }
   if(name === "awb") awbFill();
   if(name === "inv" && typeof invFill === "function") invFill();
   if(name === "skyd" && typeof skydFill === "function") skydFill();
@@ -4473,7 +4473,18 @@ async function whCreateJob(){
 }
 function whFillCustList(){
   const dl = document.getElementById("whcustlist"); if(!dl) return;
-  dl.innerHTML = customers().map(c => `<option value="${esc(c.name)}"></option>`).join("");
+  // clean company names only — skip AWB form junk, no duplicates, A-Z
+  const seen = new Set(), out = [];
+  customers().forEach(c => {
+    const n = String(c.name || "").trim();
+    if(!n || n.length < 3) return;
+    if(/account number|name and address|not negotiable|^'s\b|^'/i.test(n)) return;
+    const k = n.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if(seen.has(k)) return;
+    seen.add(k); out.push(n);
+  });
+  out.sort((a, b) => a.localeCompare(b));
+  dl.innerHTML = out.map(n => `<option value="${esc(n)}"></option>`).join("");
 }
 function whPasteHandler(e){
   const whTab = document.getElementById("tab-wh");
