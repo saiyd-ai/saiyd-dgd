@@ -42,7 +42,8 @@
     "  background:rgba(11,21,38,.97); padding:8px 8px calc(8px + env(safe-area-inset-bottom)); ",
     "  box-shadow:0 -6px 18px rgba(0,0,0,.4); }",
     "#mob_actions button{ flex:1; border:none; border-radius:10px; padding:12px 4px; color:#fff;",
-    "  font-weight:800; font-size:12px; letter-spacing:.3px; cursor:pointer; }"
+    "  font-weight:800; font-size:12px; letter-spacing:.3px; cursor:pointer; }",
+    "@media print{ #mob_burger, #mob_actions, #mob_dim, #mob_install{ display:none !important; } }"
   ].join("\n");
   var st = document.createElement("style");
   st.id = "mobilecss";
