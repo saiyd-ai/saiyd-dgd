@@ -49,7 +49,7 @@ function fixture(payload = {configured:false,mode:'read_only',shipments:[]}, sta
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../tracking.js'),'utf8'), sandbox);
   const api = sandbox.module.exports;
-  const ready=Promise.resolve(api.init({readStore:key=>Object.prototype.hasOwnProperty.call(source,key) ? source[key] : key==='jfs_joblog'?[{awb:AWB,job:'<img src=x>',shipper:'Example'}]:[],getSession:config.getSession || (async()=>({data:{session:auth}})),onAuthStateChange:cb=>{authListener=cb;},refreshReports:()=>reportRenders.push(api.reportCells(AWB,'')),openDocument:config.openDocument,openJobReport:config.openJobReport,milestones:{BKD:'BOOKED',DEP:'DEPARTED',DLV:'DELIVERED'}}));
+  const ready=Promise.resolve(api.init({readStore:key=>Object.prototype.hasOwnProperty.call(source,key) ? source[key] : key==='jfs_joblog'?[{awb:AWB,job:'<img src=x>',shipper:'Example'}]:[],getSession:config.getSession || (async()=>({data:{session:auth}})),onAuthStateChange:cb=>{authListener=cb;},refreshReports:()=>reportRenders.push(api.reportCells(AWB,'')),openDocument:config.openDocument,openJobReport:config.openJobReport,openReport:config.openReport,milestones:{BKD:'BOOKED',DEP:'DEPARTED',DLV:'DELIVERED'}}));
   return {api,requests,element,listeners,sandbox,auth,storage,storageControl,ready,intervals,reportRenders,authListener:()=>authListener,confirmCount:()=>confirmCount,setResponse:(p,s=200)=>{payload=p;status=s;}};
 }
 
@@ -851,4 +851,45 @@ test('Dubai display rolls the date forward without changing stored instants or U
   assert.match(csv,/24 Sept? 2026, 22:03 UTC/);assert.ok(!csv.includes('Dubai'));
   assert.match(f.api.reportInfo(AWBS[0]).lastUpdate,/24 Sept? 2026, 22:03 UTC/);
   assert.equal(JSON.stringify(payload),before);
+});
+
+test('attention and dashboard counts share provider evidence, with a filtered local report and logout cleanup', async () => {
+  const source=localSource(), reports=[];let closed=0;
+  source.jfs_joblog.push({...source.jfs_joblog[0],job:'SAME-AWB-OTHER-JOB'});
+  source.jfs_tracking['155-12345675']={awb:'155-12345675',milestones:[{code:'DLV',src:'MANUAL',ts:Date.parse('2026-09-25T14:00:00Z'),note:'Carrier page checked manually'}]};
+  const f=fixture(trackcargoPayload(),200,source,{openReport:(rows,context)=>{reports.push({rows,context});return ()=>{closed++;};}});
+  await f.ready;await f.api.refreshTrackcargo();
+  const counts=f.api.summary();
+  assert.deepEqual(JSON.parse(JSON.stringify(counts)),{total:5,updated:1,pending:2,unlinked:2,attention:4,unlinkedLabel:'NOT LINKED TO TRACKCARGO'});
+  f.listeners['tracking-focus:click']({target:{closest:()=>({dataset:{trackingFocus:'attention'}})}});
+  assert.ok(!f.element('tracking-body').innerHTML.includes('data-awb="02012345675"'));
+  assert.match(f.element('tracking-body').innerHTML,/Awaiting airline response/);
+  f.element('tracking-filter').value='Not linked to TrackCargo';
+  f.listeners['tracking-print:click']();
+  assert.equal(reports.length,1);assert.equal(reports[0].rows.length,2);
+  assert.match(reports[0].context.filterSummary,/Needs attention · Not linked/);
+  const dhl=reports[0].rows.find(row=>row.awb==='15512345675');
+  assert.equal(dhl.airlineName,'DHL Aviation');assert.equal(dhl.lastUpdate,null);
+  assert.equal(dhl.manualEvents.at(-1).code,'DLV');assert.equal(dhl.manualEvents.at(-1).source,'Manual entry');
+  assert.equal(f.requests.length,1,'Filtering and reporting do not fetch the provider');
+  f.authListener()('SIGNED_OUT',null);assert.equal(closed,1);
+});
+
+test('initial carrier retrieval errors describe unavailable evidence instead of asserting no carrier event', async () => {
+  const payload=trackcargoPayload();payload.shipments[0]={awb:AWBS[0],provider:'trackcargo',dataStatus:'ERROR',status:'UNKNOWN',message:'Carrier unavailable',events:[]};
+  const f=fixture(payload,200,localSource());await f.ready;await f.api.refreshTrackcargo();
+  const row=f.element('tracking-body').innerHTML.match(/<tr data-awb="02012345675"[^>]*>([\s\S]*?)<\/tr>/)[1];
+  assert.match(row,/Carrier result unavailable/);assert.match(row,/shipment status is not confirmed/);
+  assert.ok(!row.includes('No timestamp returned by carrier'));
+  assert.ok(f.api.attentionReasons(f.api.getRow(AWBS[0])).includes('Tracking refresh failed'));
+});
+
+test('tracking report printing leaves existing DGD print data and label styles untouched', () => {
+  const source=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+  const handlers=[], zone={innerHTML:'Existing DGD print pages'};let open=true,built=0,removed=0,classChanges=0;
+  const sandbox={window:{addEventListener:(name,fn)=>handlers.push({name,fn})},document:{body:{classList:{contains:name=>name==='dgdoc-report-open'&&open,add:()=>classChanges++,remove:()=>classChanges++}},getElementById:id=>id==='printzone'?zone:{remove:()=>removed++}},buildPrintPages:()=>{built++;return 2;}};
+  for(const match of source.matchAll(/window\.addEventListener\("(?:beforeprint|afterprint)", \(\) => \{[\s\S]*?\}\);/g)) vm.runInNewContext(match[0],sandbox);
+  assert.equal(handlers.length,3);handlers.forEach(handler=>handler.fn());
+  assert.equal(built,0);assert.equal(removed,0);assert.equal(classChanges,0);assert.equal(zone.innerHTML,'Existing DGD print pages');
+  open=false;handlers.forEach(handler=>handler.fn());assert.equal(built,1);assert.equal(removed,1);assert.equal(zone.innerHTML,'');
 });

@@ -12,6 +12,8 @@
 <script src="logo.js"></script>
 <link rel="stylesheet" href="tracking.css">
 <script src="tracking.js"></script>
+<link rel="stylesheet" href="tracking-report.css">
+<script src="tracking-report.js"></script>
 <style>
   /* ============ AUTH GATE ============ */
   #authgate{position:fixed; inset:0; z-index:1000; background:linear-gradient(135deg,#1c1c4e 0%,#2d2d6e 55%,#232360 100%);
@@ -480,8 +482,10 @@
           <div class="tracking-filter"><label for="tracking-filter">Carrier update filter</label><select id="tracking-filter"><option value="">All carrier results</option></select></div>
           <button type="button" id="tracking-import" class="btn btn-load">Add saved AWBs</button>
           <button type="button" id="tracking-refresh" class="btn btn-load">Refresh TrackCargo</button>
+          <button type="button" id="tracking-print" class="btn btn-load" disabled>Print / PDF report</button>
           <button type="button" id="tracking-export" class="btn btn-load" disabled>Export CSV</button>
         </div>
+        <div id="tracking-focus" class="tracking-focus" role="group" aria-label="Shipment focus"></div>
         <div id="tracking-action-message" role="status" aria-live="polite"></div>
         <div class="tracking-meta"><span id="tracking-count">0 unique MAWBs</span><span id="tracking-checked">No tracking updates retrieved yet.</span></div>
         <div class="tracking-table-wrap" role="region" aria-label="TrackCargo shipment tracking report">
@@ -2427,6 +2431,7 @@ function printAlt(srcId){
   window.print();
 }
 window.addEventListener("afterprint", () => {
+  if(document.body.classList.contains("dgdoc-report-open")) return;
   document.body.classList.remove("pm-alt");
   document.getElementById("printzone").innerHTML = "";
 });
@@ -2545,6 +2550,7 @@ function previewRefresh(){
   }catch(e){}
 }
 window.addEventListener("beforeprint", () => {
+  if(document.body.classList.contains("dgdoc-report-open")) return;
   // Ctrl+P from the browser gets the same multi-page DGD with repeated headers
   if(document.body.classList.contains("pm-alt")) return;    // app buttons already prepared the print
   try{ if(buildPrintPages() > 1) document.body.classList.add("pm-alt"); }catch(e){}
@@ -4278,20 +4284,16 @@ function renderDash(){
     kpiChip(dgN, "DG SHIPMENT JOBS", "#a40000", "rpt", "#fdf3f3") +
     kpiChip(gcN, "GENERAL CARGO JOBS", "#b45309", "rpt", "#fff8ec") +
     kpiChip(log.length, "TOTAL JOBS", "#0f2b4c", "rpt", "#f2f6fb");
-  // tracking KPI row — master AWBs / with updates / awaiting / delivered (all feather-touch → TRACKING)
+  // Use the same unique AWBs and provider evidence as the Tracking page.
   const trkEl = document.getElementById("dashtrk");
-  if(trkEl){
-    let trk = {}; try{ trk = JSON.parse(localStorage.getItem("jfs_tracking") || "{}"); }catch(e){}
-    const tlist = Object.values(trk);
-    const withUpd = tlist.filter(t => (t.milestones||[]).length > 0);
-    const delivered = tlist.filter(t => { const m = t.milestones||[]; return m.length && m[m.length-1].code === "DLV"; });
-    const carrier = tlist.filter(t => (t.milestones||[]).some(m => m.src));
+  if(trkEl && window.DgTracking){
+    const trk = DgTracking.summary();
     trkEl.innerHTML =
-      kpiChip(tlist.length, "MASTER AWBS", "#3b3b8f", "track", "#f4f3fb") +
-      kpiChip(withUpd.length, "WITH UPDATES", "#1a5fb4", "track", "#eaf3fd") +
-      kpiChip(tlist.length - withUpd.length, "AWAITING UPDATE", "#b45309", "track", "#fff6e3") +
-      kpiChip(carrier.length, "CARGO CONNECT LINKED", "#6b3a4e", "track", "#faf1f4") +
-      kpiChip(delivered.length, "DELIVERED", "#1d6b34", "track", "#eef8f0");
+      kpiChip(trk.total, "MASTER AWBS", "#3b3b8f", "track", "#f4f3fb") +
+      kpiChip(trk.updated, "WITH CARRIER UPDATES", "#1a5fb4", "track", "#eaf3fd") +
+      kpiChip(trk.pending, "AWAITING CARRIER RESULT", "#b45309", "track", "#fff6e3") +
+      kpiChip(trk.unlinked, trk.unlinkedLabel, "#6b3a4e", "track", "#faf1f4") +
+      kpiChip(trk.attention, "NEEDS ATTENTION", "#916009", "track", "#fff8e9");
   }
   // jobs table
   const q = (document.getElementById("dash_search").value||"").toLowerCase();
@@ -5540,7 +5542,7 @@ function printAwbLabels(){
   document.head.appendChild(st);
   printAlt("awblblArea");
 }
-window.addEventListener("afterprint", () => { const s = document.getElementById("lblpagestyle"); if(s) s.remove(); });
+window.addEventListener("afterprint", () => { if(document.body.classList.contains("dgdoc-report-open")) return; const s = document.getElementById("lblpagestyle"); if(s) s.remove(); });
 /* auto-fill airline name + show logo the moment the tab opens (from the DGD AWB prefix) */
 async function blAutoFill(){
   const el = document.getElementById("bl_airline"), msg = document.getElementById("bl_logomsg");
@@ -8140,6 +8142,7 @@ refresh();
 if(window.DgTracking) DgTracking.init({
   readStore: store,
   milestones: TRK_MILESTONES,
+  openReport: (rows, context) => DgTrackingReport.open(rows, context),
   getSession: () => sb ? sb.auth.getSession() : Promise.resolve(null),
   onAuthStateChange: callback => sb ? sb.auth.onAuthStateChange(callback) : null,
   importAwbs: trackImport,

@@ -82,6 +82,16 @@ node --test --test-isolation=none tests/backend/trackcargo-client.test.mjs tests
 
 The [production deployment](https://app.netlify.com/projects/dgdoc/deploys/6ab82f022ecf4200080dbfa6) is published. An allowed active staff session explicitly refreshed the three mapped records. Actual/planned UTC times rendered separately, CargoAi sending remained paused, and returning to Tracking retained the existing TrackCargo retrieval time without a new request. Authentication rejection and access checks are covered by the controller tests.
 
+## Shipment attention and printable reports
+
+The **Needs attention** view filters the same saved rows as search and carrier-status filters. It identifies invalid AWBs, missing or malformed routes, failed retrievals, pending carrier responses, unlinked orders, and unchecked records. These are information/checking needs, not evidence that a shipment is delayed. Attention includes invalid/manual-only records; the master-AWB total counts valid unique AWBs.
+
+**Print / PDF report** opens a preview of the current filtered rows. It separates actual carrier-event time, retrieval time, and manually recorded updates, displaying each in Dubai time (UTC+4). Saved snapshots retain their original retrieval time. Printing or opening the preview makes no provider request. The explicit Print / Save PDF action uses the browser print dialog; select Save as PDF there to save a copy.
+
+Dashboard tracking counts now use this same normalized summary instead of legacy manual-status counts. Preview close and logout restore normal interaction; the application's existing document-print handlers skip the shipment-report preview. Native printed output still requires a browser print/PDF check; the preview and print-handler isolation are covered by the frontend tests.
+
+The frontend/report suite has 55 passing tests, including filtered report selection, provider-versus-manual evidence, missing/error states, Dubai timestamps, escaped content, preview focus restoration, and existing print-handler isolation. This change adds no polling, tracking orders, webhook receiver, or outgoing email service.
+
 ## Primary references
 
 - [Developer endpoint overview](https://trackcargo.co/developer)

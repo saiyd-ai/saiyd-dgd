@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "engines": { "node": ">=22" },
   "scripts": {
-    "test": "node --test --test-isolation=none tests/tracking-ui.test.cjs tests/backend/*.test.mjs",
+    "test": "node --test --test-isolation=none tests/tracking-ui.test.cjs tests/tracking-report.test.cjs tests/backend/*.test.mjs",
     "test:backend": "node --test --test-isolation=none tests/backend/*.test.mjs"
   }
 }
