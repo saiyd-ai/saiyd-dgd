@@ -181,18 +181,19 @@
           if (typeof window.admCount === "function") window.admCount("adm_trk");
         });
         document.getElementById("adm_trkdel").addEventListener("click", function () {
-          var awbs = [].slice.call(document.querySelectorAll(".adm_trk:checked")).map(function (x) { return x.dataset.awb; });
+          var awbs = [].slice.call(document.querySelectorAll(".adm_trk:checked")).map(function (x) { return x.dataset.trkawb; });
           if (typeof window.admDeleteTracking === "function") window.admDeleteTracking(awbs);
         });
       }
     }
-    body.querySelectorAll("[data-awb]").forEach(function (row) {
+    // only the real shipment rows (direct <tr data-awb> children) — never nested elements
+    [].slice.call(body.children).filter(function (row) { return row.matches && row.matches("tr[data-awb]"); }).forEach(function (row) {
       if (row.querySelector(".adm_trk")) return;
       var first = row.firstElementChild || row;
       var cb = document.createElement("input");
       cb.type = "checkbox";
       cb.className = "adm_trk";
-      cb.dataset.awb = row.dataset.awb;
+      cb.dataset.trkawb = row.dataset.awb;
       cb.title = "Select for delete (admin)";
       cb.style.cssText = "margin:0 8px 6px 0; transform:scale(1.25); cursor:pointer;";
       cb.addEventListener("click", function (e) { e.stopPropagation(); });
