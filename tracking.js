@@ -86,6 +86,7 @@
     if (!row.origin && !row.destination) return '<strong class="tracking-route">' + escapeHtml(row.route || 'Route not saved') + '</strong>';
     return '<div class="tracking-route-points"><div><small>Origin</small><strong>' + escapeHtml(row.origin || 'Not saved') + '</strong></div><div><small>Destination</small><strong>' + escapeHtml(row.destination || 'Not saved') + '</strong></div></div>';
   }
+  function routeNeedsReview(row) { return [row.origin,row.destination].some(value => !txt(value).trim() || /ADDR\.? OF FIRST CARRIER|REQUESTED ROUTING|ROUTING REFERENCE|OPTIONAL SHIPPING|DESTINATION TO BY|BY FIRST CARRIER|WT VAL/i.test(txt(value))); }
   function routeOverview(row) {
     function stop(value, label) {
       const name = txt(value).trim();
@@ -106,8 +107,9 @@
   function eventTiming(row) {
     const date = row.lastUpdate ? new Date(row.lastUpdate) : null;
     const available = date && !Number.isNaN(date.getTime());
-    const reason = row.status === 'Awaiting carrier result' ? 'Airline response pending' : row.status === 'Not linked to TrackCargo' ? 'AWB is not linked to tracking' : row.status === 'Not retrieved' ? 'Tracking has not been checked' : 'No timestamp returned by carrier';
-    const event = available ? '<div class="tracking-event-date"><time datetime="' + date.toISOString() + '" aria-label="' + escapeHtml('Carrier event ' + dubaiDateText(row.lastUpdate)) + '" title="' + escapeHtml('Original UTC: ' + dateText(row.lastUpdate)) + '"><strong>' + escapeHtml(date.toLocaleDateString('en-GB',{timeZone:'Asia/Dubai',day:'2-digit',month:'short',year:'numeric'})) + '</strong><span>' + escapeHtml(date.toLocaleTimeString('en-GB',{timeZone:'Asia/Dubai',hour:'2-digit',minute:'2-digit'})) + ' Dubai (UTC+4)</span></time></div>' : '<div class="tracking-event-missing"><strong>No carrier event yet</strong><span>' + escapeHtml(reason) + '</span></div>';
+    const failed = row.status === 'TrackCargo unavailable' || !!row.refreshError || !!trackcargo.error;
+    const reason = failed ? 'Tracking could not be retrieved; shipment status is not confirmed' : row.status === 'Awaiting carrier result' ? 'Airline response pending' : row.status === 'Not linked to TrackCargo' ? 'AWB is not linked to tracking' : row.status === 'Not retrieved' ? 'Tracking has not been checked' : 'No timestamp returned by carrier';
+    const event = available ? '<div class="tracking-event-date"><time datetime="' + date.toISOString() + '" aria-label="' + escapeHtml('Carrier event ' + dubaiDateText(row.lastUpdate)) + '" title="' + escapeHtml('Original UTC: ' + dateText(row.lastUpdate)) + '"><strong>' + escapeHtml(date.toLocaleDateString('en-GB',{timeZone:'Asia/Dubai',day:'2-digit',month:'short',year:'numeric'})) + '</strong><span>' + escapeHtml(date.toLocaleTimeString('en-GB',{timeZone:'Asia/Dubai',hour:'2-digit',minute:'2-digit'})) + ' Dubai (UTC+4)</span></time></div>' : '<div class="tracking-event-missing"><strong>' + (failed ? 'Carrier result unavailable' : 'No carrier event yet') + '</strong><span>' + escapeHtml(reason) + '</span></div>';
     return event + '<small class="tracking-last-check"><span>Last checked</span>' + (row.fetchedAt ? '<time datetime="' + escapeHtml(row.fetchedAt) + '" aria-label="' + escapeHtml('Last checked ' + dubaiDateText(row.fetchedAt)) + '">' + escapeHtml(dubaiDateText(row.fetchedAt)) + '</time>' : '<span>Not checked for this AWB</span>') + '</small>';
   }
   function collectShipments(joblog, documents) {
@@ -241,7 +243,7 @@
   const trackcargo = {configured:false, shipments:[], loaded:false, loading:false, error:'', message:'', checkedAt:null, fromSnapshot:false, storageWarning:''};
   const SNAPSHOT_PREFIX = 'dgdoc:trackcargo:snapshot:v1:';
   const SNAPSHOT_LIMIT = 2 * 1024 * 1024;
-  let options = {}, detailId = null;
+  let options = {}, detailId = null, focusFilter = 'all', closeReportView = null;
   function node(id) { return typeof document === 'undefined' ? null : document.getElementById(id); }
   function snapshotKey(userId) { return typeof userId === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(userId) ? SNAPSHOT_PREFIX + userId : null; }
   function activeSession(auth) {
@@ -352,7 +354,31 @@
     });
   }
   function allRows() { return mergeTrackcargo(localData().shipments, trackcargo.shipments, trackcargo.loaded, trackcargo.configured); }
-  function visibleRows() { return filterShipments(allRows(), node('tracking-search') && node('tracking-search').value, node('tracking-filter') && node('tracking-filter').value); }
+  function attentionReasons(row) {
+    const reasons=[];
+    if (!normalizeAwb(row.awb)) reasons.push('Valid master AWB required');
+    if (routeNeedsReview(row)) reasons.push('Route needs review');
+    if (row.refreshError || trackcargo.error || row.status === 'TrackCargo unavailable') reasons.push('Tracking refresh failed');
+    if (row.status === 'Awaiting carrier result') reasons.push('Awaiting airline response');
+    if (row.status === 'Not linked to TrackCargo') reasons.push('No TrackCargo order linked');
+    if (row.status === 'Not retrieved') reasons.push('Tracking has not been checked');
+    if (row.status === 'TrackCargo not connected') reasons.push('Tracking connection unavailable');
+    return reasons;
+  }
+  function summary() {
+    const all=allRows(), rows=all.filter(row=>normalizeAwb(row.awb));
+    return {total:rows.length,updated:rows.filter(row=>row.providerResult && row.providerResult.dataStatus==='AVAILABLE' && row.lastUpdate).length,pending:rows.filter(row=>row.status==='Awaiting carrier result').length,unlinked:rows.filter(row=>!row.providerResult).length,attention:all.filter(row=>attentionReasons(row).length).length,unlinkedLabel:trackcargo.loaded && trackcargo.configured ? 'NOT LINKED TO TRACKCARGO' : 'NOT RETRIEVED'};
+  }
+  function visibleRows() {
+    return filterShipments(allRows(), node('tracking-search') && node('tracking-search').value, node('tracking-filter') && node('tracking-filter').value).filter(row=>focusFilter!=='attention' || attentionReasons(row).length);
+  }
+  function openReport() {
+    if (typeof options.openReport !== 'function') return;
+    if (typeof closeReportView === 'function') closeReportView();
+    const rows=visibleRows().map(row=>({...row,airlineName:airlineTrackingLink(row.awb)?.carrier || 'Manual record',attentionReasons:attentionReasons(row)}));
+    const filters=[focusFilter==='attention'?'Needs attention':'All shipments',node('tracking-filter')?.value,node('tracking-search')?.value].filter(Boolean);
+    closeReportView = options.openReport(rows,{generatedAt:new Date().toISOString(),filterSummary:filters.join(' · '),checkedAt:trackcargo.checkedAt,fromSnapshot:trackcargo.fromSnapshot,error:trackcargo.error});
+  }
   function reportInfo(awb) {
     const normalized = normalizeAwb(awb);
     const manual = localData().shipments.find(row => normalized ? normalizeAwb(row.awb) === normalized : row.awb === awb || row.manualRecords.some(record => record.key === awb));
@@ -413,11 +439,13 @@
     node('tracking-refresh').disabled = trackcargo.loading;
     node('tracking-refresh').textContent = trackcargo.loading ? 'Refreshing TrackCargo…' : 'Refresh TrackCargo';
     node('tracking-export').disabled = !rows.length;
+    if(node('tracking-print')) node('tracking-print').disabled = !rows.length;
+    if(node('tracking-focus')) node('tracking-focus').innerHTML = '<span>Show</span><button type="button" data-tracking-focus="all" aria-pressed="' + (focusFilter==='all') + '">All shipments</button><button type="button" data-tracking-focus="attention" aria-pressed="' + (focusFilter==='attention') + '">Needs attention <b>' + summary().attention + '</b></button><small>Missing information or a check needed · not a confirmed shipment delay</small>';
     node('tracking-body').innerHTML = rows.length ? rows.map(row => {
       const id = row.id || row.awb;
       const rowTone = tone(row.status), airline = airlineTrackingLink(row.awb);
       const airlineName = airline && airline.carrier !== 'track-trace airline directory' ? airline.carrier : normalizeAwb(row.awb) ? 'Airline prefix ' + normalizeAwb(row.awb).slice(0,3) : 'Manual record';
-      return '<tr data-awb="' + escapeHtml(id) + '" class="tracking-row--' + rowTone + '"><td class="tracking-awb" data-label="AWB / Airline"><span class="tracking-awb-number">' + escapeHtml(displayAwb(row.awb)) + '</span><small class="tracking-airline-name">' + escapeHtml(airlineName) + '</small>' + airlineActions(row.awb) + '</td><td class="tracking-route-cell" data-label="Origin → Destination">' + routeOverview(row) + '</td><td class="tracking-list-status" data-label="Carrier update">' + carrierOverview(row) + '</td><td class="tracking-event-time" data-label="Event date &amp; time">' + eventTiming(row) + '</td><td class="tracking-row-actions" data-label="View"><button type="button" class="smallbtn sb-blue tracking-details-link" data-tracking-action="timeline" aria-label="View shipment ' + escapeHtml(displayAwb(row.awb)) + '">View</button></td></tr>';
+      return '<tr data-awb="' + escapeHtml(id) + '" class="tracking-row--' + rowTone + '"><td class="tracking-awb" data-label="AWB / Airline"><span class="tracking-awb-number">' + escapeHtml(displayAwb(row.awb)) + '</span><small class="tracking-airline-name">' + escapeHtml(airlineName) + '</small>' + airlineActions(row.awb) + '</td><td class="tracking-route-cell" data-label="Origin → Destination">' + routeOverview(row) + '</td><td class="tracking-list-status" data-label="Carrier update">' + carrierOverview(row) + (focusFilter==='attention' ? '<ul class="tracking-attention-reasons">' + attentionReasons(row).map(reason=>'<li>'+escapeHtml(reason)+'</li>').join('') + '</ul>' : '') + '</td><td class="tracking-event-time" data-label="Event date &amp; time">' + eventTiming(row) + '</td><td class="tracking-row-actions" data-label="View"><button type="button" class="smallbtn sb-blue tracking-details-link" data-tracking-action="timeline" aria-label="View shipment ' + escapeHtml(displayAwb(row.awb)) + '">View</button></td></tr>';
     }).join('') : '<tr><td colspan="5" class="tracking-empty">' + (all.length ? 'No shipments match these filters.' : 'No saved AWBs yet. Save a shipment or add AWBs from your jobs.') + '</td></tr>';
     if (detailId) renderDetail(detailId);
   }
@@ -460,6 +488,8 @@
     return result && result.data ? result.data.session : result;
   }
   function clearState(purge = true) {
+    if (typeof closeReportView === 'function') closeReportView();
+    closeReportView = null; focusFilter = 'all';
     if (purge) removeSnapshot(state.userId);
     state.generation++;
     state.restoreRevision++;
@@ -528,6 +558,8 @@
     node('tracking-filter').addEventListener('change', render);
     node('tracking-refresh').addEventListener('click', refreshTrackcargo);
     node('tracking-export').addEventListener('click', exportCsv);
+    if(node('tracking-print')) node('tracking-print').addEventListener('click',openReport);
+    if(node('tracking-focus')) node('tracking-focus').addEventListener('click',event=>{const button=event.target.closest('[data-tracking-focus]');if(!button || !['all','attention'].includes(button.dataset.trackingFocus))return;focusFilter=button.dataset.trackingFocus;render();});
     node('tracking-import').addEventListener('click', () => { if (options.importAwbs) options.importAwbs(); render(); });
     function onShipmentClick(event) {
       const action = event.target.closest('[data-tracking-action]');
@@ -573,5 +605,5 @@
     render();
     return restoreSnapshot();
   }
-  return {normalizeAwb, displayAwb, airlineTrackingLink, collectShipments, withManualHistory, importSavedAwbs, mergeManualStores, eventKind, eventSummary, mergeTracking, mergeTrackcargo, filterShipments, csvCell, toCsv, dateText, escapeHtml, statusText, init, onTab, refresh, refreshTrackcargo, restoreSnapshot, sync, render, renderDetail, getRow, reportInfo, reportCells};
+  return {normalizeAwb, displayAwb, airlineTrackingLink, collectShipments, withManualHistory, importSavedAwbs, mergeManualStores, eventKind, eventSummary, mergeTracking, mergeTrackcargo, filterShipments, csvCell, toCsv, dateText, escapeHtml, statusText, init, onTab, refresh, refreshTrackcargo, restoreSnapshot, sync, render, renderDetail, getRow, reportInfo, reportCells, summary, attentionReasons, openReport};
 });
