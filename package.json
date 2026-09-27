@@ -2,9 +2,13 @@
   "name": "dgdoc-cargoai-tracking",
   "private": true,
   "version": "1.0.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "test": "node --test --test-isolation=none tests/tracking-ui.test.cjs tests/tracking-report.test.cjs tests/backend/*.test.mjs",
-    "test:backend": "node --test --test-isolation=none tests/backend/*.test.mjs"
+    "test": "node --test --test-isolation=none tests/tracking-ui.test.cjs tests/tracking-report.test.cjs tests/tracking-integration.test.cjs tests/backend/*.test.mjs",
+    "test:backend": "node --test --test-isolation=none tests/backend/*.test.mjs",
+    "validate:tracking": "node scripts/check-tracking-integration.cjs",
+    "test:integration": "node --test --test-isolation=none tests/tracking-integration.test.cjs"
   }
 }
