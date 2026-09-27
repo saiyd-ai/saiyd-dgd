@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-M</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-N</span></span>
           </div>
         </div>
       </div>
@@ -4289,12 +4289,12 @@ function jobLogPrint(){
 /* feather-touch KPI card (soft pastel, colored top bar) — click goes to its page */
 function kpiChip(num, label, color, tab, tint){
   return `<div onclick="showTab('${tab || "rpt"}')" title="Open ${esc(label)}"
-    style="background:${tint || "#f6f8fb"}; border-radius:14px; padding:16px 24px 14px; min-width:150px; cursor:pointer;
-      border-top:5px solid ${color}; box-shadow:0 2px 10px rgba(15,43,76,.08); transition:transform .15s ease, box-shadow .15s ease;"
+    style="background:${tint || "#f6f8fb"}; border-radius:12px; padding:9px 14px 8px; min-width:104px; cursor:pointer;
+      border-top:4px solid ${color}; box-shadow:0 2px 8px rgba(15,43,76,.08); transition:transform .15s ease, box-shadow .15s ease;"
     onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 20px rgba(15,43,76,.18)';"
     onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 10px rgba(15,43,76,.08)';">
-    <div style="font-size:30px; font-weight:800; line-height:1; color:${color};">${num}</div>
-    <div style="font-size:11px; letter-spacing:.6px; margin-top:6px; font-weight:700; color:#5b6b7d;">${label}</div></div>`;
+    <div style="font-size:21px; font-weight:800; line-height:1; color:${color};">${num}</div>
+    <div style="font-size:9.5px; letter-spacing:.5px; margin-top:4px; font-weight:700; color:#5b6b7d;">${label}</div></div>`;
 }
 function renderDash(){
   const log = store("jfs_joblog");
