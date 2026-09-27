@@ -1,4 +1,5 @@
 [build]
+  command = "npm run validate:tracking"
   publish = "."
 
 [functions]

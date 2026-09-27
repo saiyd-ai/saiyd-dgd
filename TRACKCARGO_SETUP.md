@@ -99,3 +99,7 @@ The frontend/report suite has 55 passing tests, including filtered report select
 - [Pricing](https://trackcargo.co/pricing)
 - [Supported airlines](https://trackcargo.co/carriers/airlines)
 - [Official Lufthansa tracking](https://www.lufthansa-cargo.com/en/eservices/etracking)
+
+## Host integration check before deployment
+
+Netlify runs `npm run validate:tracking` before publishing. The dependency-free check rejects an older or incomplete `index.html` when the tracking/report assets, required host elements, or bootstrap/report wiring are missing, duplicated, or syntactically broken. Future changes to the main page must retain this integration; reconcile the current tracking section and bootstrap instead of replacing them with an older page. Page wording and layout may change. Run `npm run validate:tracking` and `npm run test:integration` locally after reconciliation. This is an accidental-regression guard; the existing behavioural tests continue to cover authentication and provider semantics.
