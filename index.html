@@ -363,7 +363,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-F</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-G</span></span>
           </div>
         </div>
       </div>
@@ -4390,8 +4390,7 @@ function renderDash(){
     kpiChip(mon, "THIS MONTH", "#1d6b34", "rpt", "#f0f9f2") +
     kpiChip(dgN, "DG SHIPMENT JOBS", "#a40000", "rpt", "#fdf3f3") +
     kpiChip(gcN, "GENERAL CARGO JOBS", "#b45309", "rpt", "#fff8ec") +
-    kpiChip(log.length, "TOTAL JOBS", "#0f2b4c", "rpt", "#f2f6fb") +
-    kpiChip(Object.keys((function(){try{return JSON.parse(localStorage.getItem("jfs_tracking")||"{}")}catch(e){return{}}})()).length, "TRACKING AWBS", "#0e7490", "track", "#eefafd");
+    kpiChip(log.length, "TOTAL JOBS", "#0f2b4c", "rpt", "#f2f6fb");
   // tracking KPI row — master AWBs / with updates / awaiting / delivered (all feather-touch → TRACKING)
   const trkEl = document.getElementById("dashtrk");
   if(trkEl){
