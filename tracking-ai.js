@@ -160,6 +160,56 @@
     });
   }
 
+  /* ---------- ADMIN: select + delete tracking AWBs (owner only) ---------- */
+  function adminOn() { return typeof window.isAdmin === "function" && window.isAdmin(); }
+  function injectAdminBoxes() {
+    var body = document.getElementById("tracking-body");
+    if (!body || !adminOn()) return;
+    if (!document.getElementById("adm_trkbar")) {
+      var anchor = document.getElementById("tracking-search");
+      if (anchor && anchor.parentNode) {
+        var bar = document.createElement("span");
+        bar.id = "adm_trkbar";
+        bar.style.cssText = "display:inline-flex; gap:8px; align-items:center; margin-left:8px;";
+        bar.innerHTML = '<label style="margin:0; font-size:12px; font-weight:bold; color:#a40000; display:inline-flex; gap:4px; align-items:center;">' +
+          '<input type="checkbox" id="adm_trkall"> all</label>' +
+          '<button class="smallbtn sb-red" id="adm_trkdel" style="font-weight:800;">&#128465; DELETE SELECTED (<span id="adm_trkcnt">0</span>)</button>';
+        anchor.parentNode.insertBefore(bar, anchor.nextSibling);
+        document.getElementById("adm_trkall").addEventListener("change", function () {
+          var on = this.checked;
+          document.querySelectorAll(".adm_trk").forEach(function (x) { x.checked = on; });
+          if (typeof window.admCount === "function") window.admCount("adm_trk");
+        });
+        document.getElementById("adm_trkdel").addEventListener("click", function () {
+          var awbs = [].slice.call(document.querySelectorAll(".adm_trk:checked")).map(function (x) { return x.dataset.awb; });
+          if (typeof window.admDeleteTracking === "function") window.admDeleteTracking(awbs);
+        });
+      }
+    }
+    body.querySelectorAll("[data-awb]").forEach(function (row) {
+      if (row.querySelector(".adm_trk")) return;
+      var first = row.firstElementChild || row;
+      var cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "adm_trk";
+      cb.dataset.awb = row.dataset.awb;
+      cb.title = "Select for delete (admin)";
+      cb.style.cssText = "margin:0 8px 6px 0; transform:scale(1.25); cursor:pointer;";
+      cb.addEventListener("click", function (e) { e.stopPropagation(); });
+      cb.addEventListener("change", function () { if (typeof window.admCount === "function") window.admCount("adm_trk"); });
+      first.insertBefore(cb, first.firstChild);
+    });
+  }
+  var obsStarted = false;
+  function startAdminObserver() {
+    var body = document.getElementById("tracking-body");
+    if (!body || obsStarted) return;
+    obsStarted = true;
+    new MutationObserver(function () { try { injectAdminBoxes(); } catch (e) {} }).observe(body, { childList: true, subtree: false });
+    injectAdminBoxes();
+  }
+  setInterval(function () { try { startAdminObserver(); injectAdminBoxes(); } catch (e) {} }, 3000);
+
   window.trkAiApply = applyResult;   // for testing
   var tries = 0;
   var t = setInterval(function () { build(); if (document.getElementById("trkai_card") || ++tries > 60) clearInterval(t); }, 1000);

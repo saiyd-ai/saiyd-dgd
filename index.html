@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-T</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-U</span></span>
           </div>
         </div>
       </div>
@@ -463,6 +463,7 @@
       <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fff4e5; color:#b45309;">&#127981; WAREHOUSE REPORT &mdash; every packing list sent</h2><div class="body">
         <div style="display:flex; gap:12px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
           <input type="text" id="whrep_search" placeholder="Search job / shipper / consignee..." style="width:280px;" oninput="renderInbox()">
+          <button class="smallbtn sb-red" id="adm_whdel" style="display:none; font-weight:800;" onclick="admDeleteWh()">&#128465; DELETE SELECTED (<span id="adm_whcnt">0</span>)</button>
           <button class="smallbtn sb-blue" onclick="inboxPoll()">&#8635; Refresh</button>
         </div>
         <div style="overflow-x:auto;"><table id="whrep_table" style="border-collapse:collapse; width:100%;"></table></div>
@@ -2455,13 +2456,12 @@ function isAdmin(){
   try{ if(typeof sbUser !== "undefined" && sbUser && ADMIN_EMAILS.includes(String(sbUser.email||"").toLowerCase())) return true; }catch(e){}
   const p = document.getElementById("uc_plan"); return !!(p && /owner/i.test(p.textContent||""));
 }
-function admCount(){ const n = document.querySelectorAll(".adm_sel:checked").length; const c = document.getElementById("adm_cnt"); if(c) c.textContent = n; }
-function admSelAll(cb){ const tb = cb.closest("table"); if(tb) tb.querySelectorAll(".adm_sel").forEach(x => x.checked = cb.checked); admCount(); }
+function admCount(cls){ cls = cls || "adm_sel"; const n = document.querySelectorAll("." + cls + ":checked").length; const id = cls === "adm_wh" ? "adm_whcnt" : cls === "adm_trk" ? "adm_trkcnt" : "adm_cnt"; const c = document.getElementById(id); if(c) c.textContent = n; }
+function admSelAll(cb, cls){ cls = cls || "adm_sel"; const tb = cb.closest("table") || document; tb.querySelectorAll("." + cls).forEach(x => x.checked = cb.checked); admCount(cls); }
 function admTombstones(){ try{ const a = JSON.parse(localStorage.getItem("jfs_deleted_jobs")||"[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
 /* remove every trace of the deleted jobs from local shared stores; returns keys that changed (to push) */
 function admApplyTombstones(){
   const dead = new Set(admTombstones().map(x => String((x && x.job) || x || "").toUpperCase()).filter(Boolean));
-  if(!dead.size) return [];
   const changed = [];
   const isDead = j => dead.has(String(j||"").trim().toUpperCase());
   const arr = k => { try{ const a = JSON.parse(localStorage.getItem(k)||"[]"); return Array.isArray(a) ? a : null; }catch(e){ return null; } };
@@ -2470,9 +2470,13 @@ function admApplyTombstones(){
   if(log){ const f = log.filter(e => !isDead(e && e.job)); if(f.length !== log.length){ localStorage.setItem("jfs_joblog", JSON.stringify(f)); changed.push("jfs_joblog"); } }
   const docs = arr("jfs_documents");
   if(docs){ const f = docs.filter(d => !isDead(d && (d.job || (d.snap && d.snap.job)))); if(f.length !== docs.length){ localStorage.setItem("jfs_documents", JSON.stringify(f)); changed.push("jfs_documents"); } }
+  { let dw = []; try{ dw = JSON.parse(localStorage.getItem("jfs_deleted_wh")||"[]"); }catch(e){}
+    (Array.isArray(dw) ? dw : []).forEach(x => dead.add(String((x && x.job) || "").toUpperCase() + "#WH")); }
   ["jfs_dgd_drafts","jfs_wh_drafts"].forEach(k => {
     const o = obj(k); if(!o) return; let hit = false;
-    Object.keys(o).forEach(n => { const s = o[n]; if(isDead(n) || isDead(s && (s.job || (s.snap && s.snap.job)))){ delete o[n]; hit = true; } });
+    Object.keys(o).forEach(n => { const s = o[n]; const jj = String(n).toUpperCase(), sj = String((s && (s.job || (s.snap && s.snap.job))) || "").toUpperCase();
+      const whDead = k === "jfs_wh_drafts" && (dead.has(jj + "#WH") || dead.has(sj + "#WH"));
+      if(whDead || isDead(n) || isDead(sj)){ delete o[n]; hit = true; } });
     if(hit){ localStorage.setItem(k, JSON.stringify(o)); changed.push(k); }
   });
   return changed;
@@ -2496,6 +2500,66 @@ async function admDeleteSelected(){
   try{ if(typeof inboxPoll === "function") inboxPoll(); }catch(e){}
   try{ rptRender(); }catch(e){} try{ renderDash(); }catch(e){} try{ if(typeof renderDocs === "function" && document.getElementById("doc_table")) renderDocs(); }catch(e){}
   alert("✓ Deleted " + jobs.length + " job(s).");
+}
+
+
+/* ADMIN: delete warehouse jobs (queue rows + warehouse drafts) */
+async function admDeleteWh(){
+  if(!isAdmin()){ alert("Only the admin can delete warehouse jobs."); return; }
+  const sel = [...document.querySelectorAll(".adm_wh:checked")];
+  if(!sel.length){ alert("Tick the warehouse jobs to delete first."); return; }
+  const ids = sel.map(x => x.dataset.id).filter(Boolean);
+  const jobs = [...new Set(sel.map(x => x.dataset.job).filter(Boolean))];
+  if(!confirm("DELETE " + sel.length + " WAREHOUSE JOB(S) PERMANENTLY?\n\n" + (jobs.slice(0,15).join(", ") || "(no job no.)") + "\n\nRemoves the packing lists sent from the warehouse and their warehouse drafts for ALL users. DG/GC jobs are NOT touched.")) return;
+  if(String(prompt("Type DELETE to confirm:", "")||"").trim().toUpperCase() !== "DELETE"){ alert("Cancelled — nothing was deleted."); return; }
+  let dbFail = "";
+  if(typeof sb !== "undefined" && sb && ids.length){
+    try{ const { error } = await sb.from("dgd_queue").delete().in("id", ids); if(error) dbFail = error.message; }catch(e){ dbFail = e.message; }
+  }
+  if(jobs.length){
+    let dw = []; try{ dw = JSON.parse(localStorage.getItem("jfs_deleted_wh")||"[]"); }catch(e){}
+    if(!Array.isArray(dw)) dw = [];
+    const by = (typeof sbUser !== "undefined" && sbUser) ? sbUser.email : "";
+    jobs.forEach(j => dw.push({job: String(j).toUpperCase(), at: new Date().toISOString(), by}));
+    localStorage.setItem("jfs_deleted_wh", JSON.stringify(dw));
+    const changed = admApplyTombstones();
+    if(typeof cloudPush === "function"){ try{ await cloudPush("jfs_deleted_wh"); for(const k of changed) await cloudPush(k); }catch(e){} }
+  }
+  try{ if(typeof INBOX !== "undefined") INBOX = INBOX.filter(r => !ids.includes(r.id)); renderInbox(); inboxPoll(); }catch(e){}
+  try{ if(typeof whRenderDrafts === "function") whRenderDrafts(); }catch(e){}
+  alert(dbFail ? "Warehouse drafts removed, but the inbox rows could not be deleted: " + dbFail : "✓ Deleted " + sel.length + " warehouse job(s).");
+}
+/* ADMIN: hidden (deleted) tracking AWBs — filtered out of every store the tracking page reads */
+function admHiddenAwbs(){ try{ const a = JSON.parse(localStorage.getItem("jfs_hidden_awbs")||"[]"); return new Set((Array.isArray(a) ? a : []).map(x => String((x && x.awb) || x || "").replace(/\D/g, "")).filter(Boolean)); }catch(e){ return new Set(); } }
+function admTrkFilter(k, v){
+  const hid = admHiddenAwbs(); if(!hid.size) return v;
+  const d = x => String(x || "").replace(/\D/g, "");
+  if(k === "jfs_tracking" && v && typeof v === "object" && !Array.isArray(v)){
+    const o = {}; Object.keys(v).forEach(key => { if(!hid.has(d((v[key] && v[key].awb) || key))) o[key] = v[key]; }); return o;
+  }
+  if(k === "jfs_joblog" && Array.isArray(v)) return v.map(e => (e && hid.has(d(e.awb))) ? {...e, awb: ""} : e);
+  if(k === "jfs_documents" && Array.isArray(v)) return v.map(x => (x && (hid.has(d(x.awb)) || hid.has(d(x.snap && x.snap.awb)))) ? {...x, awb: "", snap: x.snap ? {...x.snap, awb: ""} : x.snap} : x);
+  return v;
+}
+async function admDeleteTracking(awbs){
+  if(!isAdmin()){ alert("Only the admin can delete tracking AWBs."); return; }
+  awbs = [...new Set((awbs || []).map(a => String(a||"").replace(/\D/g, "")).filter(a => a.length >= 8))];
+  if(!awbs.length){ alert("Tick the AWBs to delete first."); return; }
+  const show = awbs.map(a => a.slice(0,3) + "-" + a.slice(3));
+  if(!confirm("DELETE " + awbs.length + " AWB(S) FROM TRACKING?\n\n" + show.slice(0,15).join(", ") + "\n\nRemoves them from the tracking page and their manual updates for ALL users. The jobs and DGDs are NOT deleted.")) return;
+  if(String(prompt("Type DELETE to confirm:", "")||"").trim().toUpperCase() !== "DELETE"){ alert("Cancelled — nothing was deleted."); return; }
+  let hid = []; try{ hid = JSON.parse(localStorage.getItem("jfs_hidden_awbs")||"[]"); }catch(e){}
+  if(!Array.isArray(hid)) hid = [];
+  const by = (typeof sbUser !== "undefined" && sbUser) ? sbUser.email : "";
+  awbs.forEach(a => hid.push({awb: a, at: new Date().toISOString(), by}));
+  localStorage.setItem("jfs_hidden_awbs", JSON.stringify(hid));
+  let trk = {}; try{ trk = JSON.parse(localStorage.getItem("jfs_tracking")||"{}") || {}; }catch(e){}
+  Object.keys(trk).forEach(key => { if(awbs.includes(String((trk[key] && trk[key].awb) || key).replace(/\D/g, ""))) delete trk[key]; });
+  localStorage.setItem("jfs_tracking", JSON.stringify(trk));
+  if(typeof cloudPush === "function"){ try{ await cloudPush("jfs_hidden_awbs"); await cloudPush("jfs_tracking"); }catch(e){} }
+  try{ if(window.DgTracking) DgTracking.render(); }catch(e){}
+  try{ renderDash(); }catch(e){}
+  alert("✓ Removed " + awbs.length + " AWB(s) from tracking.");
 }
 
 /* ---------- alt print (checklist / stickers / labels) ---------- */
@@ -4778,11 +4842,12 @@ async function inboxPoll(){
   if(navDg) navDg.innerHTML = "&#129513; DG SHIPMENT" + (n
     ? ` <span style="background:#e03a3a; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px; ${fresh ? "animation:inboxpulse 1s ease 6;" : ""}">&#128276; ${n}</span>` : "");
 }
-function _inboxRowsHtml(rows){
+function _inboxRowsHtml(rows, adm){
+  const admOn = !!adm && typeof isAdmin === "function" && isAdmin();
   const TH = "padding:5px 8px; font-size:11.5px; background:#b45309; color:#fff; border:1px solid #b45309; text-align:left;";
   const TD = "padding:5px 8px; border:1px solid #f0e6d8; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">RECEIVED</th><th style="${TH}">JOB</th><th style="${TH}">AWB</th><th style="${TH}">CUSTOMER</th><th style="${TH}">FROM</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">GROSS</th><th style="${TH}">NOTES</th><th style="${TH}">STATUS</th></tr>`;
-  if(!rows.length) h += `<tr><td colspan="11" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
+  let h = `<tr>${admOn ? `<th style="${TH} width:28px;"><input type="checkbox" title="Select all" onclick="admSelAll(this, 'adm_wh')"></th>` : ""}<th style="${TH}">RECEIVED</th><th style="${TH}">JOB</th><th style="${TH}">AWB</th><th style="${TH}">CUSTOMER</th><th style="${TH}">FROM</th><th style="${TH}">SHIPPER</th><th style="${TH}">CONSIGNEE</th><th style="${TH}">PLT</th><th style="${TH}">GROSS</th><th style="${TH}">NOTES</th><th style="${TH}">STATUS</th></tr>`;
+  if(!rows.length) h += `<tr><td colspan="${admOn ? 12 : 11}" style="${TD} color:#8a97a5;">Nothing yet — packing lists sent from the WAREHOUSE tab appear here.</td></tr>`;
   rows.forEach(r => {
     const p = r.payload || {};
     const st = r.status === "NEW"
@@ -4791,7 +4856,7 @@ function _inboxRowsHtml(rows){
       : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}</span>
          <button class="smallbtn sb-blue" onclick="inboxOpenPl('${r.id}')">&#128196; PL</button>`;
     // NEW = amber, ACCEPTED = green tint — easy to tell apart
-    h += `<tr style="background:${r.status === "NEW" ? "#fff3d6" : "#e9f6ec"};">
+    h += `<tr style="background:${r.status === "NEW" ? "#fff3d6" : "#e9f6ec"};">${admOn ? `<td style="${TD} text-align:center;"><input type="checkbox" class="adm_wh" data-id="${esc(r.id)}" data-job="${esc((r.payload||{}).job || r.job_no || "")}" onchange="admCount('adm_wh')"></td>` : ""}
       <td style="${TD}">${new Date(r.created_at).toLocaleString("en-GB")}</td>
       <td style="${TD} font-weight:bold;">${esc(p.job || r.job_no || "")}</td>
       <td style="${TD}">${esc(p.awb || "")}</td>
@@ -4826,7 +4891,8 @@ function renderInbox(){
     const q = (v("whrep_search") || "").toLowerCase();
     const rows = q ? INBOX.filter(r => { const p = r.payload || {};
       return ((p.job||r.job_no||"") + " " + (p.shipper||"") + " " + (p.consignee||"") + " " + (p.awb||"") + " " + (r.sender_email||"")).toLowerCase().includes(q); }) : INBOX;
-    wt.innerHTML = _inboxRowsHtml(rows);
+    wt.innerHTML = _inboxRowsHtml(rows, true);
+    { const on = typeof isAdmin === "function" && isAdmin(); const b = document.getElementById("adm_whdel"); if(b) b.style.display = on ? "" : "none"; const c = document.getElementById("adm_whcnt"); if(c) c.textContent = "0"; }
   }
 }
 function inboxAccept(id, after){
@@ -5837,7 +5903,7 @@ function buildLabels(){
 }
 
 /* ---------- export / import ---------- */
-const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log","jfs_inv_counters","jfs_job_counter","jfs_msds_history","jfs_tracking","jfs_deleted_jobs"];
+const ALL_KEYS = ["jfs_customers","jfs_custom_items","jfs_documents","jfs_dgd_drafts","jfs_dgd_defaults","jfs_airline_notes","jfs_joblog","jfs_wh_drafts","jfs_dgd_logo","jfs_dgd_sign","jfs_dnata_staff","jfs_staff_profiles","jfs_tender_persons","jfs_hs_history","jfs_letterheads","jfs_skyd_log","jfs_inv_counters","jfs_job_counter","jfs_msds_history","jfs_tracking","jfs_deleted_jobs","jfs_deleted_wh","jfs_hidden_awbs"];
 /* DGD corner logo (user-uploaded, e.g. from their own IATA DGR form) */
 function dgdLogoApply(){
   let rec = null;
@@ -8262,7 +8328,7 @@ ptRender();
 dgdLogoApply();
 refresh();
 if(window.DgTracking) DgTracking.init({
-  readStore: store,
+  readStore: k => (typeof admTrkFilter === "function" ? admTrkFilter(k, store(k)) : store(k)),
   milestones: TRK_MILESTONES,
   openReport: (rows, context) => DgTrackingReport.open(rows, context),
   getSession: () => sb ? sb.auth.getSession() : Promise.resolve(null),
