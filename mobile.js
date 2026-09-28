@@ -42,7 +42,6 @@
     "  .smallbtn{ padding:9px 12px !important; font-size:12.5px !important; }",
     "  table{ display:block; overflow-x:auto; white-space:nowrap; max-width:100%; }",
     "  .previewwrap{ overflow-x:auto !important; -webkit-overflow-scrolling:touch; }",
-    "  #mob_actions{ display:flex !important; }",
     "  .topbar, #topbar{ padding-left:58px !important; }",
     "}",
     "#mob_burger{ display:none; position:fixed; left:10px; top:10px; z-index:9600; width:42px; height:42px;",
