@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-X</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-Y</span></span>
           </div>
         </div>
       </div>
@@ -791,6 +791,7 @@
         <button class="smallbtn sb-blue" onclick="ptSort()">&#128290; SORT GROUPS (SC continuous)</button>
         <button class="smallbtn sb-blue" onclick="ptAvgReset()">&#8634; Actual</button>
         <button class="btn btn-save" style="background:#7a4b00;" onclick="ptFillDgd()">&#10145; FILL DGD FROM PALLETS (official format)</button>
+        <div style="flex-basis:100%; font-size:11.5px; color:#7a4b00; font-weight:bold; margin-top:4px;">JFS RULE: warehouse PLT numbers never change. SC numbers go to the biggest pallet group first (e.g. 5 pallets = SC01-SC05), then smaller groups, single pallets last. Labels show SC + PLT.</div>
         <button class="btn btn-save" style="background:#1d6b34;" onclick="xlDownload()">&#11015; DOWNLOAD EXCEL (packing list + labels)</button>
         <button class="smallbtn sb-red" onclick="ptClearAll()">Clear</button>
         <span id="pt_summary" style="font-size:12.5px; font-weight:bold; color:#7a4b00;"></span>
@@ -3195,7 +3196,7 @@ OUTPUT EVERY SINGLE ROW — long lists can have 40+ rows and ALL of them must be
   const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
   content.push({type:"text", text: "Packing list" + (hintText && hintText.trim().length > 30 ? " — extracted text as an extra hint, trust the image(s) first:\n\n" + hintText.slice(0, 8000) : " — read the page image(s) carefully.")});
   const j = aiJson(await aiCall(sys, content, 8000));
-  const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0, rm: String(p.remark || "").trim().toUpperCase()})).filter(r => r.w && r.q);
+  const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0, rm: String(p.remark || "").trim().toUpperCase(), plt: parseInt(p.plt) || undefined})).filter(r => r.w && r.q);
   return {rows, tare: (j.tare && parseFloat(j.tare) > 0) ? String(j.tare) : null,
     hdr: {awb: String(j.awb || "").trim(), job: String(j.job || "").trim().toUpperCase(), org: String(j.org || "").trim().toUpperCase(), dest: String(j.dest || "").trim().toUpperCase()}};
 }
@@ -3757,7 +3758,16 @@ function ptRowMeta(r, itemsArr){
   }
   return {mode, item};
 }
+/* JFS RULE: the warehouse PLT number is FIXED — never renumbered. SC numbers are assigned separately
+   (biggest pallet group first), so each row keeps its own r.plt even after SC sorting. */
+function ptEnsurePlt(){
+  let mx = 0; PT.forEach(r => { const p = parseInt(r.plt); if(p > mx) mx = p; });
+  PT.forEach(r => { if(!(parseInt(r.plt) > 0)) r.plt = ++mx; });
+}
+/* display order = warehouse PLT order (1, 2, 3 ...); index i stays the real row (= SC order) */
+function ptViewIdx(){ ptEnsurePlt(); return PT.map((r, i) => i).sort((a, b) => (parseInt(PT[a].plt) || 0) - (parseInt(PT[b].plt) || 0) || a - b); }
 function ptCompute(){
+  ptEnsurePlt();
   const tare = parseFloat(v("pt_tare")) || 0;
   PT.forEach((r, i) => {
     const gw = (r.aw != null && r.aw > 0) ? r.aw : r.w;   // averaged weight when set, else actual (actual stays as record)
@@ -3843,9 +3853,9 @@ function ptRender(){
   const TH = "padding:5px 8px; font-size:11.5px; background:#efe6d6; border:1px solid #d8cdb8; color:#5b4a1e;";
   const TD = "padding:3px 6px; border:1px solid #e2dccd; font-size:12.5px;";
   let h = `<tr><th style="${TH}">PLT</th><th style="${TH}">GROSS WT (KGS)</th><th style="${TH}">AVG WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QTY (CTNS)</th><th style="${TH}">DGD WT (kg G)</th><th style="${TH}">SC WT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>`;
-  PT.forEach((r, i) => {
+  ptViewIdx().forEach(i => { const r = PT[i];
     h += `<tr>
-      <td style="${TD} text-align:center;">${i + 1}</td>
+      <td style="${TD} text-align:center; font-weight:bold;">${esc(String(r.plt || (i + 1)))}</td>
       <td style="${TD}"><input type="text" value="${r.w || ""}" style="width:90px;" oninput="PT[${i}].w=parseFloat(this.value)||0; PT[${i}].aw=null; ptRecalc();"></td>
       <td style="${TD} text-align:center; font-weight:bold; color:#1a5fb4;" id="pt_aw_${i}"></td>
       <td style="${TD}"><input type="text" value="${esc(r.d || "")}" style="width:120px;" oninput="PT[${i}].d=this.value;"></td>
@@ -4364,7 +4374,7 @@ function applyQueuePayload(p){
   }
   if(p.tare) document.getElementById("pt_tare").value = p.tare;
   const fcx = document.getElementById("f_customer"); if(fcx && p.customer) fcx.value = p.customer;
-  PT = (p.pallets || []).map(r => ({w: r.w, d: r.d, q: r.q, rm: String(r.rm || "").toUpperCase()}));
+  PT = (p.pallets || []).map((r, i) => ({w: r.w, d: r.d, q: r.q, rm: String(r.rm || "").toUpperCase(), plt: parseInt(r.plt) || (i + 1)}));
   ptRender();
   if(PT.length) plSet("Warehouse packing list" + (p.job ? " — job " + p.job : ""));   // warehouse data = packing list, DGD unlocked
 }
@@ -4811,7 +4821,7 @@ OUTPUT EVERY SINGLE ROW — long lists can have 40+ rows and ALL of them must be
     const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
     content.push({type:"text", text:"Extract the pallet table AND the header (AWB NO, JOB NO, route) from the packing list photo(s) above."});
     const j = aiJson(await aiCall(sys, content, 8000));
-    const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0, rm: String(p.remark || "").trim().toUpperCase()})).filter(r => r.w && r.q);
+    const rows = (j.pallets || []).map(p => ({w: parseFloat(p.weight) || 0, d: String(p.dims || ""), q: parseInt(p.qty) || 0, rm: String(p.remark || "").trim().toUpperCase(), plt: parseInt(p.plt) || undefined})).filter(r => r.w && r.q);
     if(!rows.length){ msg.textContent = "AI found no pallet rows — type them below."; return; }
     WH = rows;
     if(j.tare && parseFloat(j.tare) > 0) document.getElementById("wh_tare").value = String(j.tare);
@@ -4966,9 +4976,9 @@ function plvRender(){
   const TD = "padding:3px 5px; border:1px solid #e2dccd; font-size:12.5px; text-align:center;";
   const CAP = "font-size:10px; font-weight:bold; color:#44546a; text-transform:uppercase; display:block; margin:8px 0 2px;";
   let rows = "";
-  PT.forEach((r, i) => {
+  ptViewIdx().forEach(i => { const r = PT[i];
     rows += `<tr>
-      <td style="${TD}">${i+1}</td>
+      <td style="${TD} font-weight:bold;">${esc(String(r.plt || (i+1)))}</td>
       <td style="${TD}"><input style="${IN} width:82px; text-align:center;" value="${r.w || ""}" oninput="PT[${i}].w=parseFloat(this.value)||0; PT[${i}].aw=null; plvCalc();"></td>
       <td style="${TD}"><input id="plv_awin_${i}" style="${IN} width:82px; text-align:center; font-weight:bold; color:#1a5fb4;" value="${(r.aw != null && r.aw > 0) ? r.aw : ""}" placeholder="${r.w || ""}" oninput="plvAdjTotals()"></td>
       <td style="${TD}"><input style="${IN} width:112px; text-align:center;" value="${esc(r.d || "")}" oninput="PT[${i}].d=this.value;"></td>
@@ -5112,7 +5122,7 @@ function plvPrint(){
   const TH = `padding:4px 6px; font-size:9.5pt; background:#efe6d6; border:1px solid #888; text-align:center; ${PC}`;
   const TD = "padding:3px 5px; border:1px solid #888; font-size:9.5pt; text-align:center;";
   let rows = "";
-  PT.forEach((r, i) => rows += `<tr><td style="${TD}">${i+1}</td><td style="${TD}">${r.w||""}</td><td style="${TD}"><b>${(r.aw != null && r.aw > 0) ? r.aw : ""}</b></td><td style="${TD}">${esc(r.d||"")}</td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.sc||""}</b></td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.dgd||""}</b></td><td style="${TD}">${esc(r.label||"")}</td></tr>`);
+  ptViewIdx().map(i => [PT[i], i]).forEach(([r, i]) => rows += `<tr><td style="${TD}">${esc(String(r.plt || (i+1)))}</td><td style="${TD}">${r.w||""}</td><td style="${TD}"><b>${(r.aw != null && r.aw > 0) ? r.aw : ""}</b></td><td style="${TD}">${esc(r.d||"")}</td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.sc||""}</b></td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.dgd||""}</b></td><td style="${TD}">${esc(r.label||"")}</td></tr>`);
   const tw = ptR3(PT.reduce((a,r) => a+(r.w||0), 0)), tq = PT.reduce((a,r) => a+(r.q||0), 0),
         ts = ptR3(PT.reduce((a,r) => a+(r.sc||0), 0)), maxD = Math.max(0, ...PT.map(r => r.dgd||0));
   document.getElementById("plvprint").innerHTML = `
@@ -5195,9 +5205,9 @@ async function xlDownload(){
   ["PLT","WEIGHT (KGS)","AVG WT (KGS)","DIMENSIONS (cm)","QNTY (CTNS)","SC WEIGHT (KGS)","QTY","DGD WEIGHT (kg G)","LABEL NO"].forEach((t,ci)=>{
     const c = ws.getRow(hdr).getCell(ci+1); c.value = t; c.font = {bold:true}; c.fill = TAN; c.border = BORD; c.alignment = {horizontal:"center"};
   });
-  PT.forEach((r,i) => {
-    const row = ws.getRow(first + i), rn = first + i;
-    row.getCell(1).value = i+1;
+  ptViewIdx().forEach((i, vi) => { const r = PT[i];
+    const row = ws.getRow(first + vi), rn = first + vi;
+    row.getCell(1).value = parseInt(r.plt) || (i+1);
     row.getCell(2).value = r.w;   row.getCell(2).fill = YEL;
     if(r.aw != null && r.aw > 0){ row.getCell(3).value = r.aw; row.getCell(3).font = {bold:true, color:{argb:"FF1A5FB4"}}; }
     row.getCell(4).value = r.d;   row.getCell(4).fill = YEL;
@@ -5243,7 +5253,7 @@ async function xlDownload(){
     const isNet = !lblLoose && meta.mode.mode === "NET" && meta.mode.net > 0;
     put((rowItem.un||"").replace(/^(UN|ID)/, "$1 "), 46, {center:true, h:58});
     put((rowItem.psn||"").toUpperCase(), 22, {center:true, h:30});
-    put("OVERPACK#SC" + String(i+1).padStart(2,"0"), 26, {center:true, h:34});
+    put("OVERPACK#SC" + String(i+1).padStart(2,"0") + (r && r.plt ? "   (PLT " + r.plt + ")" : ""), 26, {center:true, h:34});
     put(lblLoose ? "TOTAL QUANTITY :  " + fmt1(r.w) + " kg G"
         : isNet ? "TOTAL NET QUANTITY :  " + fmtNet(meta.mode.net * r.q) + " kg"
               : "TOTAL QUANTITY :  " + fmtDot(r.sc) + " kg G", 16, {center:true, h:24});
@@ -5676,7 +5686,7 @@ function buildOpStickers(){
       ${showItems.map(r => `
         <div style="font-size:52pt; font-weight:900; margin-top:7mm; letter-spacing:2px;">${esc(r.un.replace(/^(UN|ID)/, "$1 "))}</div>
         <div style="font-size:14pt; font-weight:bold; text-transform:uppercase; margin-top:2mm;">PSN: ${esc(r.psn)}</div>`).join("")}
-      <div style="font-size:18pt; font-weight:bold; margin-top:5mm;">OVERPACK#${esc(opno)}</div>
+      <div style="font-size:18pt; font-weight:bold; margin-top:5mm;">OVERPACK#${esc(opno)}${(usePT && rows[i] && rows[i].plt) ? `<span style="font-size:12pt; font-weight:bold; margin-left:10px;">(PLT ${esc(String(rows[i].plt))})</span>` : ""}</div>
       <div style="font-size:13pt; font-weight:bold; margin-top:3mm;">${qtyLabel} : ${esc(qty || "____________")}</div>
       <div style="font-size:13pt; font-weight:bold; margin-top:6mm;">24 HOURS EMERGENCY CONTACT<br>NUMBER: ${esc(s.emergency||"____________")}</div>
       ${s.pax === "CAO" ? `<div style="font-size:14pt; font-weight:bold; margin-top:5mm; border:3px solid #000; display:inline-block; padding:2mm 6mm;">CARGO AIRCRAFT ONLY</div>` : ""}
