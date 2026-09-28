@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-Y</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-Z</span></span>
           </div>
         </div>
       </div>
@@ -3624,7 +3624,9 @@ function fmtDot(x){
   const n = typeof x === "number" ? x : (parseFloat(x) || 0);
   const s = n.toFixed(3);
   // JFS rule: whole numbers print a single zero (615 . 0), otherwise 3 decimals (580 . 944)
-  return (/\.000$/.test(s) ? s.replace(/\.000$/, ".0") : s).replace(".", " . ");
+  // JFS rule v25.10-Z: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
+  const s2 = s.replace(/0+$/, "");
+  return (s2.endsWith(".") ? s2 + "0" : s2).replace(".", " . ");
 }
 /* NET quantities are written naturally: 8.5 → "8 . 5", 127.5 → "127 . 5", 12 → "12" */
 function fmtNet(x){
