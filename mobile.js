@@ -17,7 +17,17 @@
     "  body{ padding:0 !important; }",
     "  .nav{ position:fixed !important; left:0; top:0; bottom:0; width:264px; transform:translateX(-105%);",
     "    transition:transform .25s ease; z-index:9500; overflow-y:auto; box-shadow:6px 0 24px rgba(0,0,0,.45); display:block !important; }",
-    "  .nav.mopen{ transform:translateX(0); }",
+    "  .nav.mopen{ transform:translateX(0) !important; }",
+    /* the desktop sidebar style only applies >900px — give the phone drawer its own full sidebar look:
+       one option per row, full width, readable size (was: 2 cramped items per row) */
+    "  .nav{ display:flex !important; flex-direction:column !important; flex-wrap:nowrap !important; align-items:stretch !important;",
+    "    overflow-x:hidden !important; overflow-y:auto !important; gap:3px !important; margin:0 !important;",
+    "    padding:62px 12px 24px !important; background:linear-gradient(168deg,#0c1a3c 0%,#13244f 60%,#182c5e 100%) !important; }",
+    "  .nav button{ width:100% !important; flex:0 0 auto !important; text-align:left !important; white-space:normal !important;",
+    "    font-size:14px !important; padding:12px 14px !important; border-radius:10px !important; color:#e3e9fb !important;",
+    "    background:transparent !important; border:none !important; border-left:4px solid transparent !important; }",
+    "  .nav button.on{ background:rgba(255,255,255,.13) !important; color:#fff !important; border-left-color:var(--acc,#ff6b4a) !important; }",
+    "  .nav button:active{ background:rgba(255,255,255,.2) !important; }",
     "  #mob_burger{ display:flex !important; }",
     "  #mob_dim{ display:none; position:fixed; inset:0; background:rgba(5,15,30,.55); z-index:9400; }",
     "  #mob_dim.on{ display:block; }",
