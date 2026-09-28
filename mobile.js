@@ -12,7 +12,7 @@
 
   /* ---------------- responsive CSS ---------------- */
   var css = [
-    "@media (max-width:" + MQ + "px){",
+    "@media screen and (max-width:" + MQ + "px){",
     "  html{ -webkit-text-size-adjust:100%; }",
     "  body{ padding:0 !important; }",
     "  .nav{ position:fixed !important; left:0; top:0; bottom:0; width:264px; transform:translateX(-105%);",

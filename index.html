@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-W</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-X</span></span>
           </div>
         </div>
       </div>
@@ -1863,7 +1863,8 @@ function nbUnit(s){
   return s
     .replace(/(\d)\s\.\s(\d)/g, "$1 . $2")   // spaced decimals stay one piece
     .replace(/(\d)\s+kg\b/g, "$1 kg")             // number sticks to kg
-    .replace(/kg\s+G\b/g, "kg G");                // kg sticks to G
+    .replace(/kg\s+G\b/g, "kg G")
+    .replace(/^(TOTAL(?: NET)? QUANTITY) (?=\d)/gm, m => m.replace(/ /g, " "));   // whole TOTAL QUANTITY line stays on one line                // kg sticks to G
 }
 function goodsRowsArr(split, qfs){
   // merge items with the same UN + PSN (ignoring old "(CONT. i/n)" labels) into ONE row —
@@ -2821,14 +2822,14 @@ async function aiExtractShipment(text, label, imgs){
   } else {
     content = "Document (" + label + "):\n\n" + text.slice(0, 12000);
   }
-  const raw = await aiCall(AI_EXTRACT_SYSTEM, content, 2500);
+  const raw = await aiCall(AI_EXTRACT_SYSTEM + (window._fromLabel ? "\nLABEL MODE (overrides the formatting rules above for shipper and consignee): copy the SHIPPER and CONSIGNEE blocks EXACTLY as printed on the label — same words, same spelling, same abbreviations, same line breaks, same punctuation. Keep e.g. 'DUBAI, UAE' exactly; do NOT expand country codes or names, do NOT add or reorder TEL lines, do NOT correct anything." : ""), content, 2500);
   const j = aiJson(raw);
   // apply — every value goes to its exact field.
   // RULE: shipper & consignee come EXACTLY from the LABEL. A label fill LOCKS them —
   // AWB/booking extractions then fill everything else but NEVER touch shipper/consignee.
   const scLocked = !!window._labelSC && !window._fromLabel;
-  if(j.shipper && !scLocked){ document.getElementById("f_shipper").value = fixAddr(j.shipper); custAfterFill("shipper"); }
-  if(j.consignee && !scLocked){ document.getElementById("f_consignee").value = fixAddr(j.consignee); custAfterFill("consignee"); }
+  if(j.shipper && !scLocked){ document.getElementById("f_shipper").value = window._fromLabel ? String(j.shipper).trim() : fixAddr(j.shipper); custAfterFill("shipper"); }
+  if(j.consignee && !scLocked){ document.getElementById("f_consignee").value = window._fromLabel ? String(j.consignee).trim() : fixAddr(j.consignee); custAfterFill("consignee"); }
   if(j.awb) document.getElementById("f_awb").value = j.awb;
   if(j.pages) document.getElementById("f_page").value = j.pages;
   // reference NOT auto-filled — it is only for a HOUSE airway bill, entered manually
@@ -3620,7 +3621,9 @@ function ptR3(x){ return Math.round(x * 1000) / 1000; }
 function fmtDot(x){
   // JFS rule: weights on the DGD always show EXACTLY 3 decimals — 399 → "399 . 000", 23.42 → "23 . 420"
   const n = typeof x === "number" ? x : (parseFloat(x) || 0);
-  return n.toFixed(3).replace(".", " . ");
+  const s = n.toFixed(3);
+  // JFS rule: whole numbers print a single zero (615 . 0), otherwise 3 decimals (580 . 944)
+  return (/\.000$/.test(s) ? s.replace(/\.000$/, ".0") : s).replace(".", " . ");
 }
 /* NET quantities are written naturally: 8.5 → "8 . 5", 127.5 → "127 . 5", 12 → "12" */
 function fmtNet(x){
@@ -3789,6 +3792,29 @@ function ptAverage(){
 }
 function ptAvgReset(){ PT.forEach(r => r.aw = null); ptRender(); plvRender(); }
 /* sort: same group (same QTY + same DGD weight) pallets together → SC numbers continuous per group */
+/* auto SC ordering used by FILL DGD: keeps each REMARK item together, inside it the group with MOST pallets first */
+function ptAutoSort(){
+  if(!PT.length) return;
+  ptCompute();
+  const rmOf = r => (r.rm || "").trim().toUpperCase();
+  const keyOf = r => rmOf(r) + "|" + r.q + "@" + r.dgd;
+  const cnt = {}, wt = {}, rmFirst = {}, keyFirst = {};
+  PT.forEach((r, i) => {
+    const k = keyOf(r), rm = rmOf(r);
+    cnt[k] = (cnt[k] || 0) + 1;
+    const gw = (r.aw != null && r.aw > 0) ? r.aw : (r.w || 0);
+    wt[k] = Math.max(wt[k] || 0, gw);
+    if(!(rm in rmFirst)) rmFirst[rm] = i;
+    if(!(k in keyFirst)) keyFirst[k] = i;
+  });
+  const ord = r => [rmFirst[rmOf(r)], -cnt[keyOf(r)], -wt[keyOf(r)], keyFirst[keyOf(r)]];
+  PT = PT.map((r, i) => [r, i]).sort((a, b) => {
+    const x = ord(a[0]), y = ord(b[0]);
+    for(let j = 0; j < x.length; j++){ if(x[j] !== y[j]) return x[j] - y[j]; }
+    return a[1] - b[1];
+  }).map(p => p[0]);
+  ptRender(); if(typeof plvRender === "function") plvRender();
+}
 function ptSort(silent){
   if(!PT.length){ if(!silent) alert("No pallets yet."); return; }
   ptCompute();
@@ -3913,7 +3939,8 @@ function _ptBlocks(groups, box, m){
 }
 function ptFillDgd(){
   if(!PT.length){ alert("Add or paste the pallet rows first."); return; }
-  if(ptIsLoose()){ ptFillLoose(); return; }                 // LOOSE CARTONS list → its own format
+  if(ptIsLoose()){ ptFillLoose(); return; }
+  try{ ptAutoSort(); }catch(e){}           // JFS SC rule: most pallets first, then smaller groups, singles last                 // LOOSE CARTONS list → its own format
   ptCompute();
   ptModesDefaults();
   const box = (v("pt_boxtype") || "FIBREBOARD BOXES").toUpperCase();
@@ -8343,6 +8370,6 @@ authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
 <script src="/tracking-ai.js?v=muki3j3g"></script>
-<script src="/mobile.js?v=muki3j3g"></script>
+<script src="/mobile.js?v=mukz64gl"></script>
 </body>
 </html>
