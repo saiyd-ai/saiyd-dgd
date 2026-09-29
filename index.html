@@ -214,7 +214,7 @@
     body.pm-alt .previewwrap{display:none !important;}
     body.pm-alt #printzone{display:block;}
   }
-  @media (max-width:900px){ .g2,.g3,.g4{grid-template-columns:1fr;} .sheet{width:100%; padding:8mm 10mm;} }
+  @media screen and (max-width:900px){ .g2,.g3,.g4{grid-template-columns:1fr;} .sheet{width:100%; padding:8mm 10mm;} }
 
   /* ============ MOBILE (phones) ============ */
   @media (max-width:768px){
@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-B</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-C</span></span>
           </div>
         </div>
       </div>
@@ -2618,16 +2618,11 @@ function buildPrintPages(){
     cap = PAGE - (sheet.offsetHeight - tbody.offsetHeight);   // page budget − header/footer/table head
     totalH = rowH.reduce((a, b) => a + b, 0);
   };
-  measure(fs);
-  while(totalH + Math.ceil(6 * pxMM) > cap && fs > 6.5){ fs -= 0.5; measure(fs); }
+  measure(fs);   // JFS rule v25.11-C: fixed standard font size — never shrink; too many lines flow to page 2
   if(totalH + Math.ceil(6 * pxMM) <= cap){
     document.getElementById("f_page").value = "1 of 1";
     refresh();                                           // header fields (page no etc.) up to date
-    if(fs >= 8.5){                                       // fits at normal size → print the preview sheet as-is
-      document.getElementById("printzone").innerHTML = "";
-      document.body.classList.remove("pm-alt");
-      return done(1);
-    }
+    // JFS rule v25.11-C: ALWAYS print a fixed A4 page (210 x 297 mm) — goods box stretches, footer sits at the page bottom
     // fits only with the smaller font → print a one-page clone carrying that font
     const pz = document.getElementById("printzone");
     pz.innerHTML = "";
@@ -3624,7 +3619,7 @@ function fmtDot(x){
   const n = typeof x === "number" ? x : (parseFloat(x) || 0);
   const s = n.toFixed(3);
   // JFS rule: whole numbers print a single zero (615 . 0), otherwise 3 decimals (580 . 944)
-  // JFS rule v25.11-B: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
+  // JFS rule v25.11-C: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
   const s2 = s.replace(/0+$/, "");
   return (s2.endsWith(".") ? s2 + "0" : s2).replace(".", " . ");
 }
@@ -3727,7 +3722,7 @@ function ptFillLoose(){
   // plain loose cartons — average gross block, NO overpack lines
   if(avgRows.length){
     const B = avgRows.reduce((a, r) => a + (parseInt(r.q) || 1), 0);
-    // JFS rule v25.11-B: WEIGHT on the warehouse sheet = FULL weight of that line (all its boxes) -> avg = sum(line weights) / total boxes
+    // JFS rule v25.11-C: WEIGHT on the warehouse sheet = FULL weight of that line (all its boxes) -> avg = sum(line weights) / total boxes
     const totW = avgRows.reduce((a, r) => a + (parseFloat(r.w) || 0), 0);
     const avg = B ? ptTrunc3(totW / B) : 0;
     blocks.push(`${B} FIBREBOARD BOXES\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(avg)} kg G`);
@@ -3736,7 +3731,7 @@ function ptFillLoose(){
   const first = document.querySelector(".item");
   first.querySelector(".i_qty").value = blocks.join("\n\n");
   first.querySelector(".i_op").checked = false;
-  // JFS rule v25.11-B: loose boxes only (no W / OVER PACKED rows) -> NO overpack row, NO SC labels
+  // JFS rule v25.11-C: loose boxes only (no W / OVER PACKED rows) -> NO overpack row, NO SC labels
   document.querySelector('input[name=f_overpack][value=' + (overIdx.length ? 'Y' : 'N') + ']').checked = true;
   document.getElementById("f_opcount").value = String(overIdx.length || 1);
   document.getElementById("f_opqty").value = "";
@@ -3822,7 +3817,7 @@ function ptAutoSort(){
     rmFirst[rm] = Math.min(rmFirst[rm] ?? Infinity, pn);
     keyFirst[k] = Math.min(keyFirst[k] ?? Infinity, pn);
   });
-  // JFS rule v25.11-B: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
+  // JFS rule v25.11-C: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
   const ord = r => [rmFirst[rmOf(r)], -cnt[keyOf(r)], keyFirst[keyOf(r)], parseInt(r.plt) || 0];
   PT = PT.map((r, i) => [r, i]).sort((a, b) => {
     const x = ord(a[0]), y = ord(b[0]);
