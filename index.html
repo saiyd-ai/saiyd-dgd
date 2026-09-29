@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.10-Z</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-A</span></span>
           </div>
         </div>
       </div>
@@ -791,7 +791,7 @@
         <button class="smallbtn sb-blue" onclick="ptSort()">&#128290; SORT GROUPS (SC continuous)</button>
         <button class="smallbtn sb-blue" onclick="ptAvgReset()">&#8634; Actual</button>
         <button class="btn btn-save" style="background:#7a4b00;" onclick="ptFillDgd()">&#10145; FILL DGD FROM PALLETS (official format)</button>
-        <div style="flex-basis:100%; font-size:11.5px; color:#7a4b00; font-weight:bold; margin-top:4px;">JFS RULE: warehouse PLT numbers never change. SC numbers go to the biggest pallet group first (e.g. 5 pallets = SC01-SC05), then smaller groups, single pallets last. Labels show SC + PLT.</div>
+        <div style="flex-basis:100%; font-size:11.5px; color:#7a4b00; font-weight:bold; margin-top:4px;">JFS RULE: warehouse PLT numbers never change. SC numbers go to the biggest pallet group first (e.g. 5 pallets = SC01-SC05), then smaller groups, single pallets last in warehouse PLT order. Labels show SC + PLT.</div>
         <button class="btn btn-save" style="background:#1d6b34;" onclick="xlDownload()">&#11015; DOWNLOAD EXCEL (packing list + labels)</button>
         <button class="smallbtn sb-red" onclick="ptClearAll()">Clear</button>
         <span id="pt_summary" style="font-size:12.5px; font-weight:bold; color:#7a4b00;"></span>
@@ -3624,7 +3624,7 @@ function fmtDot(x){
   const n = typeof x === "number" ? x : (parseFloat(x) || 0);
   const s = n.toFixed(3);
   // JFS rule: whole numbers print a single zero (615 . 0), otherwise 3 decimals (580 . 944)
-  // JFS rule v25.10-Z: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
+  // JFS rule v25.11-A: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
   const s2 = s.replace(/0+$/, "");
   return (s2.endsWith(".") ? s2 + "0" : s2).replace(".", " . ");
 }
@@ -3816,10 +3816,12 @@ function ptAutoSort(){
     cnt[k] = (cnt[k] || 0) + 1;
     const gw = (r.aw != null && r.aw > 0) ? r.aw : (r.w || 0);
     wt[k] = Math.max(wt[k] || 0, gw);
-    if(!(rm in rmFirst)) rmFirst[rm] = i;
-    if(!(k in keyFirst)) keyFirst[k] = i;
+    const pn = parseInt(r.plt) || (i + 1);   // warehouse PLT number (fixed)
+    rmFirst[rm] = Math.min(rmFirst[rm] ?? Infinity, pn);
+    keyFirst[k] = Math.min(keyFirst[k] ?? Infinity, pn);
   });
-  const ord = r => [rmFirst[rmOf(r)], -cnt[keyOf(r)], -wt[keyOf(r)], keyFirst[keyOf(r)]];
+  // JFS rule v25.11-A: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
+  const ord = r => [rmFirst[rmOf(r)], -cnt[keyOf(r)], keyFirst[keyOf(r)], parseInt(r.plt) || 0];
   PT = PT.map((r, i) => [r, i]).sort((a, b) => {
     const x = ord(a[0]), y = ord(b[0]);
     for(let j = 0; j < x.length; j++){ if(x[j] !== y[j]) return x[j] - y[j]; }
@@ -3831,7 +3833,7 @@ function ptSort(silent){
   if(!PT.length){ if(!silent) alert("No pallets yet."); return; }
   ptCompute();
   // JFS SC rule: BIGGEST overpack group FIRST (most pallets), then smaller groups, SINGLE pallets LAST.
-  // Same count → heavier group first. SC numbers run continuous inside each group.
+  // Same count (e.g. single pallets) → warehouse PLT order. SC numbers run continuous inside each group.
   const keyOf = r => r.q + "@" + r.dgd;
   const cnt = {}, wt = {};
   PT.forEach(r => {
@@ -3840,8 +3842,9 @@ function ptSort(silent){
     const gw = (r.aw != null && r.aw > 0) ? r.aw : (r.w || 0);
     wt[k] = Math.max(wt[k] || 0, gw);
   });
-  const keys = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || wt[b] - wt[a]);
-  PT = PT.slice().sort((a, b) => keys.indexOf(keyOf(a)) - keys.indexOf(keyOf(b)));
+  const minP = {}; PT.forEach((r, i) => { const k = keyOf(r), pn = parseInt(r.plt) || (i + 1); minP[k] = Math.min(minP[k] ?? Infinity, pn); });
+  const keys = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || minP[a] - minP[b]);
+  PT = PT.slice().sort((a, b) => keys.indexOf(keyOf(a)) - keys.indexOf(keyOf(b)) || (parseInt(a.plt) || 0) - (parseInt(b.plt) || 0));
   ptRender(); plvRender();
   if(!silent){
     const m = document.getElementById("pt_summary");
