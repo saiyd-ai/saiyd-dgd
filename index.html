@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-A</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-B</span></span>
           </div>
         </div>
       </div>
@@ -3624,7 +3624,7 @@ function fmtDot(x){
   const n = typeof x === "number" ? x : (parseFloat(x) || 0);
   const s = n.toFixed(3);
   // JFS rule: whole numbers print a single zero (615 . 0), otherwise 3 decimals (580 . 944)
-  // JFS rule v25.11-A: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
+  // JFS rule v25.11-B: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
   const s2 = s.replace(/0+$/, "");
   return (s2.endsWith(".") ? s2 + "0" : s2).replace(".", " . ");
 }
@@ -3727,7 +3727,8 @@ function ptFillLoose(){
   // plain loose cartons — average gross block, NO overpack lines
   if(avgRows.length){
     const B = avgRows.reduce((a, r) => a + (parseInt(r.q) || 1), 0);
-    const totW = avgRows.reduce((a, r) => a + (parseFloat(r.w) || 0) * (parseInt(r.q) || 1), 0);
+    // JFS rule v25.11-B: WEIGHT on the warehouse sheet = FULL weight of that line (all its boxes) -> avg = sum(line weights) / total boxes
+    const totW = avgRows.reduce((a, r) => a + (parseFloat(r.w) || 0), 0);
     const avg = B ? ptTrunc3(totW / B) : 0;
     blocks.push(`${B} FIBREBOARD BOXES\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(avg)} kg G`);
   }
@@ -3735,8 +3736,9 @@ function ptFillLoose(){
   const first = document.querySelector(".item");
   first.querySelector(".i_qty").value = blocks.join("\n\n");
   first.querySelector(".i_op").checked = false;
-  document.querySelector('input[name=f_overpack][value=Y]').checked = true;
-  document.getElementById("f_opcount").value = String(overIdx.length);
+  // JFS rule v25.11-B: loose boxes only (no W / OVER PACKED rows) -> NO overpack row, NO SC labels
+  document.querySelector('input[name=f_overpack][value=' + (overIdx.length ? 'Y' : 'N') + ']').checked = true;
+  document.getElementById("f_opcount").value = String(overIdx.length || 1);
   document.getElementById("f_opqty").value = "";
   document.getElementById("op_start") && (document.getElementById("op_start").value = "1");
   refresh();
@@ -3820,7 +3822,7 @@ function ptAutoSort(){
     rmFirst[rm] = Math.min(rmFirst[rm] ?? Infinity, pn);
     keyFirst[k] = Math.min(keyFirst[k] ?? Infinity, pn);
   });
-  // JFS rule v25.11-A: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
+  // JFS rule v25.11-B: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
   const ord = r => [rmFirst[rmOf(r)], -cnt[keyOf(r)], keyFirst[keyOf(r)], parseInt(r.plt) || 0];
   PT = PT.map((r, i) => [r, i]).sort((a, b) => {
     const x = ord(a[0]), y = ord(b[0]);
