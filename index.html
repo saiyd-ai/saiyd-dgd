@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-D</span></span>
           </div>
         </div>
       </div>
@@ -1343,6 +1343,44 @@
           <button class="btn btn-save" style="background:#7b2d8b;" onclick="invImportFile()">&#129302; AI IMPORT FILE</button>
           <span id="inv_msg" style="font-size:12.5px; color:#7a4b00; font-weight:bold;"></span>
         </div>
+        <div id="inv_photobox" tabindex="0" title="Click here, then Ctrl+V" style="border:2px dashed #7b2d8b; border-radius:10px; background:#faf5fc; padding:12px 14px; margin-bottom:8px; cursor:pointer; display:flex; align-items:center; gap:12px; outline:none;">
+          <span style="font-size:22px;">&#128203;</span>
+          <span style="font-weight:800; color:#5b1f6b; font-size:13px;">PASTE PHOTO / SCREENSHOT HERE (click, then Ctrl+V) &mdash; or drop an image. AI reads it and fills the items.</span>
+          <img id="inv_photothumb" alt="" style="display:none; max-height:56px; max-width:120px; border:1px solid #d7c3de; border-radius:6px; margin-left:auto;">
+        </div>
+        <script>
+        (function(){
+          function take(file){
+            if(!file || !/^image\//.test(file.type)) return false;
+            const f = new File([file], file.name && file.name !== "image.png" ? file.name : ("pasted_" + Date.now() + ".png"), {type: file.type});
+            const inp = document.getElementById("inv_file");
+            try{ const dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files; }catch(e){}
+            const th = document.getElementById("inv_photothumb");
+            if(th){ th.src = URL.createObjectURL(f); th.style.display = ""; }
+            const m = document.getElementById("inv_msg"); if(m) m.textContent = "✓ Photo pasted — AI reading...";
+            if(typeof invImportFile === "function") invImportFile();
+            return true;
+          }
+          function imgFromClip(e){
+            const items = (e.clipboardData || {}).items || [];
+            for(const it of items){ if(it.kind === "file" && /^image\//.test(it.type)) return it.getAsFile(); }
+            return null;
+          }
+          function wire(){
+            const box = document.getElementById("inv_photobox"), ta = document.getElementById("inv_paste");
+            if(!box) return;
+            box.addEventListener("click", () => box.focus());
+            box.addEventListener("focus", () => box.style.background = "#f0e3f5");
+            box.addEventListener("blur", () => box.style.background = "#faf5fc");
+            box.addEventListener("paste", e => { const f = imgFromClip(e); if(f){ e.preventDefault(); take(f); } else { const m = document.getElementById("inv_msg"); if(m) m.textContent = "No image in the clipboard — copy the photo / screenshot first."; } });
+            if(ta) ta.addEventListener("paste", e => { const f = imgFromClip(e); if(f){ e.preventDefault(); take(f); } });
+            box.addEventListener("dragover", e => { e.preventDefault(); box.style.background = "#f0e3f5"; });
+            box.addEventListener("dragleave", () => box.style.background = "#faf5fc");
+            box.addEventListener("drop", e => { e.preventDefault(); box.style.background = "#faf5fc"; const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if(f && !take(f)){ const inp = document.getElementById("inv_file"); try{ const dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files; invImportFile(); }catch(x){} } });
+          }
+          if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire();
+        })();
+        </script>
         <textarea id="inv_paste" style="min-height:64px;" placeholder="...or paste the WhatsApp chat / item list here (any format)"></textarea>
         <div style="display:flex; gap:10px; margin:8px 0; flex-wrap:wrap;">
           <button class="btn btn-save" style="background:#7b2d8b;" onclick="invImportText()">&#129302; AI IMPORT (paste)</button>
@@ -2618,11 +2656,11 @@ function buildPrintPages(){
     cap = PAGE - (sheet.offsetHeight - tbody.offsetHeight);   // page budget − header/footer/table head
     totalH = rowH.reduce((a, b) => a + b, 0);
   };
-  measure(fs);   // JFS rule v25.11-C: fixed standard font size — never shrink; too many lines flow to page 2
+  measure(fs);   // JFS rule v25.11-D: fixed standard font size — never shrink; too many lines flow to page 2
   if(totalH + Math.ceil(6 * pxMM) <= cap){
     document.getElementById("f_page").value = "1 of 1";
     refresh();                                           // header fields (page no etc.) up to date
-    // JFS rule v25.11-C: ALWAYS print a fixed A4 page (210 x 297 mm) — goods box stretches, footer sits at the page bottom
+    // JFS rule v25.11-D: ALWAYS print a fixed A4 page (210 x 297 mm) — goods box stretches, footer sits at the page bottom
     // fits only with the smaller font → print a one-page clone carrying that font
     const pz = document.getElementById("printzone");
     pz.innerHTML = "";
@@ -3619,7 +3657,7 @@ function fmtDot(x){
   const n = typeof x === "number" ? x : (parseFloat(x) || 0);
   const s = n.toFixed(3);
   // JFS rule: whole numbers print a single zero (615 . 0), otherwise 3 decimals (580 . 944)
-  // JFS rule v25.11-C: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
+  // JFS rule v25.11-D: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
   const s2 = s.replace(/0+$/, "");
   return (s2.endsWith(".") ? s2 + "0" : s2).replace(".", " . ");
 }
@@ -3722,7 +3760,7 @@ function ptFillLoose(){
   // plain loose cartons — average gross block, NO overpack lines
   if(avgRows.length){
     const B = avgRows.reduce((a, r) => a + (parseInt(r.q) || 1), 0);
-    // JFS rule v25.11-C: WEIGHT on the warehouse sheet = FULL weight of that line (all its boxes) -> avg = sum(line weights) / total boxes
+    // JFS rule v25.11-D: WEIGHT on the warehouse sheet = FULL weight of that line (all its boxes) -> avg = sum(line weights) / total boxes
     const totW = avgRows.reduce((a, r) => a + (parseFloat(r.w) || 0), 0);
     const avg = B ? ptTrunc3(totW / B) : 0;
     blocks.push(`${B} FIBREBOARD BOXES\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(avg)} kg G`);
@@ -3731,7 +3769,7 @@ function ptFillLoose(){
   const first = document.querySelector(".item");
   first.querySelector(".i_qty").value = blocks.join("\n\n");
   first.querySelector(".i_op").checked = false;
-  // JFS rule v25.11-C: loose boxes only (no W / OVER PACKED rows) -> NO overpack row, NO SC labels
+  // JFS rule v25.11-D: loose boxes only (no W / OVER PACKED rows) -> NO overpack row, NO SC labels
   document.querySelector('input[name=f_overpack][value=' + (overIdx.length ? 'Y' : 'N') + ']').checked = true;
   document.getElementById("f_opcount").value = String(overIdx.length || 1);
   document.getElementById("f_opqty").value = "";
@@ -3817,7 +3855,7 @@ function ptAutoSort(){
     rmFirst[rm] = Math.min(rmFirst[rm] ?? Infinity, pn);
     keyFirst[k] = Math.min(keyFirst[k] ?? Infinity, pn);
   });
-  // JFS rule v25.11-C: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
+  // JFS rule v25.11-D: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
   const ord = r => [rmFirst[rmOf(r)], -cnt[keyOf(r)], keyFirst[keyOf(r)], parseInt(r.plt) || 0];
   PT = PT.map((r, i) => [r, i]).sort((a, b) => {
     const x = ord(a[0]), y = ord(b[0]);
