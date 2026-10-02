@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-D</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-E</span></span>
           </div>
         </div>
       </div>
@@ -791,7 +791,7 @@
         <button class="smallbtn sb-blue" onclick="ptSort()">&#128290; SORT GROUPS (SC continuous)</button>
         <button class="smallbtn sb-blue" onclick="ptAvgReset()">&#8634; Actual</button>
         <button class="btn btn-save" style="background:#7a4b00;" onclick="ptFillDgd()">&#10145; FILL DGD FROM PALLETS (official format)</button>
-        <div style="flex-basis:100%; font-size:11.5px; color:#7a4b00; font-weight:bold; margin-top:4px;">JFS RULE: warehouse PLT numbers never change. SC numbers go to the biggest pallet group first (e.g. 5 pallets = SC01-SC05), then smaller groups, single pallets last in warehouse PLT order. Labels show SC + PLT.</div>
+        <div style="flex-basis:100%; font-size:11.5px; color:#7a4b00; font-weight:bold; margin-top:4px;">JFS RULE: warehouse PLT numbers never change. SC numbers go to the biggest pallet group first (e.g. 5 pallets = SC01-SC05), then smaller groups, single pallets last in warehouse PLT order. Labels show the SC number only (PLT stays in this table).</div>
         <button class="btn btn-save" style="background:#1d6b34;" onclick="xlDownload()">&#11015; DOWNLOAD EXCEL (packing list + labels)</button>
         <button class="smallbtn sb-red" onclick="ptClearAll()">Clear</button>
         <span id="pt_summary" style="font-size:12.5px; font-weight:bold; color:#7a4b00;"></span>
@@ -1727,6 +1727,25 @@ let itemCount = 0;
 
 function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
+/* JFS v25.11-E: quick item selection — default ID8000 */
+const DG_QUICK = [
+  ["ID8000","ID8000 — CONSUMER COMMODITY (perfume / cosmetics) — Y963"],
+  ["UN1266","UN1266 — PERFUMERY PRODUCTS (Class 3)"],
+  ["UN1950","UN1950 — AEROSOLS (Class 2)"],
+  ["UN3481","UN3481 — LITHIUM ION BATTERIES IN / WITH EQUIPMENT"],
+  ["UN3480","UN3480 — LITHIUM ION BATTERIES"],
+  ["UN3091","UN3091 — LITHIUM METAL BATTERIES IN / WITH EQUIPMENT"],
+  ["UN1170","UN1170 — ETHANOL SOLUTION"],
+  ["UN1993","UN1993 — FLAMMABLE LIQUID, N.O.S."],
+  ["UN3082","UN3082 — ENVIRONMENTALLY HAZARDOUS SUBSTANCE, LIQUID"],
+  ["UN3077","UN3077 — ENVIRONMENTALLY HAZARDOUS SUBSTANCE, SOLID"],
+  ["UN1845","UN1845 — DRY ICE"]
+];
+function dgQuickOpts(sel){
+  return DG_QUICK.filter(q => q[0] === "ID8000" || (typeof UNDB !== "undefined" && UNDB.some(r => r.un === q[0])))
+    .map(q => '<option value="' + q[0] + '"' + (q[0] === sel ? " selected" : "") + '>' + q[1] + '</option>').join("")
+    + '<option value=""' + (DG_QUICK.some(q => q[0] === sel) ? "" : " selected") + '>— OTHER (type UN no. / name below) —</option>';
+}
 function addItem(data){
   itemCount++;
   const id = "it" + Date.now() + "_" + itemCount;
@@ -1741,6 +1760,8 @@ function addItem(data){
       </span></div>
     <div class="grid g3">
       <div class="unwrap">
+        <label>SELECT ITEM</label>
+        <select class="i_pick" style="width:100%; margin-bottom:6px; font-weight:bold; color:#0d2c54;">${dgQuickOpts(data ? String(data.un||"").toUpperCase().replace(/\s/g,"") : "ID8000")}</select>
         <label>UN No. / Search name</label>
         <input type="text" class="i_un" placeholder="Type UN number or name..." autocomplete="off">
         <div class="sugg"></div>
@@ -1803,6 +1824,20 @@ function addItem(data){
     });
   });
   unInput.addEventListener("blur", () => setTimeout(()=> sugg.style.display="none", 250));
+  div.querySelector(".i_pick").addEventListener("change", e => {
+    const code = e.target.value;
+    if(!code){ unInput.value = ""; unInput.focus(); return; }
+    ["i_psn","i_cls","i_sub","i_pi"].forEach(k => div.querySelector("." + k).value = "");
+    div.querySelector(".i_pg").value = ""; div.querySelector(".notehint").textContent = "";
+    if(code === "ID8000"){
+      unInput.value = "ID8000"; div.querySelector(".i_psn").value = "CONSUMER COMMODITY";
+      div.querySelector(".i_cls").value = "9"; div.querySelector(".i_pi").value = "Y963";
+      refresh(); return;
+    }
+    unInput.value = code; unInput.dispatchEvent(new Event("input"));
+    const hit = [...sugg.querySelectorAll("div")].find(d => d.dataset.un === code);
+    if(hit) hit.click(); else refresh();
+  });
   div.querySelectorAll("input,select").forEach(el => el.addEventListener("input", refresh));
 
   if(data){
@@ -2345,7 +2380,8 @@ function autoFill(){
   // Items: every UN number found (+ ID8000 consumer commodity)
   const unMatches = [...raw.matchAll(/\bUN[\s.\-:]{0,3}(\d{4})\b/gi)];
   if(/\bID[\s.\-:]{0,3}8000\b/i.test(raw)) unMatches.push({1:"ID8000_SPECIAL"});
-  if(unMatches.length){
+  // JFS rule v25.11-E: AWB text extraction NEVER touches the DG items
+  if(false && unMatches.length){
     document.getElementById("items").innerHTML = "";
     const seen = new Set();
     unMatches.forEach(mm => {
@@ -2656,11 +2692,11 @@ function buildPrintPages(){
     cap = PAGE - (sheet.offsetHeight - tbody.offsetHeight);   // page budget − header/footer/table head
     totalH = rowH.reduce((a, b) => a + b, 0);
   };
-  measure(fs);   // JFS rule v25.11-D: fixed standard font size — never shrink; too many lines flow to page 2
+  measure(fs);   // JFS rule v25.11-E: fixed standard font size — never shrink; too many lines flow to page 2
   if(totalH + Math.ceil(6 * pxMM) <= cap){
     document.getElementById("f_page").value = "1 of 1";
     refresh();                                           // header fields (page no etc.) up to date
-    // JFS rule v25.11-D: ALWAYS print a fixed A4 page (210 x 297 mm) — goods box stretches, footer sits at the page bottom
+    // JFS rule v25.11-E: ALWAYS print a fixed A4 page (210 x 297 mm) — goods box stretches, footer sits at the page bottom
     // fits only with the smaller font → print a one-page clone carrying that font
     const pz = document.getElementById("printzone");
     pz.innerHTML = "";
@@ -2912,7 +2948,8 @@ async function aiExtractShipment(text, label, imgs){
     if(j.opcount) document.getElementById("f_opcount").value = String(j.opcount);
     if(j.opqty) document.getElementById("f_opqty").value = j.opqty;
   }
-  if(Array.isArray(j.items) && j.items.length){
+  // JFS rule v25.11-E: AWB / label extraction NEVER touches the DG items — item stays as selected (default ID8000)
+  if(false && Array.isArray(j.items) && j.items.length){
     document.getElementById("items").innerHTML = "";
     j.items.forEach(it => {
       const un = (it.un||"").toUpperCase().replace(/\s/g,"");
@@ -3657,7 +3694,7 @@ function fmtDot(x){
   const n = typeof x === "number" ? x : (parseFloat(x) || 0);
   const s = n.toFixed(3);
   // JFS rule: whole numbers print a single zero (615 . 0), otherwise 3 decimals (580 . 944)
-  // JFS rule v25.11-D: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
+  // JFS rule v25.11-E: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
   const s2 = s.replace(/0+$/, "");
   return (s2.endsWith(".") ? s2 + "0" : s2).replace(".", " . ");
 }
@@ -3760,7 +3797,7 @@ function ptFillLoose(){
   // plain loose cartons — average gross block, NO overpack lines
   if(avgRows.length){
     const B = avgRows.reduce((a, r) => a + (parseInt(r.q) || 1), 0);
-    // JFS rule v25.11-D: WEIGHT on the warehouse sheet = FULL weight of that line (all its boxes) -> avg = sum(line weights) / total boxes
+    // JFS rule v25.11-E: WEIGHT on the warehouse sheet = FULL weight of that line (all its boxes) -> avg = sum(line weights) / total boxes
     const totW = avgRows.reduce((a, r) => a + (parseFloat(r.w) || 0), 0);
     const avg = B ? ptTrunc3(totW / B) : 0;
     blocks.push(`${B} FIBREBOARD BOXES\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(avg)} kg G`);
@@ -3769,7 +3806,7 @@ function ptFillLoose(){
   const first = document.querySelector(".item");
   first.querySelector(".i_qty").value = blocks.join("\n\n");
   first.querySelector(".i_op").checked = false;
-  // JFS rule v25.11-D: loose boxes only (no W / OVER PACKED rows) -> NO overpack row, NO SC labels
+  // JFS rule v25.11-E: loose boxes only (no W / OVER PACKED rows) -> NO overpack row, NO SC labels
   document.querySelector('input[name=f_overpack][value=' + (overIdx.length ? 'Y' : 'N') + ']').checked = true;
   document.getElementById("f_opcount").value = String(overIdx.length || 1);
   document.getElementById("f_opqty").value = "";
@@ -3855,7 +3892,7 @@ function ptAutoSort(){
     rmFirst[rm] = Math.min(rmFirst[rm] ?? Infinity, pn);
     keyFirst[k] = Math.min(keyFirst[k] ?? Infinity, pn);
   });
-  // JFS rule v25.11-D: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
+  // JFS rule v25.11-E: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
   const ord = r => [rmFirst[rmOf(r)], -cnt[keyOf(r)], keyFirst[keyOf(r)], parseInt(r.plt) || 0];
   PT = PT.map((r, i) => [r, i]).sort((a, b) => {
     const x = ord(a[0]), y = ord(b[0]);
@@ -5293,7 +5330,7 @@ async function xlDownload(){
     const isNet = !lblLoose && meta.mode.mode === "NET" && meta.mode.net > 0;
     put((rowItem.un||"").replace(/^(UN|ID)/, "$1 "), 46, {center:true, h:58});
     put((rowItem.psn||"").toUpperCase(), 22, {center:true, h:30});
-    put("OVERPACK#SC" + String(i+1).padStart(2,"0") + (r && r.plt ? "   (PLT " + r.plt + ")" : ""), 26, {center:true, h:34});
+    put("OVERPACK#SC" + String(i+1).padStart(2,"0"), 26, {center:true, h:34});   // JFS v25.11-E: no PLT on labels
     put(lblLoose ? "TOTAL QUANTITY :  " + fmt1(r.w) + " kg G"
         : isNet ? "TOTAL NET QUANTITY :  " + fmtNet(meta.mode.net * r.q) + " kg"
               : "TOTAL QUANTITY :  " + fmtDot(r.sc) + " kg G", 16, {center:true, h:24});
@@ -5726,7 +5763,7 @@ function buildOpStickers(){
       ${showItems.map(r => `
         <div style="font-size:52pt; font-weight:900; margin-top:7mm; letter-spacing:2px;">${esc(r.un.replace(/^(UN|ID)/, "$1 "))}</div>
         <div style="font-size:14pt; font-weight:bold; text-transform:uppercase; margin-top:2mm;">PSN: ${esc(r.psn)}</div>`).join("")}
-      <div style="font-size:18pt; font-weight:bold; margin-top:5mm;">OVERPACK#${esc(opno)}${(usePT && rows[i] && rows[i].plt) ? `<span style="font-size:12pt; font-weight:bold; margin-left:10px;">(PLT ${esc(String(rows[i].plt))})</span>` : ""}</div>
+      <div style="font-size:18pt; font-weight:bold; margin-top:5mm;">OVERPACK#${esc(opno)}</div>
       <div style="font-size:13pt; font-weight:bold; margin-top:3mm;">${qtyLabel} : ${esc(qty || "____________")}</div>
       <div style="font-size:13pt; font-weight:bold; margin-top:6mm;">24 HOURS EMERGENCY CONTACT<br>NUMBER: ${esc(s.emergency||"____________")}</div>
       ${s.pax === "CAO" ? `<div style="font-size:14pt; font-weight:bold; margin-top:5mm; border:3px solid #000; display:inline-block; padding:2mm 6mm;">CARGO AIRCRAFT ONLY</div>` : ""}
