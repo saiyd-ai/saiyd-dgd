@@ -125,8 +125,12 @@
       inp.type = "file";
       inp.accept = "image/*";
       inp.setAttribute("capture", "environment");
+      inp.multiple = true;   /* v25.11-H: several labels / packing lists picked from the gallery */
       inp.onchange = function () {
-        var f = inp.files && inp.files[0];
+        var fl = Array.prototype.slice.call(inp.files || []);
+        if (fl.length > 1 && handlerName === "awbFromImage" && typeof window.hdReadMulti === "function") return window.hdReadMulti(fl);
+        if (fl.length > 1 && handlerName === "ptFromImage" && typeof window.ptReadMulti === "function") return window.ptReadMulti(fl);
+        var f = fl[0];
         if (f && typeof window[handlerName] === "function") window[handlerName](f);
       };
       inp.click();
