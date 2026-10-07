@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-M</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-N</span></span>
           </div>
         </div>
       </div>
@@ -412,6 +412,7 @@
       <button id="nav-alforms" onclick="showTab('alforms')">&#128745; AIRLINE FORMS</button>
       <button id="nav-awb" onclick="showTab('awb')">&#128459; AWB / MANIFEST</button>
       <button id="nav-inv" onclick="showTab('inv')">&#129534; INVOICE</button>
+      <button id="nav-aicost" onclick="showTab('aicost')" style="display:none;">&#128176; AI COST</button>
       <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
     </div>
 
@@ -1483,6 +1484,35 @@
         <table class="dtable" id="skyd_log"></table>
       </div>
     </div>
+    <div class="tab" id="tab-aicost">
+      <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fdf3e2; color:#7a4b00;">&#128176; AI COST &mdash; per job (visible only to the owner)</h2><div class="body">
+        <div id="aic_locked" style="display:none; color:#a40000; font-weight:bold;">Owner only.</div>
+        <div id="aic_main">
+          <div id="aic_cards" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px;"></div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px;">
+            <div><label>From</label><input type="date" id="aic_from" onchange="aicRender()"></div>
+            <div><label>To</label><input type="date" id="aic_to" onchange="aicRender()"></div>
+            <div><label>Staff</label><select id="aic_staff" onchange="aicRender()"><option value="">All staff</option></select></div>
+            <div style="flex:1; min-width:180px;"><label>Search job</label><input type="text" id="aic_q" placeholder="DGS-C00..." oninput="aicRender()"></div>
+            <button class="smallbtn sb-blue" onclick="aicLoad()">&#8635; Refresh</button>
+            <button class="btn btn-save" style="background:#1d6b34;" onclick="aicExcel()">&#11015; EXCEL</button>
+          </div>
+          <div style="overflow-x:auto;"><table id="aic_table" style="border-collapse:collapse; width:100%;"></table></div>
+          <div id="aic_detail" style="margin-top:12px;"></div>
+          <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:14px;">
+            <div style="flex:1; min-width:280px;"><b>Per staff</b><table id="aic_staff_t" style="border-collapse:collapse; width:100%; margin-top:6px;"></table></div>
+            <div style="flex:1; min-width:280px;"><b>Per AI feature</b><table id="aic_feat_t" style="border-collapse:collapse; width:100%; margin-top:6px;"></table></div>
+          </div>
+          <div style="margin-top:16px; padding:10px 12px; border:1px solid #ecd3a5; background:#fffaf0; border-radius:8px; font-size:12.5px;">
+            <b>RATE</b> (USD per 1 million tokens) &mdash; input <input type="number" step="0.01" id="aic_rin" style="width:80px;"> &nbsp; output <input type="number" step="0.01" id="aic_rout" style="width:80px;">
+            &nbsp; 1 USD = <input type="number" step="0.0001" id="aic_fx" style="width:80px;"> AED
+            <button class="smallbtn sb-green" onclick="aicSaveRates()">SAVE RATE</button>
+            <span style="color:#5b6b7d;"> &mdash; new AI calls use this rate; saved rows keep the rate they were logged with. Only AI use from v25.11-N onward is counted.</span>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
     <div class="tab" id="tab-settings">
       <div class="card"><h2>&#128444; DGD CORNER LOGO (top-right of the printed DGD)</h2><div class="body">
         <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:8px;">Upload the logo image that must appear on the DGD's top-right corner
@@ -2471,6 +2501,7 @@ function showTab(name){
     if(typeof JOBTYPE !== "undefined" && JOBTYPE === "GC" && v("f_awb").replace(/\D/g, "").length === 11) buildAwbLabels();
   }
   if(name === "dnata") dnataFill();
+  if(name === "aicost"){ try{ aicLoad(); }catch(e){} }
   if(name === "alforms") airlineFormFill();
   if(name === "gc"){ gcSyncFromMain(); try{ whFillCustList(); }catch(e){} }
   if(name === "awb") awbFill();
@@ -2844,6 +2875,7 @@ async function aiCall(system, userText, maxTokens){
     throw new Error("API " + resp.status + ": " + err.slice(0, 200));
   }
   const data = await resp.json();
+  try{ if(typeof aicLog === "function") aicLog(data, system); }catch(e){}   // v25.11-N: AI cost per job (owner only)
   return data.content.map(c => c.text || "").join("");
 }
 function aiJson(text){
@@ -9048,6 +9080,139 @@ function hdRefreshParties(){
     }
   }catch(e){}
   return r; }; })();
+/* ================= v25.11-N AI COST per job — every AI call logged (tokens + USD + AED), owner-only page ================= */
+const AIC_OWNER = "ms@jfslogistics.com";
+function aicRates(){
+  let r = {}; try{ r = JSON.parse(localStorage.getItem("jfs_ai_rates") || "{}"); }catch(e){}
+  return {rin: parseFloat(r.rin) || 3, rout: parseFloat(r.rout) || 15, fx: parseFloat(r.fx) || 3.6725};
+}
+async function aicPullRates(){
+  try{ if(!sb || !sbUser) return; const {data} = await sb.from("company_settings").select("value").eq("key", "ai_rates").maybeSingle();
+    if(data && data.value) localStorage.setItem("jfs_ai_rates", JSON.stringify(data.value)); }catch(e){}
+}
+function aicFeature(sys){
+  const t = String(sys || "");
+  if(/WAREHOUSE PACKING LISTS/i.test(t)) return "Packing list read";
+  if(/LABEL MODE|SHIPPING LABELS/i.test(t)) return "Label read";
+  if(/dangerous-goods documentation assistant/i.test(t)) return "AWB / document read";
+  if(/MSDS|SDS/i.test(t)) return "MSDS check";
+  if(/review/i.test(t)) return "AI review";
+  if(/track/i.test(t)) return "Tracking";
+  if(/invoice/i.test(t)) return "Invoice read";
+  if(/^Reply with exactly: OK/.test(t)) return "Connection test";
+  return "Other";
+}
+function aicLog(data, sys){
+  const u = (data && data.usage) || {}; const R = aicRates();
+  const inT = u.input_tokens || 0, outT = u.output_tokens || 0, cr = u.cache_read_input_tokens || 0, cw = u.cache_creation_input_tokens || 0;
+  const usd = (inT * R.rin + outT * R.rout + cr * R.rin * 0.1 + cw * R.rin * 1.25) / 1e6;
+  const row = {job_no: (v("f_job") || "").trim().toUpperCase() || "NO JOB", feature: aicFeature(sys), model: (data && data.model) || aiModel(),
+    input_tokens: inT, output_tokens: outT, cache_read_tokens: cr, cache_write_tokens: cw,
+    rate_in_usd: R.rin, rate_out_usd: R.rout, cost_usd: Math.round(usd * 1e6) / 1e6, cost_aed: Math.round(usd * R.fx * 1e6) / 1e6};
+  let q = []; try{ q = JSON.parse(localStorage.getItem("jfs_ai_usage_q") || "[]"); }catch(e){}
+  q.push(Object.assign({created_at: new Date().toISOString()}, row));
+  try{ localStorage.setItem("jfs_ai_usage_q", JSON.stringify(q.slice(-500))); }catch(e){}
+  aicFlush();
+}
+let _aicFlushing = false;
+async function aicFlush(){
+  if(_aicFlushing || typeof sb === "undefined" || !sb || !sbUser) return;
+  let q = []; try{ q = JSON.parse(localStorage.getItem("jfs_ai_usage_q") || "[]"); }catch(e){}
+  if(!q.length) return;
+  _aicFlushing = true;
+  try{
+    const {error} = await sb.from("ai_usage").insert(q.map(r => Object.assign({}, r, {user_id: sbUser.id, user_email: sbUser.email})));
+    if(!error) localStorage.setItem("jfs_ai_usage_q", "[]");
+  }catch(e){} finally { _aicFlushing = false; }
+}
+function aicIsOwner(){ try{ return !!(sbUser && String(sbUser.email || "").toLowerCase() === AIC_OWNER); }catch(e){ return false; } }
+function aicNav(){
+  const b = document.getElementById("nav-aicost"); if(b) b.style.display = aicIsOwner() ? "" : "none";
+  if(!aicIsOwner()){ const t = document.getElementById("tab-aicost"); if(t && t.classList.contains("on")) showTab("dash"); }
+}
+setInterval(() => { try{ aicNav(); aicFlush(); }catch(e){} }, 4000);
+let AIC_ROWS = [], _aicSel = "";
+async function aicLoad(){
+  aicNav();
+  const lock = document.getElementById("aic_locked"), main = document.getElementById("aic_main");
+  if(!aicIsOwner()){ if(lock) lock.style.display = ""; if(main) main.style.display = "none"; return; }
+  if(lock) lock.style.display = "none"; if(main) main.style.display = "";
+  await aicPullRates(); const R = aicRates();
+  document.getElementById("aic_rin").value = R.rin; document.getElementById("aic_rout").value = R.rout; document.getElementById("aic_fx").value = R.fx;
+  await aicFlush();
+  try{
+    const all = []; let from = 0;
+    while(true){
+      const {data, error} = await sb.from("ai_usage").select("*").order("created_at", {ascending: false}).range(from, from + 999);
+      if(error) throw error; all.push(...(data || [])); if(!data || data.length < 1000) break; from += 1000;
+    }
+    AIC_ROWS = all;
+  }catch(e){ document.getElementById("aic_table").innerHTML = "<tr><td style='color:#a40000;'>Could not load: " + esc(e.message || String(e)) + "</td></tr>"; return; }
+  const st = document.getElementById("aic_staff"), cur = st.value;
+  st.innerHTML = '<option value="">All staff</option>' + [...new Set(AIC_ROWS.map(r => r.user_email).filter(Boolean))].sort().map(e => `<option${e === cur ? " selected" : ""}>${esc(e)}</option>`).join("");
+  aicRender();
+}
+const aicAed = n => "AED " + (Number(n) || 0).toFixed(2);
+const aicNum = n => (Number(n) || 0).toLocaleString("en-US");
+function aicFiltered(){
+  const f = v("aic_from"), t = v("aic_to"), st = v("aic_staff"), q = (v("aic_q") || "").trim().toUpperCase();
+  return AIC_ROWS.filter(r => { const d = String(r.created_at || "").slice(0, 10);
+    return (!f || d >= f) && (!t || d <= t) && (!st || r.user_email === st) && (!q || String(r.job_no || "").toUpperCase().includes(q)); });
+}
+function aicRender(){
+  const rows = aicFiltered();
+  const sum = a => a.reduce((x, r) => ({aed: x.aed + (+r.cost_aed || 0), tok: x.tok + (r.input_tokens || 0) + (r.output_tokens || 0), n: x.n + 1}), {aed: 0, tok: 0, n: 0});
+  const today = new Date().toISOString().slice(0, 10), month = today.slice(0, 7);
+  const cT = sum(AIC_ROWS.filter(r => String(r.created_at).slice(0, 10) === today)), cM = sum(AIC_ROWS.filter(r => String(r.created_at).slice(0, 7) === month)),
+        cA = sum(AIC_ROWS), cF = sum(rows);
+  const jobs = {}; rows.forEach(r => { const k = r.job_no || "NO JOB"; (jobs[k] = jobs[k] || []).push(r); });
+  const nJobs = Object.keys(jobs).filter(k => k !== "NO JOB").length;
+  const card = (t, c, sub) => `<div style="flex:1; min-width:170px; background:#fff; border:1.5px solid #ecd3a5; border-radius:10px; padding:10px 14px;">
+      <div style="font-size:11px; font-weight:800; color:#7a4b00; letter-spacing:.4px;">${t}</div>
+      <div style="font-size:22px; font-weight:800; color:#0f2b4c;">${aicAed(c.aed)}</div>
+      <div style="font-size:11.5px; color:#5b6b7d;">${aicNum(c.tok)} tokens &bull; ${c.n} AI call(s)${sub || ""}</div></div>`;
+  document.getElementById("aic_cards").innerHTML = card("TODAY", cT) + card("THIS MONTH", cM) + card("ALL TIME", cA) +
+    card("FILTERED", cF, nJobs ? " &bull; avg " + aicAed(cF.aed / Math.max(1, nJobs)) + " / job" : "");
+  const TH = "padding:6px 8px; background:#f6efe3; border:1px solid #e3d3b5; font-size:12px; text-align:left;", TD = "padding:6px 8px; border:1px solid #eee; font-size:12.5px;";
+  const list = Object.entries(jobs).map(([k, a]) => ({k, a, s: sum(a), last: a[0].created_at, staff: [...new Set(a.map(r => r.user_email))].join(", "),
+    feats: [...new Set(a.map(r => r.feature))].join(", ")})).sort((x, y) => String(y.last).localeCompare(String(x.last)));
+  document.getElementById("aic_table").innerHTML = `<tr><th style="${TH}">JOB NO</th><th style="${TH}">LAST AI USE</th><th style="${TH}">AI CALLS</th><th style="${TH}">TOKENS</th><th style="${TH}">COST AED</th><th style="${TH}">COST USD</th><th style="${TH}">STAFF</th><th style="${TH}">FEATURES</th></tr>` +
+    (list.map(j => `<tr style="cursor:pointer;${_aicSel === j.k ? " background:#fff3d6;" : ""}" onclick="aicDetail('${esc(j.k).replace(/'/g, "")}')">
+      <td style="${TD} font-weight:bold;">${esc(j.k)}</td><td style="${TD}">${esc(new Date(j.last).toLocaleString("en-GB"))}</td><td style="${TD}">${j.s.n}</td>
+      <td style="${TD}">${aicNum(j.s.tok)}</td><td style="${TD} font-weight:bold;">${aicAed(j.s.aed)}</td><td style="${TD}">$ ${j.a.reduce((x, r) => x + (+r.cost_usd || 0), 0).toFixed(3)}</td>
+      <td style="${TD}">${esc(j.staff)}</td><td style="${TD} font-size:11.5px;">${esc(j.feats)}</td></tr>`).join("") ||
+      `<tr><td colspan="8" style="${TD} color:#5b6b7d;">No AI use recorded yet (counting starts from v25.11-N).</td></tr>`);
+  const grp = (key) => { const g = {}; rows.forEach(r => { const k = r[key] || "-"; (g[k] = g[k] || []).push(r); });
+    return Object.entries(g).map(([k, a]) => [k, sum(a)]).sort((x, y) => y[1].aed - x[1].aed)
+      .map(([k, c]) => `<tr><td style="${TD}">${esc(k)}</td><td style="${TD}">${c.n} call(s)</td><td style="${TD}">${aicNum(c.tok)}</td><td style="${TD} font-weight:bold;">${aicAed(c.aed)}</td></tr>`).join(""); };
+  document.getElementById("aic_staff_t").innerHTML = grp("user_email");
+  document.getElementById("aic_feat_t").innerHTML = grp("feature");
+  if(_aicSel) aicDetail(_aicSel, true);
+}
+function aicDetail(k, keep){
+  _aicSel = (!keep && _aicSel === k) ? "" : k;
+  const el = document.getElementById("aic_detail");
+  if(!_aicSel){ el.innerHTML = ""; return aicRender(); }
+  const TD = "padding:5px 8px; border:1px solid #eee; font-size:12px;";
+  const a = aicFiltered().filter(r => (r.job_no || "NO JOB") === _aicSel);
+  el.innerHTML = `<div style="border:1.5px solid #ecd3a5; border-radius:8px; padding:8px 12px; background:#fffaf0;"><b>${esc(_aicSel)}</b> — every AI call
+    <table style="border-collapse:collapse; width:100%; margin-top:6px;"><tr><th style="${TD}">TIME</th><th style="${TD}">FEATURE</th><th style="${TD}">STAFF</th><th style="${TD}">IN tok</th><th style="${TD}">OUT tok</th><th style="${TD}">AED</th><th style="${TD}">MODEL</th></tr>
+    ${a.map(r => `<tr><td style="${TD}">${esc(new Date(r.created_at).toLocaleString("en-GB"))}</td><td style="${TD}">${esc(r.feature)}</td><td style="${TD}">${esc(r.user_email || "")}</td>
+      <td style="${TD}">${aicNum(r.input_tokens)}</td><td style="${TD}">${aicNum(r.output_tokens)}</td><td style="${TD} font-weight:bold;">${aicAed(r.cost_aed)}</td><td style="${TD}">${esc(r.model || "")}</td></tr>`).join("")}</table></div>`;
+}
+async function aicSaveRates(){
+  const r = {rin: parseFloat(v("aic_rin")) || 3, rout: parseFloat(v("aic_rout")) || 15, fx: parseFloat(v("aic_fx")) || 3.6725};
+  localStorage.setItem("jfs_ai_rates", JSON.stringify(r));
+  try{ if(sb && sbUser) await sb.from("company_settings").upsert({key: "ai_rates", value: r, updated_by: sbUser.email}); }catch(e){}
+  alert("✓ Rate saved — new AI calls use USD " + r.rin + " / " + r.rout + " per 1M tokens, 1 USD = " + r.fx + " AED.");
+}
+async function aicExcel(){
+  await loadSheetJs();
+  const rows = aicFiltered().map(r => ({DATE: new Date(r.created_at).toLocaleString("en-GB"), JOB: r.job_no, FEATURE: r.feature, STAFF: r.user_email,
+    MODEL: r.model, INPUT_TOKENS: r.input_tokens, OUTPUT_TOKENS: r.output_tokens, COST_USD: +r.cost_usd, COST_AED: +r.cost_aed}));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "AI COST");
+  XLSX.writeFile(wb, "DGDOC_AI_COST_" + new Date().toISOString().slice(0, 10) + ".xlsx");
+}
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
