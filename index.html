@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-I</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-J</span></span>
           </div>
         </div>
       </div>
@@ -8589,6 +8589,7 @@ function hdLabelKey(cons){
   return w || hdNorm(first).slice(0, 6);
 }
 function hdMatchHouse(label){
+  if(label.no){ const j = HOUSES.list.findIndex(h => hdNorm(h.no) === hdNorm(label.no)); if(j >= 0) return j; }
   const key = hdLabelKey(label.consignee); if(!key) return -1;
   return HOUSES.list.findIndex(h => {
     const hw = hdHawb(h.no);
@@ -8598,13 +8599,25 @@ function hdMatchHouse(label){
 }
 function hdAddLabel(L){
   if(!L || !(L.shipper || L.consignee)) return;
-  const key = hdLabelKey(L.consignee);
-  const i = HOUSES.labels.findIndex(x => hdLabelKey(x.consignee) === key);
-  if(i >= 0) HOUSES.labels[i] = L; else HOUSES.labels.push(L);
+  const full = hdNorm(L.consignee);
+  const i = full ? HOUSES.labels.findIndex(x => hdNorm(x.consignee) === full) : -1;   // same label twice = one label
+  if(i >= 0){ L.no = L.no || HOUSES.labels[i].no; HOUSES.labels[i] = L; } else HOUSES.labels.push(L);
 }
+/* manual: tell the app which house a label belongs to */
+function hdAssignLabel(k){
+  const L = HOUSES.labels[k]; if(!L) return;
+  const opts = HOUSES.list.map(h => h.no);
+  if(!opts.length){ alert("Attach the packing list (HAWB column) first — then labels can be given to a house."); return; }
+  const h = (prompt("Which HOUSE AWB is this label for?\n\n" + ((L.consignee || "").split("\n")[0] || "(consignee not read)") + "\n\nHouses: " + opts.join(", "), L.no || opts[0]) || "").trim().toUpperCase();
+  if(!h) return;
+  if(!opts.some(o => hdNorm(o) === hdNorm(h))){ alert("No house " + h + " in this job."); return; }
+  hdStore(); L.no = h; hdApplyLabels(); hdLoad(Math.max(0, HOUSES.ix), true); hdAttachRender();
+}
+function hdRemoveLabel(k){ HOUSES.labels.splice(k, 1); hdAttachRender(); if(typeof autosaveCurrent === "function") autosaveCurrent(); }
 function hdApplyLabels(){
   let n = 0;
   HOUSES.labels.forEach(L => {
+    if(!String(L.consignee || "").trim()) return;            // unreadable label never overwrites a house
     const i = hdMatchHouse(L); if(i < 0) return;
     const f = HOUSES.list[i].f = HOUSES.list[i].f || {};
     f.shipper = L.shipper || f.shipper; f.consignee = L.consignee || f.consignee; f.labelsc = true; n++;
@@ -8615,9 +8628,16 @@ async function hdReadLabel(file){
   const b64 = await imgFileToB64(file, 2200);
   const sys = `You read SHIPPING LABELS for dangerous-goods declarations. Copy the SHIPPER and CONSIGNEE blocks EXACTLY as printed on the label — same words, same spelling, same abbreviations, same line breaks, same punctuation. Do NOT expand country names or codes, do NOT add, reorder or correct anything. Do not include the headings "SHIPPER:" / "CONSIGNEE:".
 Respond ONLY JSON: {"shipper":"multi-line text","consignee":"multi-line text","hawb":"house AWB number if printed on the label, else empty"}`;
-  const content = [{type: "image", source: {type: "base64", media_type: "image/jpeg", data: b64}}, {type: "text", text: "Shipping label photo"}];
-  const j = aiJson(await aiCall(sys, content, 1200));
-  return {shipper: String(j.shipper || "").trim(), consignee: String(j.consignee || "").trim(), no: String(j.hawb || "").trim().toUpperCase()};
+  const img = {type: "image", source: {type: "base64", media_type: "image/jpeg", data: b64}};
+  // v25.11-J: same proven LABEL MODE prompt as the single-label reader; focused prompt only as a fallback
+  const labelMode = "\nLABEL MODE (overrides the formatting rules above for shipper and consignee): copy the SHIPPER and CONSIGNEE blocks EXACTLY as printed on the label — same words, same spelling, same abbreviations, same line breaks, same punctuation. Keep e.g. 'DUBAI, UAE' exactly; do NOT expand country codes or names, do NOT add or reorder TEL lines, do NOT correct anything.";
+  let j = {};
+  try{ j = aiJson(await aiCall(AI_EXTRACT_SYSTEM + labelMode, [img, {type: "text", text: "Document (Shipping LABEL photo — copy the SHIPPER and CONSIGNEE blocks EXACTLY as printed on the label, character by character)"}], 2500)) || {}; }catch(e){ j = {}; }
+  if(!String(j.consignee || "").trim()){
+    try{ j = aiJson(await aiCall(sys, [img, {type: "text", text: "Shipping label photo"}], 1200)) || {}; }catch(e){}
+  }
+  const strip = t => String(t || "").replace(/^\s*(SHIPPER|CONSIGNEE)\s*:?\s*\n?/i, "").trim();
+  return {shipper: strip(j.shipper), consignee: strip(j.consignee), no: String(j.hawb || "").trim().toUpperCase()};
 }
 async function hdLabelIntoHouse(file, msgId){
   const msg = document.getElementById(msgId || "awbpdfmsg");
@@ -8940,7 +8960,10 @@ function hdAttachRender(){
       ${labs.length ? `<button class="smallbtn sb-red" style="margin-left:8px; padding:2px 8px;" onclick="hdClearLabels()">clear labels</button>` : ""}</div>
     <div>${awb ? chip("MAWB " + esc(awb), true) : chip("no master AWB", false)}
       ${hw.map(h => chip("HAWB " + esc(h.no) + (h.pcs ? " · " + esc(h.pcs) + " pcs" : "") + (h.wt ? " · " + esc(h.wt) + " kg" : ""), true)).join("")}</div>
-    <div>${labs.map(L => { const m = matched(L); return chip("&#127991; " + esc((L.consignee || "").split("\n")[0] || "label") + (m ? " → " + esc(m) : HOUSES.list.length ? " → no house match" : ""), !HOUSES.list.length || !!m); }).join("") || chip("no label yet", false)}</div>
+    <div>${labs.map((L, k) => { const m = matched(L); const nm = (L.consignee || "").split("\n")[0];
+        return `<span style="cursor:pointer;" title="click = choose the house for this label" onclick="hdAssignLabel(${k})">` +
+          chip("&#127991; " + (nm ? esc(nm) : "<span style='color:#a40000;'>consignee not read — re-paste this label</span>") + (m ? " → " + esc(m) : HOUSES.list.length ? " → click to choose house" : ""), (!HOUSES.list.length && !!nm) || !!m) +
+          `</span><span style="cursor:pointer; color:#a40000; font-weight:bold; margin:0 8px 0 -4px;" title="remove this label" onclick="hdRemoveLabel(${k})">&#10006;</span>`; }).join("") || chip("no label yet", false)}</div>
     <div>${plts ? chip("&#128230; " + plts + " PLT" + (plName ? " — " + esc(plName) : ""), true) : chip("no packing list yet", false)}</div>
     ${warn}</div>`;
 }
