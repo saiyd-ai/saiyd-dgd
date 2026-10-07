@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-N</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-P</span></span>
           </div>
         </div>
       </div>
@@ -1994,7 +1994,7 @@ function goodsRowsArr(split, qfs){
       prev.op = prev.op || r.op;
     } else rows.push({...r, psn: base});
   });
-  const QFS = qfs || 8.5;                                // quantity font — shrinks to fit one page
+  const QFS = qfs || 7.5;                                // quantity font — shrinks to fit one page
   const arr = [];
   const n = parseInt(v("f_opcount")) || 1;
   const oq = v("f_opqty");
@@ -2012,7 +2012,7 @@ function goodsRowsArr(split, qfs){
       chunks = [];
       let cur = [], lines = 0;
       paras.forEach(p => {
-        const pl = p.split("\n").length + 1;
+        const pl = p.split("\n").length + 2;   // v25.11-O: one block per row so every gap is the same
         if(lines + pl > split && cur.length){ chunks.push(cur.join("\n\n")); cur = []; lines = 0; }
         cur.push(p); lines += pl;
       });
@@ -2030,7 +2030,7 @@ function goodsRowsArr(split, qfs){
     <td style="text-transform:uppercase; font-weight:bold; ${S}">${withId ? esc(r.psn) : ""}</td>
     <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.cls) + (r.sub ? " " + esc(r.sub) : "") : ""}</td>
     <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.pg) : ""}</td>
-    <td style="white-space:pre-wrap; font-size:${QFS}pt; font-weight:bold; line-height:var(--dgd-qlh,1.08); padding-top:0.7mm; padding-bottom:0.5mm; ${S}">${nbUnit(esc(chunk))}</td>
+    <td style="white-space:pre-wrap; font-size:${QFS}pt; font-weight:bold; line-height:var(--dgd-qlh,1.45); padding-top:${withId ? "0.7mm" : "var(--dgd-qgap,2.6mm)"}; padding-bottom:0.5mm; ${S}">${nbUnit(esc(chunk))}</td>
     <td class="center" style="font-weight:bold; ${S}">${withId ? esc(r.pi) : ""}</td>
     <td class="center" style="${S}">${withId ? esc(r.auth) : ""}</td></tr>`;
       };
@@ -2723,10 +2723,10 @@ function buildPrintPages(){
   sheet.style.display = "";                              // sheet MUST be visible BEFORE measuring — hidden = width 0!
   sheet.style.minHeight = "0";                           // measure REAL content height, not the A4 preview minimum
   const pxMM = sheet.offsetWidth / 210;                  // true px-per-mm scale of the preview
-  const PAGE = Math.floor(281 * pxMM);                   // content budget: 297mm A4 − 12mm sheet padding − 4mm safety
+  const PAGE = Math.floor(289 * pxMM);                   // v25.11-P: goods box runs to the page bottom (form ends ~6mm above the A4 edge)
   // try to fit EVERYTHING on ONE page — shrink the quantity font step by step (8.5 → 6.5pt) before
   // giving up and flowing to a second page (JFS rule: one page whenever possible)
-  let fs = 8.5, arr, rowH, cap, totalH;
+  let fs = 7.5, arr, rowH, cap, totalH;   // JFS rule v25.11-P: quantity 7.5pt with airy spacing (like the manual DGD)
   const done = ret => { sheet.style.minHeight = mhBak; _pvSync(); return ret; };
   const measure = f => {
     arr = goodsRowsArr(8, f);
@@ -2735,18 +2735,23 @@ function buildPrintPages(){
     cap = PAGE - (sheet.offsetHeight - tbody.offsetHeight);   // page budget − header/footer/table head
     totalH = rowH.reduce((a, b) => a + b, 0);
   };
-  // JFS rule v25.11-M: fixed font size (8.5pt) — only the LINE SPACING tightens, so every page carries
+  // JFS rule v25.11-P: fixed quantity font 7.5pt — only the LINE SPACING tightens, so every page carries
   // at least 3 quantity blocks (DGD lines), maximum 4 per page, like the manual JFS DGD
   const MINB = 3, MAXB = 4;
   const pagesFor = () => { const out = []; let c = 0, u = 0;
     rowH.forEach(h => { if((u + h > cap || c >= MAXB) && c){ out.push(c); c = 0; u = 0; } c++; u += h; });
     if(c) out.push(c); return out; };
-  for(const lh of [1.08, 1.0, 0.93]){
-    sheet.style.setProperty("--dgd-qlh", String(lh));
-    measure(fs);
-    const pp = pagesFor();
-    if(totalH + Math.ceil(6 * pxMM) <= cap || pp.slice(0, -1).every(n => n >= MINB)) break;
+  // v25.11-P: the most airy spacing that gives 4 blocks on every full page; else the most airy that gives 3
+  const OPTS = [[1.45, 2.8], [1.35, 2.4], [1.25, 2.0], [1.15, 1.6], [1.05, 1.3]];
+  const tryOpt = ([lh, gap]) => { sheet.style.setProperty("--dgd-qlh", String(lh)); sheet.style.setProperty("--dgd-qgap", gap + "mm"); measure(fs); return pagesFor(); };
+  let pick = null, pick3 = null;
+  for(const o of OPTS){
+    const pp = tryOpt(o);
+    const one = totalH + Math.ceil(6 * pxMM) <= cap, full = pp.slice(0, -1);
+    if(one || full.every(n => n >= MAXB)){ pick = o; break; }
+    if(!pick3 && full.every(n => n >= MINB)) pick3 = o;
   }
+  tryOpt(pick || pick3 || OPTS[OPTS.length - 1]);
   if(totalH + Math.ceil(6 * pxMM) <= cap){
     document.getElementById("f_page").value = "1 of 1";
     refresh();                                           // header fields (page no etc.) up to date
