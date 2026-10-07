@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-K</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-L</span></span>
           </div>
         </div>
       </div>
@@ -8646,6 +8646,7 @@ async function hdLabelIntoHouse(file, msgId){
   msg.textContent = "🤖 AI reading the label for the HOUSE DGDs...";
   try{
     const L = await hdReadLabel(file);
+    if(!L.consignee){ msg.innerHTML = "<b style='color:#a40000;'>&#9888; AI could not read the CONSIGNEE on this label — paste a clearer / closer photo of the label.</b>"; return; }
     hdStore();
     hdAddLabel(L);
     let i = hdMatchHouse(L);
@@ -9007,6 +9008,35 @@ function hdPtHouseBar(){
 }
 (function(){ const r0 = ptRender; ptRender = function(){ const r = r0.apply(this, arguments); try{ hdPtHouseBar(); }catch(e){} return r; }; })();
 (function(){ const r0 = hdRenderBar; hdRenderBar = function(){ const r = r0.apply(this, arguments); try{ hdPtHouseBar(); }catch(e){} return r; }; })();
+/* ================= v25.11-L every house gets its shipper / consignee ================= */
+/* fallback from the HOUSE AWB when no label is matched yet (label always wins), then labels re-applied */
+function hdFillFromHawbs(){
+  let n = 0;
+  HOUSES.list.forEach(h => {
+    const f = h.f = h.f || {}; if(f.labelsc) return;
+    const hw = hdHawb(h.no); if(!hw) return;
+    if(!String(f.shipper || "").trim() && hw.shipper){ f.shipper = hw.shipper; n++; }
+    if(!String(f.consignee || "").trim() && hw.consignee){ f.consignee = hw.consignee; n++; }
+  });
+  return n;
+}
+function hdRefreshParties(){
+  if(!HOUSES.list.length) return;
+  hdStore(); hdFillFromHawbs(); hdApplyLabels(); hdLoad(Math.max(0, HOUSES.ix), true);
+}
+(function(){ const r0 = hdReadMulti; hdReadMulti = async function(){ const r = await r0.apply(this, arguments); try{ hdRefreshParties(); hdAttachRender(); }catch(e){} return r; }; })();
+(function(){ const r0 = hdBuild; hdBuild = function(){ const r = r0.apply(this, arguments); try{ hdRefreshParties(); }catch(e){} return r; }; })();
+/* house bar: red flag when a house still has no shipper / consignee */
+(function(){ const r0 = hdRenderBar; hdRenderBar = function(){ const r = r0.apply(this, arguments);
+  try{
+    const bar = document.getElementById("hd_bar"); if(!bar || !HOUSES.list.length) return r;
+    const empty = HOUSES.list.filter(h => !String((h.f || {}).shipper || "").trim() || !String((h.f || {}).consignee || "").trim()).map(h => h.no);
+    if(empty.length){
+      const body = bar.querySelector(".body");
+      if(body) body.insertAdjacentHTML("afterbegin", `<div style="border:1.5px solid #a40000; background:#fdecec; color:#a40000; border-radius:8px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; font-weight:bold;">&#9888; NO SHIPPER / CONSIGNEE yet for: ${empty.map(esc).join(", ")} — add that house's LABEL photo (or its house AWB). Labels go to the house by consignee name; click a label chip to choose the house.</div>`);
+    }
+  }catch(e){}
+  return r; }; })();
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
