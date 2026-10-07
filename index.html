@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-H</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-I</span></span>
           </div>
         </div>
       </div>
@@ -733,8 +733,13 @@
       </div>
       <div id="awb_photobox" tabindex="0" style="border:2px dashed #7b2d8b; border-radius:10px; padding:14px; text-align:center;
            color:#7b2d8b; font-weight:bold; font-size:13px; cursor:pointer; margin-bottom:10px; background:#faf5fc;">
-        &#128247; NO AWB? PASTE (Ctrl+V) or DRAG the SHIPPING LABEL photo HERE &mdash; AI fills SHIPPER &amp; CONSIGNEE from the label
+        &#128247; PASTE (Ctrl+V) or DRAG the SHIPPING LABEL photo(s) HERE &mdash; several labels allowed (one per house) &mdash; AI fills SHIPPER &amp; CONSIGNEE from each label
       </div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:-4px 0 10px;">
+        <button class="smallbtn sb-blue" onclick="document.getElementById('hd_lblfiles').click()">&#128247; + ADD LABEL PHOTOS (several)</button>
+        <input type="file" id="hd_lblfiles" accept="image/*" multiple style="display:none;" onchange="if(this.files.length) hdReadMulti([...this.files]); this.value='';">
+      </div>
+      <div id="hd_attach" style="display:none; margin-bottom:10px;"></div>
       <label>...or paste the Air Waybill copy text, booking e-mail, or shipment details (any format)</label>
       <textarea id="f_auto" style="min-height:110px;" placeholder="Example:&#10;AWB: 176-12345675&#10;Shipper: ABC Trading LLC, Dubai, UAE, Tel +971...&#10;Consignee: XYZ Ltd, Cochin, India&#10;From: DUBAI (DXB)  To: COCHIN (COK)&#10;UN1263 Paint, PG III, PI 355, 2 fibreboard boxes x 4.5 L, CAO"></textarea>
       <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
@@ -3482,6 +3487,8 @@ async function awbFromImage(file, msgId){
     const j = await aiExtractShipment("", "Shipping LABEL photo — copy the SHIPPER and CONSIGNEE blocks EXACTLY as printed on the label, character by character (these go on the DGD verbatim), plus AWB number / route / UN items when visible", [b64]);
     window._fromLabel = false;
     if(j.shipper || j.consignee) window._labelSC = true;   // lock: later AWB extractions keep the label's shipper/consignee
+    if((j.shipper || j.consignee) && typeof hdAddLabel === "function"){   // v25.11-I: every label is kept (one per house)
+      hdAddLabel({shipper: v("f_shipper"), consignee: v("f_consignee"), no: ""}); if(typeof hdAttachRender === "function") hdAttachRender(); }
     const got = [j.shipper && "Shipper", j.consignee && "Consignee", j.awb && "AWB", (j.dep || j.dest) && "Route", (j.items||[]).length ? (j.items.length + " item(s)") : ""].filter(Boolean).join(", ");
     msg.textContent = "✓ AI filled from the label: " + (got || "nothing found") + " — CHECK every field!";
     if(box) box.innerHTML = "&#10003; " + (got || "Nothing readable") + (window._labelSC ? " &mdash; <b style='color:#1d6b34;'>SHIPPER &amp; CONSIGNEE LOCKED from this label</b> (AWB reads won't change them)." : "");
@@ -4223,17 +4230,19 @@ document.addEventListener("DOMContentLoaded", () => {
   if(abox){
     abox.addEventListener("paste", e => {
       const items = (e.clipboardData || {}).items || [];
-      for(const it of items){
-        if(it.type && it.type.startsWith("image/")){ e.preventDefault(); awbFromImage(it.getAsFile()); return; }
-      }
+      const imgs = [...items].filter(it => it.type && it.type.startsWith("image/")).map(it => it.getAsFile()).filter(Boolean);
+      if(imgs.length){ e.preventDefault(); if(imgs.length > 1 && typeof hdReadMulti === "function") hdReadMulti(imgs); else awbFromImage(imgs[0]); return; }
       abox.innerHTML = "No image in the clipboard — copy the label photo first, then Ctrl+V here.";
     });
     abox.addEventListener("dragover", e => { e.preventDefault(); abox.style.background = "#f0dff7"; });
     abox.addEventListener("dragleave", () => { abox.style.background = "#faf5fc"; });
     abox.addEventListener("drop", e => {
       e.preventDefault(); abox.style.background = "#faf5fc";
-      const f = [...((e.dataTransfer || {}).files || [])].find(x => (x.type || "").startsWith("image/"));
-      if(f) awbFromImage(f);
+      const all = [...((e.dataTransfer || {}).files || [])];
+      const imgs = all.filter(x => (x.type || "").startsWith("image/"));
+      const f = imgs[0];
+      if(all.length > 1 && typeof hdReadMulti === "function") hdReadMulti(all);   // v25.11-I: several labels / AWBs dropped together
+      else if(f) awbFromImage(f);
       else abox.innerHTML = "That file is not a photo — drop a label IMAGE (JPG/PNG), or attach a PDF above.";
     });
     abox.addEventListener("click", () => abox.focus());
@@ -8687,6 +8696,7 @@ function hdCheck(h){
   return {ok: okP && okW, txt: plts + " PLT • " + ctns + " ctns • " + wt + " kg  |  AWB " + (pcs || "?") + " pcs • " + (awt || "?") + " kg"};
 }
 function hdRenderBar(){
+  try{ hdAttachRender(); }catch(e){}
   const bar = document.getElementById("hd_bar"); if(!bar) return;
   if(!HOUSES.list.length){ bar.style.display = "none"; bar.innerHTML = ""; return; }
   let off = 0;
@@ -8769,7 +8779,7 @@ const _hdSnap0 = snapshot;
 snapshot = function(){
   if(HOUSES.ix >= 0) hdStore();
   const s = _hdSnap0();
-  if(HOUSES.list.length) s.houses = JSON.parse(JSON.stringify(HOUSES));
+  if(HOUSES.list.length || HOUSES.labels.length) s.houses = JSON.parse(JSON.stringify(HOUSES));
   return s;
 };
 const _hdApply0 = applySnapshot;
@@ -8781,7 +8791,7 @@ applySnapshot = function(s){
   if(hs && Array.isArray(hs.list) && hs.list.length){
     HOUSES = {list: hs.list, ix: -1, labels: Array.isArray(hs.labels) ? hs.labels : []};
     hdLoad(Math.max(0, Math.min(parseInt(hs.ix) || 0, hs.list.length - 1)), true);
-  } else hdRenderBar();
+  } else { if(hs && Array.isArray(hs.labels)) HOUSES.labels = hs.labels; hdRenderBar(); }
   return r;
 };
 /* ================= v25.11-H DGD LINES MIN–MAX averaging + multiple packing lists ================= */
@@ -8909,6 +8919,50 @@ applySnapshot = function(s){
   if(a) a.value = L.mn; if(b) b.value = L.mx;
   return _hApply0(s);
 };
+/* ================= v25.11-I ATTACHED summary (AWBs / labels / packing lists) under the label box ================= */
+function hdAttachRender(){
+  const el = document.getElementById("hd_attach"); if(!el) return;
+  const hw = (typeof HAWBS !== "undefined" ? HAWBS : []);
+  const labs = HOUSES.labels || [];
+  const awb = v("f_awb");
+  const plts = HOUSES.list.length ? HOUSES.list.reduce((a, h) => a + (h.rows || []).length, 0) : (PT || []).length;
+  const plName = (typeof PL !== "undefined" && PL && PL.name) ? PL.name : "";
+  if(!awb && !hw.length && !labs.length && !plts){ el.style.display = "none"; el.innerHTML = ""; return; }
+  const matched = L => { const i = hdMatchHouse(L); return i >= 0 ? HOUSES.list[i].no : ""; };
+  const chip = (t, ok) => `<span style="display:inline-block; margin:2px 6px 2px 0; padding:3px 9px; border-radius:12px; font-size:11.5px; font-weight:bold; background:${ok ? "#e7f0e9" : "#fdf3e2"}; color:${ok ? "#1d6b34" : "#7a4b00"}; border:1px solid ${ok ? "#b9d8c1" : "#ecd3a5"};">${t}</span>`;
+  const consKeys = new Set(labs.map(L => hdLabelKey(L.consignee)));
+  const warn = (!HOUSES.list.length && consKeys.size > 1)
+    ? `<div style="color:#a40000; font-size:12px; font-weight:bold; margin-top:4px;">&#9888; ${consKeys.size} different consignees — attach the packing list with the HAWB column (or one list per house) to make one DGD per house.</div>` : "";
+  el.style.display = "";
+  el.innerHTML = `<div style="border:1.5px solid #c9a0d4; background:#fff; border-radius:8px; padding:8px 12px;">
+    <div style="font-size:12.5px; font-weight:800; color:#7b2d8b; margin-bottom:4px;">&#128206; ATTACHED FOR THIS JOB:
+      ${awb ? 1 : 0} MASTER AWB &bull; ${hw.length} HOUSE AWB(s) &bull; ${labs.length} LABEL(s) &bull; ${plts} PALLET(s)${HOUSES.list.length ? " in " + HOUSES.list.length + " house(s)" : ""}
+      ${labs.length ? `<button class="smallbtn sb-red" style="margin-left:8px; padding:2px 8px;" onclick="hdClearLabels()">clear labels</button>` : ""}</div>
+    <div>${awb ? chip("MAWB " + esc(awb), true) : chip("no master AWB", false)}
+      ${hw.map(h => chip("HAWB " + esc(h.no) + (h.pcs ? " · " + esc(h.pcs) + " pcs" : "") + (h.wt ? " · " + esc(h.wt) + " kg" : ""), true)).join("")}</div>
+    <div>${labs.map(L => { const m = matched(L); return chip("&#127991; " + esc((L.consignee || "").split("\n")[0] || "label") + (m ? " → " + esc(m) : HOUSES.list.length ? " → no house match" : ""), !HOUSES.list.length || !!m); }).join("") || chip("no label yet", false)}</div>
+    <div>${plts ? chip("&#128230; " + plts + " PLT" + (plName ? " — " + esc(plName) : ""), true) : chip("no packing list yet", false)}</div>
+    ${warn}</div>`;
+}
+function hdClearLabels(){
+  if(!confirm("Remove all " + HOUSES.labels.length + " stored label(s) of this job?")) return;
+  HOUSES.labels = []; hdAttachRender(); if(typeof autosaveCurrent === "function") autosaveCurrent();
+}
+(function(){ const r0 = hdReadMulti; hdReadMulti = async function(){
+  const r = await r0.apply(this, arguments);
+  // one consignee only and no houses → that label fills this DGD (verbatim) and locks shipper/consignee
+  try{
+    const keys = new Set(HOUSES.labels.map(L => hdLabelKey(L.consignee)));
+    if(!HOUSES.list.length && keys.size === 1){ const L = HOUSES.labels[HOUSES.labels.length - 1];
+      if(L.shipper) document.getElementById("f_shipper").value = L.shipper;
+      if(L.consignee) document.getElementById("f_consignee").value = L.consignee;
+      window._labelSC = true; refresh(); }
+    hdAttachRender();
+  }catch(e){}
+  return r; }; })();
+(function(){ const r0 = hdLabelIntoHouse; hdLabelIntoHouse = async function(){ const r = await r0.apply(this, arguments); try{ hdAttachRender(); }catch(e){} return r; }; })();
+(function(){ const r0 = hbRender; hbRender = function(){ const r = r0.apply(this, arguments); try{ hdAttachRender(); }catch(e){} return r; }; })();
+document.addEventListener("DOMContentLoaded", () => { try{ hdAttachRender(); }catch(e){} });
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
