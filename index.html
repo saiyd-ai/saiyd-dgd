@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-E</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-F</span></span>
           </div>
         </div>
       </div>
@@ -1727,7 +1727,7 @@ let itemCount = 0;
 
 function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-/* JFS v25.11-E: quick item selection — default ID8000 */
+/* JFS v25.11-F: quick item selection — default ID8000 */
 const DG_QUICK = [
   ["ID8000","ID8000 — CONSUMER COMMODITY (perfume / cosmetics) — Y963"],
   ["UN1266","UN1266 — PERFUMERY PRODUCTS (Class 3)"],
@@ -2380,7 +2380,7 @@ function autoFill(){
   // Items: every UN number found (+ ID8000 consumer commodity)
   const unMatches = [...raw.matchAll(/\bUN[\s.\-:]{0,3}(\d{4})\b/gi)];
   if(/\bID[\s.\-:]{0,3}8000\b/i.test(raw)) unMatches.push({1:"ID8000_SPECIAL"});
-  // JFS rule v25.11-E: AWB text extraction NEVER touches the DG items
+  // JFS rule v25.11-F: AWB text extraction NEVER touches the DG items
   if(false && unMatches.length){
     document.getElementById("items").innerHTML = "";
     const seen = new Set();
@@ -2692,11 +2692,11 @@ function buildPrintPages(){
     cap = PAGE - (sheet.offsetHeight - tbody.offsetHeight);   // page budget − header/footer/table head
     totalH = rowH.reduce((a, b) => a + b, 0);
   };
-  measure(fs);   // JFS rule v25.11-E: fixed standard font size — never shrink; too many lines flow to page 2
+  measure(fs);   // JFS rule v25.11-F: fixed standard font size — never shrink; too many lines flow to page 2
   if(totalH + Math.ceil(6 * pxMM) <= cap){
     document.getElementById("f_page").value = "1 of 1";
     refresh();                                           // header fields (page no etc.) up to date
-    // JFS rule v25.11-E: ALWAYS print a fixed A4 page (210 x 297 mm) — goods box stretches, footer sits at the page bottom
+    // JFS rule v25.11-F: ALWAYS print a fixed A4 page (210 x 297 mm) — goods box stretches, footer sits at the page bottom
     // fits only with the smaller font → print a one-page clone carrying that font
     const pz = document.getElementById("printzone");
     pz.innerHTML = "";
@@ -2948,7 +2948,7 @@ async function aiExtractShipment(text, label, imgs){
     if(j.opcount) document.getElementById("f_opcount").value = String(j.opcount);
     if(j.opqty) document.getElementById("f_opqty").value = j.opqty;
   }
-  // JFS rule v25.11-E: AWB / label extraction NEVER touches the DG items — item stays as selected (default ID8000)
+  // JFS rule v25.11-F: AWB / label extraction NEVER touches the DG items — item stays as selected (default ID8000)
   if(false && Array.isArray(j.items) && j.items.length){
     document.getElementById("items").innerHTML = "";
     j.items.forEach(it => {
@@ -3260,7 +3260,7 @@ Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":
 "awb":"AWB number from the header, else empty","job":"JOB NO from the header (e.g. DGS-C00402), else empty","org":"origin airport code from the route, else empty","dest":"destination airport code, else empty"}
 "weight" = GROSS weight of that pallet in kg (number). "qty" = cartons on that pallet (integer). "dims" = dimensions text.
 IMPORTANT — REMARKS: the REMARK column often uses MERGED cells: one remark (e.g. "AIR FRESHNER" or "PERFUME id8000") covers a GROUP of consecutive pallets. Assign the correct remark to EVERY pallet in its group. Different remarks = different DG items.
-LOOSE CARTON lists: when the list has columns like "Qty (Boxes)" and "Box Weight" with remarks "OVER PACKED" / "AVERAGE WT", each row is CARTONS not pallets: weight = the BOX weight per carton (kg), qty = the number of boxes in that row, remark = the exact text ("OVER PACKED" or "AVERAGE WT"). Keep every OVER PACKED row separate (qty 1 each), in order.
+PALLET / LOOSE / WRAP column (JFS warehouse sheet, values P / L / W): L = loose box -> "remark":"AVERAGE WT"; W = boxes wrapped together -> "remark":"OVER PACKED"; P or empty = pallet (remark from the REMARK column). For L and W rows "weight" = the FULL weight written on that line (all its boxes) — copy it exactly, never divide, never subtract a tare. LOOSE CARTON lists: when the list has columns like "Qty (Boxes)" and "Box Weight" with remarks "OVER PACKED" / "AVERAGE WT", each row is CARTONS not pallets: weight = the FULL weight of that row (if the sheet gives a per-box weight, multiply by the number of boxes), qty = the number of boxes in that row, remark = the exact text ("OVER PACKED" or "AVERAGE WT"). Keep every OVER PACKED row separate (qty 1 each), in order.
 Sanity-check unclear digits (pallet usually 50–999 kg, qty 1–60). Keep the printed order. NEVER invent pallets.
 OUTPUT EVERY SINGLE ROW — long lists can have 40+ rows and ALL of them must be in the JSON, never stop early or summarise.`;
   const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
@@ -3694,7 +3694,7 @@ function fmtDot(x){
   const n = typeof x === "number" ? x : (parseFloat(x) || 0);
   const s = n.toFixed(3);
   // JFS rule: whole numbers print a single zero (615 . 0), otherwise 3 decimals (580 . 944)
-  // JFS rule v25.11-E: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
+  // JFS rule v25.11-F: drop trailing zeros, keep at least one decimal (318.990 -> 318 . 99, 10.250 -> 10 . 25, 615.000 -> 615 . 0, 580.944 stays)
   const s2 = s.replace(/0+$/, "");
   return (s2.endsWith(".") ? s2 + "0" : s2).replace(".", " . ");
 }
@@ -3797,7 +3797,7 @@ function ptFillLoose(){
   // plain loose cartons — average gross block, NO overpack lines
   if(avgRows.length){
     const B = avgRows.reduce((a, r) => a + (parseInt(r.q) || 1), 0);
-    // JFS rule v25.11-E: WEIGHT on the warehouse sheet = FULL weight of that line (all its boxes) -> avg = sum(line weights) / total boxes
+    // JFS rule v25.11-F: WEIGHT on the warehouse sheet = FULL weight of that line (all its boxes) -> avg = sum(line weights) / total boxes
     const totW = avgRows.reduce((a, r) => a + (parseFloat(r.w) || 0), 0);
     const avg = B ? ptTrunc3(totW / B) : 0;
     blocks.push(`${B} FIBREBOARD BOXES\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(avg)} kg G`);
@@ -3806,7 +3806,7 @@ function ptFillLoose(){
   const first = document.querySelector(".item");
   first.querySelector(".i_qty").value = blocks.join("\n\n");
   first.querySelector(".i_op").checked = false;
-  // JFS rule v25.11-E: loose boxes only (no W / OVER PACKED rows) -> NO overpack row, NO SC labels
+  // JFS rule v25.11-F: loose boxes only (no W / OVER PACKED rows) -> NO overpack row, NO SC labels
   document.querySelector('input[name=f_overpack][value=' + (overIdx.length ? 'Y' : 'N') + ']').checked = true;
   document.getElementById("f_opcount").value = String(overIdx.length || 1);
   document.getElementById("f_opqty").value = "";
@@ -3892,7 +3892,7 @@ function ptAutoSort(){
     rmFirst[rm] = Math.min(rmFirst[rm] ?? Infinity, pn);
     keyFirst[k] = Math.min(keyFirst[k] ?? Infinity, pn);
   });
-  // JFS rule v25.11-E: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
+  // JFS rule v25.11-F: most pallets first; SAME count (e.g. all single pallets) -> warehouse PLT order, NOT weight
   const ord = r => [rmFirst[rmOf(r)], -cnt[keyOf(r)], keyFirst[keyOf(r)], parseInt(r.plt) || 0];
   PT = PT.map((r, i) => [r, i]).sort((a, b) => {
     const x = ord(a[0]), y = ord(b[0]);
@@ -4892,7 +4892,7 @@ Extract every pallet row into clean columns, AND the HEADER details when present
 Respond ONLY JSON: {"pallets":[{"plt":1,"weight":387,"dims":"120*100*135","qty":15,"remark":""}],"tare":pallet tare kg if written else null,
 "awb":"AWB number from the header, else empty","job":"JOB NO from the header (e.g. DGS-C00402), else empty","org":"origin airport code from the route, else empty","dest":"destination airport code, else empty"}
 "weight" = GROSS weight of that pallet in kg (number). "qty" = number of cartons on that pallet (integer). "dims" = dimensions text like 120*100*135. "remark" = the REMARK column text for that row (MERGED cells cover a group of rows — repeat the remark on every row of its group), else "".
-LOOSE CARTON lists: when the list has columns like "Qty (Boxes)" and "Box Weight" with remarks "OVER PACKED" / "AVERAGE WT", each row is CARTONS not pallets: weight = the BOX weight per carton (kg), qty = the boxes in that row, remark = the exact text ("OVER PACKED" or "AVERAGE WT"). Keep every OVER PACKED row separate, in order.
+PALLET / LOOSE / WRAP column (JFS warehouse sheet, values P / L / W): L = loose box -> "remark":"AVERAGE WT"; W = boxes wrapped together -> "remark":"OVER PACKED"; P or empty = pallet (remark from the REMARK column). For L and W rows "weight" = the FULL weight written on that line (all its boxes) — copy it exactly, never divide, never subtract a tare. LOOSE CARTON lists: when the list has columns like "Qty (Boxes)" and "Box Weight" with remarks "OVER PACKED" / "AVERAGE WT", each row is CARTONS not pallets: weight = the FULL weight of that row (if the sheet gives a per-box weight, multiply by the number of boxes), qty = the boxes in that row, remark = the exact text ("OVER PACKED" or "AVERAGE WT"). Keep every OVER PACKED row separate, in order.
 Sanity-check unclear digits from context: a loaded pallet is usually 50–999 kg, qty usually 1–60 cartons, dims in cm. Keep the written order. NEVER invent pallets that are not on the paper.
 OUTPUT EVERY SINGLE ROW — long lists can have 40+ rows and ALL of them must be in the JSON, never stop early or summarise.`;
     const content = imgs.map(b64 => ({type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}));
@@ -5330,7 +5330,7 @@ async function xlDownload(){
     const isNet = !lblLoose && meta.mode.mode === "NET" && meta.mode.net > 0;
     put((rowItem.un||"").replace(/^(UN|ID)/, "$1 "), 46, {center:true, h:58});
     put((rowItem.psn||"").toUpperCase(), 22, {center:true, h:30});
-    put("OVERPACK#SC" + String(i+1).padStart(2,"0"), 26, {center:true, h:34});   // JFS v25.11-E: no PLT on labels
+    put("OVERPACK#SC" + String(i+1).padStart(2,"0"), 26, {center:true, h:34});   // JFS v25.11-F: no PLT on labels
     put(lblLoose ? "TOTAL QUANTITY :  " + fmt1(r.w) + " kg G"
         : isNet ? "TOTAL NET QUANTITY :  " + fmtNet(meta.mode.net * r.q) + " kg"
               : "TOTAL QUANTITY :  " + fmtDot(r.sc) + " kg G", 16, {center:true, h:24});
