@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-J</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-K</span></span>
           </div>
         </div>
       </div>
@@ -789,6 +789,7 @@
         <button class="smallbtn sb-blue" style="margin-bottom:2px;" onclick="ptParse()">&#8595; PARSE ROWS</button>
       </div>
       <div id="pt_modes"></div>
+      <div id="pt_housebar" style="display:none;"></div>
       <div style="overflow-x:auto;"><table id="pt_table" style="border-collapse:collapse; width:100%;"></table></div>
       <div style="display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap;">
         <button class="smallbtn sb-green" onclick="ptAddRow()">+ Add pallet</button>
@@ -8986,6 +8987,26 @@ function hdClearLabels(){
 (function(){ const r0 = hdLabelIntoHouse; hdLabelIntoHouse = async function(){ const r = await r0.apply(this, arguments); try{ hdAttachRender(); }catch(e){} return r; }; })();
 (function(){ const r0 = hbRender; hbRender = function(){ const r = r0.apply(this, arguments); try{ hdAttachRender(); }catch(e){} return r; }; })();
 document.addEventListener("DOMContentLoaded", () => { try{ hdAttachRender(); }catch(e){} });
+/* ================= v25.11-K house switcher right above the pallet table ================= */
+function hdPtHouseBar(){
+  const el = document.getElementById("pt_housebar"); if(!el) return;
+  if(!HOUSES.list.length){ el.style.display = "none"; el.innerHTML = ""; return; }
+  const total = HOUSES.list.reduce((a, h) => a + (h.rows || []).length, 0);
+  let off = 0;
+  const btns = HOUSES.list.map((h, i) => {
+    const n = hdScCount(h.rows), on = i === HOUSES.ix;
+    const rng = n ? "#SC" + hdPad(off + 1) + (n > 1 ? "-" + hdPad(off + n) : "") : "no SC"; off += n;
+    return `<button class="smallbtn ${on ? "sb-green" : "sb-blue"}" style="font-weight:800;" onclick="hdLoad(${i})">${on ? "&#9654; " : ""}${esc(h.no)} &middot; ${(h.rows || []).length} PLT &middot; ${rng}</button>`;
+  }).join(" ");
+  const cur = HOUSES.list[HOUSES.ix];
+  el.style.display = "";
+  el.innerHTML = `<div style="border:2px solid #1d6b34; background:#e7f0e9; border-radius:8px; padding:8px 12px; margin:6px 0 8px; font-size:12.5px;">
+    <b style="color:#1d6b34;">&#127968; HOUSE AWB MODE — all ${total} pallets read, split into ${HOUSES.list.length} houses.</b>
+    This table shows <b>${cur ? esc(cur.no) : ""}</b> only (${cur ? cur.rows.length : 0} of ${total} PLT). Click a house to see its pallets:
+    <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">${btns}</div></div>`;
+}
+(function(){ const r0 = ptRender; ptRender = function(){ const r = r0.apply(this, arguments); try{ hdPtHouseBar(); }catch(e){} return r; }; })();
+(function(){ const r0 = hdRenderBar; hdRenderBar = function(){ const r = r0.apply(this, arguments); try{ hdPtHouseBar(); }catch(e){} return r; }; })();
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
