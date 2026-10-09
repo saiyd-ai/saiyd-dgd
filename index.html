@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-P</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-Q</span></span>
           </div>
         </div>
       </div>
@@ -1137,13 +1137,13 @@
     <!-- ================= AIRLINE FORMS TAB ================= -->
     <div class="tab" id="tab-alforms">
       <div class="card" style="border-left:5px solid #a40000;"><h2>&#128745; AIRLINE FORMS &mdash; MAWB Acceptance Statement (per airline)</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">The airline is detected automatically from the AWB prefix &mdash; Turkish (235) gets the TK format, all others the standard format with the airline header. HAWB fills automatically when present. Staff &amp; stamp are shared with the DNATA tab.</div>
+        <div class="warnbar" style="margin-top:0;">The airline is detected automatically from the AWB prefix &mdash; Turkish (235) gets the TK format, all others the standard format with the airline header. Only that airline's extra forms are shown (Emirates 176 → Emirates forms only). HAWB fills automatically when present. Staff &amp; stamp are shared with the DNATA tab.</div>
         <div class="grid g4">
           <div><label>Date</label><input type="text" id="al_date"></div>
           <div><label>AWB / MAWB (auto from DGD)</label><input type="text" id="al_awb" oninput="airlineFormRender()"></div>
           <div><label>HAWB Number (auto from Shipper's Reference)</label><input type="text" id="al_hawb" placeholder="leave empty if none" oninput="airlineFormRender()"></div>
           <div><label>Staff (name / title)</label><select id="al_staff" onchange="airlineFormRender()"></select>
-            <div id="al_airmsg" style="font-size:11.5px; font-weight:bold; color:#0f4f8c; margin-top:4px;"></div></div>
+            <div id="al_airmsg" style="font-size:11.5px; font-weight:bold; color:#0f4f8c; margin-top:4px;"></div><div id="al_xmsg" style="font-size:11px; color:#5b6b7d; margin-top:2px;"></div></div>
           <div style="align-self:end;">
             <span id="al_mainbtns">
             <button class="btn btn-save" style="background:#a40000;" onclick="airlineFormRender()">&#8635; GENERATE</button>
@@ -6369,8 +6369,14 @@ async function airlineFormRender(){
   // EK GENERAL CARGO (DXB handover): show ONLY the 4-document pack, hide everything else
   const gcEK = (typeof JOBTYPE !== "undefined" && JOBTYPE === "GC" && pfx === "176");
   const _tg = (id, on) => { const el = document.getElementById(id); if(el) el.style.display = on ? "" : "none"; };
-  _tg("alc_ai", !gcEK); _tg("alc_ram", !gcEK); _tg("alc_cg", !gcEK); _tg("alc_ek", !gcEK); _tg("alc_ekgc", gcEK);
+  // v25.11-Q: show ONLY the extra forms of the detected airline (098 AI, 147 RAM, 752 Challenge, 176 EK) — others hidden
+  const ALX = {"098": "alc_ai", "147": "alc_ram", "752": "alc_cg", "176": gcEK ? "alc_ekgc" : "alc_ek"};
+  const showAll = !!window._alShowAll;
+  ["alc_ai", "alc_ram", "alc_cg", "alc_ek", "alc_ekgc"].forEach(id => _tg(id, gcEK ? id === "alc_ekgc" : (showAll ? id !== "alc_ekgc" : ALX[pfx] === id)));
   _tg("al_mainbtns", !gcEK);
+  const xm = document.getElementById("al_xmsg");
+  if(xm) xm.innerHTML = (pfx.length !== 3 ? "" : (ALX[pfx] ? "Extra forms shown: " + esc(alName || pfx) + " only." : "No extra forms for " + esc(alName || pfx) + " — MAWB statement only.")) +
+    (gcEK ? "" : ` <a href="#" style="color:#a40000;" onclick="window._alShowAll=!window._alShowAll; airlineFormRender(); return false;">${showAll ? "&#9650; show only this airline" : "&#9660; show all airline forms"}</a>`);
   const mdoc = document.getElementById("al_doc"); if(mdoc) mdoc.style.display = gcEK ? "none" : "";
   if(gcEK){
     if(msg) msg.innerHTML = "&#10003; EMIRATES (176) GENERAL CARGO — use the 4-document pack below";
