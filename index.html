@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-Q</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-R</span></span>
           </div>
         </div>
       </div>
@@ -5845,7 +5845,7 @@ function buildOpStickers(){
       ${showItems.map(r => `
         <div style="font-size:52pt; font-weight:900; margin-top:7mm; letter-spacing:2px;">${esc(r.un.replace(/^(UN|ID)/, "$1 "))}</div>
         <div style="font-size:14pt; font-weight:bold; text-transform:uppercase; margin-top:2mm;">PSN: ${esc(r.psn)}</div>`).join("")}
-      <div style="font-size:18pt; font-weight:bold; margin-top:5mm;">OVERPACK#${esc(opno)}</div>
+      <div style="font-size:26pt; font-weight:900; margin-top:5mm; letter-spacing:0.5px;">OVERPACK#${esc(opno)}</div>
       <div style="font-size:13pt; font-weight:bold; margin-top:3mm;">${qtyLabel} : ${esc(qty || "____________")}</div>
       <div style="font-size:13pt; font-weight:bold; margin-top:6mm;">24 HOURS EMERGENCY CONTACT<br>NUMBER: ${esc(s.emergency||"____________")}</div>
       ${s.pax === "CAO" ? `<div style="font-size:14pt; font-weight:bold; margin-top:5mm; border:3px solid #000; display:inline-block; padding:2mm 6mm;">CARGO AIRCRAFT ONLY</div>` : ""}
