@@ -6,7 +6,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test --test-isolation=none tests/tracking-ui.test.cjs tests/tracking-report.test.cjs tests/tracking-integration.test.cjs tests/backend/*.test.mjs",
+    "test": "node --test --test-isolation=none tests/tracking-ui.test.cjs tests/tracking-report.test.cjs tests/tracking-integration.test.cjs tests/whatsapp-inbox-routing.test.cjs tests/whatsapp-intake-code.test.cjs tests/whatsapp-media-validation.test.mjs tests/whatsapp-inbox-handler.test.mjs tests/backend/*.test.mjs",
+    "test:inbox": "node --test tests/whatsapp-inbox-routing.test.cjs tests/whatsapp-intake-code.test.cjs tests/whatsapp-media-validation.test.mjs tests/whatsapp-inbox-handler.test.mjs",
+    "build:whatsapp-intake": "node scripts/build-whatsapp-intake.cjs",
     "test:backend": "node --test --test-isolation=none tests/backend/*.test.mjs",
     "validate:tracking": "node scripts/check-tracking-integration.cjs",
     "test:integration": "node --test --test-isolation=none tests/tracking-integration.test.cjs"
