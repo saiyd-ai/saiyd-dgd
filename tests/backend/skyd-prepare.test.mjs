@@ -6,7 +6,7 @@ import { stripTypeScriptTypes, createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { SKYD_OWNER, SKYD_LIMITS, skydCommand, validAwb, shipmentMessages, reconcileExtraction } from '../../supabase/functions/skyd-prepare/skyd-fields.mjs';
-import { SkydInputError, readSkydSources, createSkydPreparation } from '../../supabase/functions/skyd-prepare/skyd-runtime.mjs';
+import { SkydInputError, SkydAiError, SKYD_OUTPUT_SCHEMA, parseSkydAiResult, readSkydSources, createSkydPreparation } from '../../supabase/functions/skyd-prepare/skyd-runtime.mjs';
 import { createSkydHandler } from '../../supabase/functions/skyd-prepare/skyd-handler.mjs';
 const require=createRequire(import.meta.url);
 const {PDF,JPEG,PNG,workbookZip,workbookCfb}=require('../helpers/whatsapp-media-fixtures.cjs');
@@ -141,7 +141,62 @@ test('foreign file paths and an aborted download do not reach extraction',async(
 test('company configured AI model is used and token usage is stored without secrets',async()=>{
   let request;const sb={from:()=>({select(){return this;},eq(){return this;},async maybeSingle(){return {data:{value:{key:'never-output-this-synthetic-key',model:'configured-test-model'}}};}})};
   const prep=createSkydPreparation({sb,fetcher:async(url,opts)=>{request={url,opts};return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(extract())}],usage:{input_tokens:123,output_tokens:456,private:'secret'}})};}});
-  const result=await prep(snapshot());assert.equal(JSON.parse(request.opts.body).model,'configured-test-model');assert.deepEqual(result.ai_usage,{model:'configured-test-model',input_tokens:123,output_tokens:456});assert.equal(JSON.stringify(result).includes('never-output'),false);
+  const result=await prep(snapshot()),requestBody=JSON.parse(request.opts.body);assert.equal(requestBody.model,'configured-test-model');
+  assert.deepEqual(requestBody.output_config,{format:{type:'json_schema',schema:SKYD_OUTPUT_SCHEMA}});assert.equal(requestBody.tools,undefined);assert.equal(requestBody.tool_choice,undefined);
+  assert.equal(result.ai_usage.input_tokens,123);assert.equal(result.ai_usage.output_tokens,456);assert.equal(result.ai_usage.parse_stage,'accepted');assert.equal(result.ai_usage.stop_reason,'end_turn');assert.deepEqual(result.ai_usage.content_types,['text']);
+  assert.equal(JSON.stringify(result).includes('never-output'),false);assert.equal(JSON.stringify(result.ai_usage).includes('secret'),false);
+});
+
+test('output schema stays generic and within provider optional/union limits',()=>{
+  let optional=0,unions=0;
+  function walk(schema){
+    if(Array.isArray(schema.type)) unions++;
+    if(schema.type==='object'){
+      assert.equal(schema.additionalProperties,false);
+      optional+=Object.keys(schema.properties).filter(key=>!(schema.required || []).includes(key)).length;
+      for(const value of Object.values(schema.properties)) walk(value);
+    }
+    if(schema.items) walk(schema.items);
+  }
+  walk(SKYD_OUTPUT_SCHEMA);assert.equal(optional,16);assert.equal(unions,0);
+  assert.doesNotMatch(JSON.stringify(SKYD_OUTPUT_SCHEMA),/AEXP-C|SKYD TEST|971562977774/);
+  const result=parseSkydAiResult({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(extract())}],usage:{}},'configured-model');
+  assert.deepEqual(result.extraction,extract());assert.equal(result.ai_usage.parse_stage,'accepted');
+});
+
+test('provider output is parsed exactly and fails closed on prose, fences, wrong shapes and types',()=>{
+  const response=text=>({stop_reason:'end_turn',content:[{type:'text',text}],usage:{input_tokens:20,output_tokens:40}});
+  const json=JSON.stringify(extract());
+  for(const text of ['```json\n'+json+'\n```','Here is the shipment: '+json,'{invalid private-source-text}']){
+    assert.throws(()=>parseSkydAiResult(response(text),'configured-model'),error=>error instanceof SkydAiError && error.message==='AI_JSON_PARSE' && error.ai_usage.parse_stage==='json_parse' && error.ai_usage.input_tokens===20 && !JSON.stringify(error.ai_usage).includes(text));
+  }
+  const wrongType=extract();wrongType.sources[0].fields.pieces.value='12';
+  const nullField=extract();nullField.sources[0].fields.grossWeight.value=null;
+  const unknownField=extract();unknownField.sources[0].fields.signature={value:'approved',excerpt:'approved'};
+  for(const value of [{sources:[]},[],{sources:[],conflicts:[],private:'unknown'},wrongType,nullField,unknownField,{sources:[],conflicts:[{private:'customer data'}]}]){
+    assert.throws(()=>parseSkydAiResult(response(JSON.stringify(value)),'configured-model'),error=>error.message==='AI_RESULT_SCHEMA' && error.ai_usage.parse_stage==='result_schema');
+  }
+  const omitted=parseSkydAiResult(response(JSON.stringify({sources:[{source_id:'messages',fields:{}}],conflicts:[]})),'configured-model');
+  assert.deepEqual(omitted.extraction.sources[0].fields,{});
+  const missing=reconcileExtraction(omitted.extraction,[{id:'messages',text:TEXT}],snapshot());assert.equal(missing.status,'NEEDS_INPUT');assert.ok(missing.missing_fields.includes('awb'));
+});
+
+test('refusal, token exhaustion and unexpected stops never become accepted drafts',()=>{
+  const text=JSON.stringify(extract());
+  for(const [stop,code] of [['refusal','AI_REFUSAL'],['max_tokens','AI_INCOMPLETE'],['tool_use','AI_RESPONSE_STOP'],['private stop value','AI_RESPONSE_STOP']]){
+    assert.throws(()=>parseSkydAiResult({stop_reason:stop,content:[{type:'text',text}],usage:{output_tokens:6500}},'configured-model'),error=>error.message===code && error.ai_usage.output_tokens===6500 && !JSON.stringify(error.ai_usage).includes('private stop value'));
+  }
+  assert.throws(()=>parseSkydAiResult({stop_reason:'end_turn',content:[]},'configured-model'),/AI_EMPTY_RESULT/);
+  assert.throws(()=>parseSkydAiResult({stop_reason:'end_turn',content:[{type:'text',text:' '}]},'configured-model'),/AI_EMPTY_RESULT/);
+  assert.throws(()=>parseSkydAiResult({stop_reason:'end_turn',content:[{type:'text',text:' '.repeat(100001)}]},'configured-model'),/AI_EMPTY_RESULT/);
+  assert.throws(()=>parseSkydAiResult({stop_reason:'end_turn',content:[{type:'text',text:'x'.repeat(100001)}]},'configured-model'),error=>error.message==='AI_RESULT_SCHEMA' && error.ai_usage.parse_stage==='output_limit');
+});
+
+test('failed structured parsing preserves only safe private diagnostics and token usage',async()=>{
+  const env=setup({prepare:async()=>parseSkydAiResult({stop_reason:'end_turn',content:[{type:'text',text:'private-customer-text not JSON'}],usage:{input_tokens:81,output_tokens:19,private_key:'must-not-store'}},'configured-model')});
+  const result=await env.prepare();assert.equal(result.body.status,'FAILED');assert.equal(env.runs[0].error_code,'AI_JSON_PARSE');assert.equal(env.runs[0].ai_usage.parse_stage,'json_parse');assert.equal(env.runs[0].ai_usage.input_tokens,81);
+  assert.equal(result.body.ai_usage,undefined);assert.equal(env.uploads.size,0);assert.equal(env.calls.render.length,0);
+  assert.doesNotMatch(JSON.stringify(env.runs[0].ai_usage),/private-customer-text|private_key|must-not-store/);assert.doesNotMatch(JSON.stringify(result.body),/private-customer-text|configured-model/);assert.equal(result.body.input_tokens,undefined);
 });
 test('AI failures never read or expose provider error bodies; truncated output never becomes a draft',async()=>{
   const sb={from:()=>({select(){return this;},eq(){return this;},async maybeSingle(){return {data:{value:{key:'private-test',model:'configured'}}};}})};

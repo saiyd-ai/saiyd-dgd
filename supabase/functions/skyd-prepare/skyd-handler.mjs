@@ -1,5 +1,5 @@
 import { SKYD_OWNER, SKYD_LIMITS, skydCommand } from './skyd-fields.mjs';
-import { SkydInputError } from './skyd-runtime.mjs';
+import { SkydInputError, SkydAiError } from './skyd-runtime.mjs';
 const SKYD_CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'content-type, x-dg-key','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const skydResponse=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json',...SKYD_CORS}});
 const skydUuid=value=>typeof value==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -46,9 +46,10 @@ export function createSkydHandler({sb,getKey,prepareSnapshot,renderPdf,now=()=>n
         }
       }catch(error){
         artifactPath=null;
+        if(error instanceof SkydAiError) aiUsage=error.ai_usage;
         result=error?.code==='unsupported_awb_pdf_text'?{status:'NEEDS_INPUT',fields:result?.fields || {},evidence:result?.evidence || {},warnings:['Provide English or romanized AWB names, addresses and goods. The original messages remain saved; no characters were silently removed.'],missing_fields:['english_awb_fields']}:
           error instanceof SkydInputError?{status:'NEEDS_INPUT',fields:{},evidence:{},warnings:[error.message],missing_fields:[error.code]}:
-          {status:'FAILED',fields:{},evidence:{},warnings:['Preparation failed safely. Check the source documents and company AI configuration, then send a new prepare command.'],missing_fields:[],error_code:controller.signal.aborted?'PREPARE_TIMEOUT':(new Set(['AI_CONFIGURATION','AI_REQUEST_FAILED','AI_INCOMPLETE','AI_INVALID_RESULT','PDF_FAILED','PDF_STORE_FAILED']).has(error?.message)?error.message:'PREPARE_FAILED')};
+          {status:'FAILED',fields:{},evidence:{},warnings:['Preparation failed safely. Check the source documents and company AI configuration, then send a new prepare command.'],missing_fields:[],error_code:controller.signal.aborted?'PREPARE_TIMEOUT':(new Set(['AI_CONFIGURATION','AI_REQUEST_FAILED','AI_INCOMPLETE','AI_INVALID_RESULT','AI_RESPONSE_SHAPE','AI_RESPONSE_STOP','AI_REFUSAL','AI_EMPTY_RESULT','AI_JSON_PARSE','AI_RESULT_SCHEMA','PDF_FAILED','PDF_STORE_FAILED']).has(error?.message)?error.message:'PREPARE_FAILED')};
       }finally{clearTimeout(timer);}
       const finish=await sb.rpc('skyd_awb_finish_prepare',{p_run_id:run.id,p_token:run.processing_token,p_status:result.status,p_fields:result.fields || {},p_evidence:result.evidence || {},
         p_warnings:result.warnings || [],p_missing_fields:result.missing_fields || [],p_artifact_path:artifactPath,p_error_code:result.error_code || null,p_ai_usage:aiUsage});
