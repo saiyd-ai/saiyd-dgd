@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-V</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-W</span></span>
           </div>
         </div>
       </div>
@@ -524,18 +524,29 @@
               oninput="const f=document.getElementById('f_customer'); if(f) f.value=this.value;"></div>
           <span id="gc_jobmsg" style="display:none;"></span>
         </div>
-        <div class="warnbar" style="margin-top:0;">Type the AWB, paste the AWB text, or upload the AWB PDF &mdash; the airline is detected automatically. Then use the buttons below for LABELS, AIRLINE DOCUMENTS and DNATA. No DGD needed.</div>
-        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
-          <label style="margin:0;">AWB PDF upload:</label>
-          <input type="file" id="gc_awbfile" accept=".pdf,image/*" style="font-size:12.5px;">
-          <button class="btn btn-save" style="background:#7b2d8b;" onclick="readAwbPdf('gc_awbfile','gc_pdfmsg').then(()=>gcSyncFromMain())">&#129302; AI EXTRACT FROM PDF</button>
-          <span id="gc_pdfmsg" style="font-size:12px; color:#7a4b00;"></span>
+        <div class="warnbar" style="margin-top:0;">Add the AWB PDF, photos, Excel or text below and press AUTO-FILL &mdash; the airline is detected automatically. Then use the buttons below for LABELS, AIRLINE DOCUMENTS and DNATA. No DGD needed.</div>
+        <!-- v25.11-W ADD DOCUMENTS + AUTO-FILL -->
+        <div id="dc_gc" style="margin-bottom:10px;">
+          <div id="dc_zone_gc" tabindex="0" style="border:2px dashed #7b2d8b; border-radius:10px; padding:16px; text-align:center; color:#7b2d8b; font-weight:bold; font-size:13.5px; background:#faf5fc; outline:none; cursor:default;">
+            &#128206; ADD DOCUMENTS &mdash; drop files here, <a href="#" class="dc_pick" onclick="return false;" style="color:#7b2d8b; text-decoration:underline;">choose files</a>, or click here and press <b>Ctrl+V</b> to paste
+            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; JPG / PNG &middot; screenshots &mdash; AWB, house AWB, label photo, packing list &mdash; several at once</div>
+          </div>
+          <input type="file" id="dc_file_gc" accept=".pdf,.xlsx,.xls,.csv,image/*" multiple style="display:none;">
+          <div id="dc_list_gc"></div>
+          <textarea id="dc_text_gc" style="min-height:70px; margin-top:8px;" placeholder="...or paste text here: AWB copy, booking e-mail, shipment details"></textarea>
+          <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+            <button class="btn btn-save" id="dc_go_gc" style="background:#7b2d8b;" onclick="dcRun('gc')">&#9889; AUTO-FILL</button>
+            <button class="smallbtn" onclick="dcClear('gc')">CLEAR</button>
+            <span id="dc_msg_gc" style="font-size:12.5px; font-weight:bold; color:#1d6b34;"></span>
+          </div>
         </div>
+        <div style="font-size:12px; margin:2px 0 8px;"><span id="gc_pdfmsg" style="color:#7a4b00;"></span> <span id="gc_msg" style="color:#1d6b34; font-weight:bold;"></span></div>
         <div id="gc_inbox_files" style="font-size:12px; margin:8px 0;"></div>
-        <textarea id="gc_auto" style="min-height:70px;" placeholder="...or paste the AWB copy text / booking e-mail here and click AI EXTRACT"></textarea>
-        <div style="display:flex; gap:12px; align-items:center; margin:8px 0; flex-wrap:wrap;">
-          <button class="btn btn-save" style="background:#7b2d8b;" onclick="gcAiExtract()">&#129302; AI EXTRACT (paste)</button>
-          <span id="gc_msg" style="font-size:12.5px; color:#1d6b34; font-weight:bold;"></span>
+        <div id="dc_legacy_gc" style="display:none;">
+          <input type="file" id="gc_awbfile" accept=".pdf,image/*" style="font-size:12.5px;">
+          <button class="btn btn-save" style="background:#7b2d8b;" onclick="readAwbPdf('gc_awbfile','gc_pdfmsg').then(()=>gcSyncFromMain())">AWB PDF (old)</button>
+          <textarea id="gc_auto" style="min-height:70px;"></textarea>
+          <button class="btn btn-save" style="background:#7b2d8b;" onclick="gcAiExtract()">TEXT (old)</button>
         </div>
         <div class="grid g4">
           <div><label>AWB / MAWB Number</label><input type="text" id="gc_awb" placeholder="e.g. 176-12345675" oninput="gcSet('f_awb', this.value); gcAirline();">
@@ -730,13 +741,26 @@
     <!-- MSDS DG CHECKER moved to its own tab (tab-msds) -->
 
     <!-- AUTO FILL -->
-    <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#9889; AUTO FILL &mdash; paste AWB / booking details here</h2><div class="body">
-      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
-        <label style="margin:0;">Attach AWB PDF / LABEL PHOTO <span style="font-weight:normal; color:#1d6b34;">(select MASTER + all HOUSE AWBs + labels together)</span>:</label>
+    <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#128206; ADD DOCUMENTS &mdash; AWB, house AWBs, labels, packing list, e-mail text</h2><div class="body">
+        <!-- v25.11-W ADD DOCUMENTS + AUTO-FILL -->
+        <div id="dc_dg" style="margin-bottom:10px;">
+          <div id="dc_zone_dg" tabindex="0" style="border:2px dashed #7b2d8b; border-radius:10px; padding:16px; text-align:center; color:#7b2d8b; font-weight:bold; font-size:13.5px; background:#faf5fc; outline:none; cursor:default;">
+            &#128206; ADD DOCUMENTS &mdash; drop files here, <a href="#" class="dc_pick" onclick="return false;" style="color:#7b2d8b; text-decoration:underline;">choose files</a>, or click here and press <b>Ctrl+V</b> to paste
+            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; JPG / PNG &middot; screenshots &mdash; MASTER + all HOUSE AWBs + label photos + packing list(s) together</div>
+          </div>
+          <input type="file" id="dc_file_dg" accept=".pdf,.xlsx,.xls,.csv,image/*" multiple style="display:none;">
+          <div id="dc_list_dg"></div>
+          <textarea id="dc_text_dg" style="min-height:70px; margin-top:8px;" placeholder="...or paste text here: AWB copy, booking e-mail, shipment details"></textarea>
+          <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+            <button class="btn btn-save" id="dc_go_dg" style="background:#7b2d8b;" onclick="dcRun('dg')">&#9889; AUTO-FILL</button>
+            <button class="smallbtn" onclick="dcClear('dg')">CLEAR</button>
+            <span id="dc_msg_dg" style="font-size:12.5px; font-weight:bold; color:#1d6b34;"></span>
+          </div>
+        </div>
+      <div style="font-size:12px; margin:2px 0 8px;"><span id="awbpdfmsg" style="color:#7a4b00;"></span> <span id="autoresult" style="color:#1d6b34; font-weight:bold;"></span></div>
+      <div id="dc_legacy_dg" style="display:none;">
         <input type="file" id="awbfile" accept=".pdf,image/*" multiple style="font-size:12.5px;">
-        <button class="btn btn-save" style="background:#7b2d8b;" onclick="readAwbPdf()">&#129302; AI EXTRACT FROM PDF</button>
-        <span id="awbpdfmsg" style="font-size:12px; color:#7a4b00;"></span>
-      </div>
+        <button class="btn btn-save" style="background:#7b2d8b;" onclick="readAwbPdf()">AWB PDF (old)</button>
       <div id="awb_photobox" tabindex="0" style="border:2px dashed #7b2d8b; border-radius:10px; padding:14px; text-align:center;
            color:#7b2d8b; font-weight:bold; font-size:13px; cursor:pointer; margin-bottom:10px; background:#faf5fc;">
         &#128247; PASTE (Ctrl+V) or DRAG the SHIPPING LABEL photo(s) HERE &mdash; several labels allowed (one per house) &mdash; AI fills SHIPPER &amp; CONSIGNEE from each label
@@ -745,14 +769,15 @@
         <button class="smallbtn sb-blue" onclick="document.getElementById('hd_lblfiles').click()">&#128247; + ADD LABEL PHOTOS (several)</button>
         <input type="file" id="hd_lblfiles" accept="image/*" multiple style="display:none;" onchange="if(this.files.length) hdReadMulti([...this.files]); this.value='';">
       </div>
+      </div>
       <div id="hd_attach" style="display:none; margin-bottom:10px;"></div>
       <div id="dg_inbox_files" style="font-size:12px; margin:8px 0;"></div>
-      <label>...or paste the Air Waybill copy text, booking e-mail, or shipment details (any format)</label>
+      <div id="dc_legacy_dg2" style="display:none;">
       <textarea id="f_auto" style="min-height:110px;" placeholder="Example:&#10;AWB: 176-12345675&#10;Shipper: ABC Trading LLC, Dubai, UAE, Tel +971...&#10;Consignee: XYZ Ltd, Cochin, India&#10;From: DUBAI (DXB)  To: COCHIN (COK)&#10;UN1263 Paint, PG III, PI 355, 2 fibreboard boxes x 4.5 L, CAO"></textarea>
       <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
         <button class="btn btn-save" style="background:#1d6b34;" onclick="autoFill()">&#9889; AUTO FILL FORM</button>
-        <button class="btn btn-save" style="background:#7b2d8b;" onclick="aiAutoFill()">&#129302; AI EXTRACT (any format)</button>
-        <span id="autoresult" style="font-size:12.5px; color:#1d6b34; font-weight:bold;"></span>
+        <button class="btn btn-save" style="background:#7b2d8b;" onclick="aiAutoFill()">TEXT (old)</button>
+      </div>
       </div>
     </div></div>
 
@@ -9847,6 +9872,139 @@ showTab = function(name){
   return r;
 };
 waiInit();
+
+/* ================= v25.11-W ADD DOCUMENTS + AUTO-FILL (one box: drop / choose / Ctrl+V / text) ================= */
+/* CREATE DGD (dg) and CREATE AWB (gc) use the same box. It only collects the files + text and hands them to the
+   existing readers (AWB / house AWB / label reader, packing-list reader, text extraction) — no rule changes. */
+const DC = {dg: {files: [], kinds: []}, gc: {files: [], kinds: []}, busy: false};
+const DC_KINDS = {AWB: "AWB", LABEL: "LABEL", PL: "PACKING LIST"};
+function dcKind(f){
+  const n = (f.name || "").toLowerCase(), m = (f.type || "").toLowerCase();
+  if(/\.(xlsx|xls|csv)$/.test(n) || /sheet|excel|csv/.test(m)) return "PL";
+  if(/pack|plist|p\.l\b|\bpl\b/.test(n)) return "PL";
+  if(m.startsWith("image/") || /\.(jpe?g|png|webp|heic)$/.test(n)) return "LABEL";
+  return "AWB";
+}
+function dcOk(f){
+  const n = (f.name || "").toLowerCase(), m = (f.type || "").toLowerCase();
+  return m.startsWith("image/") || m === "application/pdf" || /\.(pdf|xlsx|xls|csv|jpe?g|png|webp)$/.test(n) || /sheet|excel|csv/.test(m);
+}
+function dcAdd(mode, list){
+  const st = DC[mode]; const bad = [];
+  [...list].forEach((f, i) => {
+    if(!dcOk(f)){ bad.push(f.name || "file"); return; }
+    if(!f.name || f.name === "image.png"){   // pasted screenshot → give it a readable name
+      try{ f = new File([f], "pasted_" + new Date().toTimeString().slice(0, 8).replace(/:/g, "") + "_" + (i + 1) + ".png", {type: f.type || "image/png"}); }catch(e){}
+    }
+    if(st.files.some(x => x.name === f.name && x.size === f.size)) return;   // same file twice
+    st.files.push(f); st.kinds.push(dcKind(f));
+  });
+  dcRender(mode);
+  if(bad.length) dcMsg(mode, "Not added (use PDF, Excel, JPG or PNG): " + bad.join(", "), true);
+}
+function dcRemove(mode, i){ DC[mode].files.splice(i, 1); DC[mode].kinds.splice(i, 1); dcRender(mode); }
+function dcSetKind(mode, i, k){ DC[mode].kinds[i] = k; }
+function dcClear(mode){
+  DC[mode].files = []; DC[mode].kinds = [];
+  const t = document.getElementById("dc_text_" + mode); if(t) t.value = "";
+  dcRender(mode); dcMsg(mode, "");
+}
+function dcMsg(mode, txt, warn){
+  const el = document.getElementById("dc_msg_" + mode); if(!el) return;
+  el.textContent = txt || ""; el.style.color = warn ? "#a40000" : "#1d6b34";
+}
+function dcRender(mode){
+  const box = document.getElementById("dc_list_" + mode); if(!box) return;
+  const st = DC[mode];
+  if(!st.files.length){ box.innerHTML = ""; return; }
+  box.innerHTML = st.files.map((f, i) => `<div style="display:flex; align-items:center; gap:8px; padding:4px 8px; border:1px solid #e3d6ea; border-radius:7px; background:#fff; margin-top:5px; font-size:12.5px;">
+      <span style="font-size:15px;">${(f.type || "").startsWith("image/") ? "&#128247;" : /\.(xlsx|xls|csv)$/i.test(f.name || "") ? "&#128202;" : "&#128196;"}</span>
+      <span style="flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${esc(f.name)}">${esc(f.name)} <span style="color:#7a8794;">(${Math.max(1, Math.round((f.size || 0) / 1024))} KB)</span></span>
+      <select onchange="dcSetKind('${mode}', ${i}, this.value)" style="font-size:12px; padding:2px 4px; width:auto; flex:0 0 auto;">
+        ${Object.keys(DC_KINDS).map(k => `<option value="${k}"${st.kinds[i] === k ? " selected" : ""}>${DC_KINDS[k]}</option>`).join("")}
+      </select>
+      <button class="smallbtn sb-red" onclick="dcRemove('${mode}', ${i})" title="Remove">x</button></div>`).join("") +
+    `<div style="font-size:11.5px; color:#5b6b7d; margin-top:4px;">${st.files.length} file(s) &mdash; check the type of each file, then press AUTO-FILL.</div>`;
+}
+function dcPut(inputId, files){
+  const el = document.getElementById(inputId); if(!el) return false;
+  const dt = new DataTransfer(); files.forEach(f => dt.items.add(f)); el.files = dt.files; return true;
+}
+async function dcSheetText(f){
+  await loadSheetJs();
+  const wb = XLSX.read(await f.arrayBuffer(), {type: "array"});
+  let t = "";
+  wb.SheetNames.slice(0, 4).forEach(n => { t += "SHEET " + n + " (" + f.name + "):\n" + XLSX.utils.sheet_to_csv(wb.Sheets[n]) + "\n\n"; });
+  return t.slice(0, 12000);
+}
+async function dcRun(mode){
+  if(DC.busy) return;
+  const st = DC[mode];
+  const text = (document.getElementById("dc_text_" + mode) || {}).value || "";
+  if(!st.files.length && !text.trim()){ dcMsg(mode, "Add a document (drop / choose / Ctrl+V) or paste the text first.", true); return; }
+  DC.busy = true;
+  const btn = document.getElementById("dc_go_" + mode); if(btn) btn.disabled = true;
+  try{
+    const awb = [], pl = [];
+    st.files.forEach((f, i) => (st.kinds[i] === "PL" ? pl : awb).push(f));
+    if(mode === "dg"){
+      if(awb.length){ dcMsg(mode, "Reading " + awb.length + " AWB / label file(s) ..."); dcPut("awbfile", awb); await readAwbPdf(); }
+      if(pl.length){ dcMsg(mode, "Reading " + pl.length + " packing list(s) ..."); dcPut("pt_file", pl); await ptReadPdf(); }
+      if(text.trim()){ dcMsg(mode, "Reading the pasted text ..."); document.getElementById("f_auto").value = text; await aiAutoFill(); }
+    }else{
+      let extra = "";
+      for(const f of awb.concat(pl.filter(f => !/\.(xlsx|xls|csv)$/i.test(f.name || "")))){
+        dcMsg(mode, "Reading " + f.name + " ...");
+        dcPut("gc_awbfile", [f]);
+        await readAwbPdf("gc_awbfile", "gc_pdfmsg");
+        gcSyncFromMain();
+      }
+      for(const f of pl.filter(f => /\.(xlsx|xls|csv)$/i.test(f.name || ""))){
+        try{ extra += await dcSheetText(f); }catch(e){ dcMsg(mode, "Could not read " + f.name + ": " + e.message, true); }
+      }
+      const all = [text, extra].filter(s => s && s.trim()).join("\n\n");
+      if(all.trim()){
+        dcMsg(mode, "Reading the text / Excel ...");
+        document.getElementById("gc_auto").value = all;
+        document.getElementById("f_auto").value = all;
+        await aiAutoFill();
+        gcSyncFromMain();
+        const m = document.getElementById("gc_msg"); if(m) m.textContent = (document.getElementById("autoresult") || {}).textContent || "";
+      }
+    }
+    const n = st.files.length;
+    st.files = []; st.kinds = []; dcRender(mode);
+    const ta = document.getElementById("dc_text_" + mode); if(ta) ta.value = "";
+    dcMsg(mode, "✓ AUTO-FILL done — " + n + " file(s)" + (text.trim() ? " + text" : "") + ". Check every field before saving.");
+  }catch(e){
+    dcMsg(mode, "AUTO-FILL stopped: " + e.message, true);
+  }finally{
+    DC.busy = false; if(btn) btn.disabled = false;
+  }
+}
+function dcInit(){
+  ["dg", "gc"].forEach(mode => {
+    const zone = document.getElementById("dc_zone_" + mode), inp = document.getElementById("dc_file_" + mode), ta = document.getElementById("dc_text_" + mode);
+    if(!zone || zone._dc) return; zone._dc = true;
+    const fromClip = e => [...(((e.clipboardData || {}).items) || [])].filter(it => it.kind === "file").map(it => it.getAsFile()).filter(Boolean);
+    zone.addEventListener("click", e => { if(e.target.closest(".dc_pick")) inp.click(); else zone.focus(); });
+    inp.addEventListener("change", () => { if(inp.files.length) dcAdd(mode, inp.files); inp.value = ""; });
+    zone.addEventListener("dragover", e => { e.preventDefault(); zone.style.background = "#f0dff7"; });
+    zone.addEventListener("dragleave", () => { zone.style.background = "#faf5fc"; });
+    zone.addEventListener("drop", e => { e.preventDefault(); zone.style.background = "#faf5fc"; const fs = [...((e.dataTransfer || {}).files || [])]; if(fs.length) dcAdd(mode, fs); });
+    const onPaste = e => {
+      const fs = fromClip(e);
+      if(fs.length){ e.preventDefault(); dcAdd(mode, fs); return; }
+      if(e.currentTarget === zone){         // text pasted on the drop zone → put it in the text box
+        const t = (e.clipboardData || {}).getData ? e.clipboardData.getData("text") : "";
+        if(t){ e.preventDefault(); ta.value = (ta.value ? ta.value + "\n" : "") + t; ta.focus(); }
+      }
+    };
+    zone.addEventListener("paste", onPaste);
+    ta.addEventListener("paste", onPaste);
+  });
+}
+if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", dcInit); else dcInit();
 
 authInit();
 </script>
