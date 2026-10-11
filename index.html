@@ -1504,7 +1504,7 @@
     </div>
     <div class="tab" id="tab-wainbox">
       <div class="card" style="border-left:5px solid #25a35a;"><h2 style="background:#e8f6ee; color:#1d6b34;">&#128242; WHATSAPP INBOX &mdash; DG and General Cargo jobs</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">Staff send <b>DG &lt;job no&gt;</b> (e.g. DG DGS-C00422 or DG AEXP-C00465), then shipment messages, PDFs, Excel files or photos. Check the <b>Job type</b> before <b>OPEN &amp; LOAD</b>: DGS / ELI / ELM open <b>DG SHIPMENT</b>; other listed types open <b>GENERAL CARGO</b>. Documents are attached first. Check each document's role, then read one, selected documents or all documents in the job. For an AWB draft through WhatsApp, send <b>SKYD PREPARE &lt;job no&gt; AWB</b> after all documents arrive; review the result under <b>SKYD drafts</b>. All extracted fields remain drafts for review.</div>
+        <div class="warnbar" style="margin-top:0;">Staff send <b>DG &lt;job no&gt;</b> (e.g. DG DGS-C00422 or DG AEXP-C00465), then shipment messages, PDFs, Excel files or photos. Check the <b>Job type</b> before <b>OPEN &amp; LOAD</b>. A type change saves immediately; wait for <b>Saved</b> before opening the job or sending a SKYD command. DGS / ELI / ELM open <b>DG SHIPMENT</b>; other listed types open <b>GENERAL CARGO</b>. Documents are attached first. Check each document's role, then read one, selected documents or all documents in the job. For an AWB draft through WhatsApp, send <b>SKYD PREPARE &lt;job no&gt; AWB</b> after all documents arrive; review the result under <b>SKYD drafts</b>. All extracted fields remain drafts for review.</div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
           <select id="wai_show" onchange="waiLoad()"><option value="OPEN">Open jobs (NEW / OPENED)</option><option value="ALL">All (last 60)</option></select>
           <button class="smallbtn sb-blue" onclick="waiLoad()">&#8635; REFRESH</button>
@@ -9367,7 +9367,7 @@ async function aicExcel(){
    n8n stores them in dg_inbox (files in bucket dgdocs/wa-inbox/<id>/). Staff review the job type before OPEN & LOAD:
    DG uses the existing AWB/pallet readers; General Cargo attaches documents for individual PDF reading.
    DRAFT only — staff still check, CONFIRM, sign and stamp. */
-let WAI = {rows: [], timer: null, busy: false, extracting: false, types: {}, gcFiles: [], gcJob: "", documents: [], packingSources: {}, text: "", messageRole: "SHIPMENT", messageSelected: true, loadedJob: "", loadedDestination: "", status: ""};
+let WAI = {rows: [], timer: null, busy: false, extracting: false, types: {}, typeSaving: {}, typeStatus: {}, loadToken: 0, gcFiles: [], gcJob: "", documents: [], packingSources: {}, text: "", messageRole: "SHIPMENT", messageSelected: true, loadedJob: "", loadedDestination: "", status: ""};
 const WAI_OWNER = "ms@jfslogistics.com";
 function waiNoteType(note){
   const lines = String(note || "").split(/\r?\n/);
@@ -9397,10 +9397,49 @@ function waiDestination(code){
   if(!Object.prototype.hasOwnProperty.call(JFS_JOB_TYPES, code)) return null;
   return ["DGS", "ELI", "ELM"].includes(code) ? "DG" : "GC";
 }
-function waiChooseType(id, code){
-  WAI.types[id] = Object.prototype.hasOwnProperty.call(JFS_JOB_TYPES, code) ? code : "";
-  const label = document.getElementById("wai_dest_" + id), destination = waiDestination(WAI.types[id]);
-  if(label) label.textContent = destination === "DG" ? "DG Shipment" : destination === "GC" ? "General Cargo" : "Select type before opening";
+function waiTypeStatus(id, code, message){
+  const label = document.getElementById("wai_dest_" + id), select = document.getElementById("wai_type_" + id), destination = waiDestination(code);
+  if(label) label.textContent = (destination === "DG" ? "DG Shipment" : destination === "GC" ? "General Cargo" : "Select type before opening") + (message ? " — " + message : "");
+  if(select){ select.value = code; select.disabled = !!WAI.typeSaving[id]; }
+}
+async function waiChooseType(id, code){
+  const row = WAI.rows.find(item => item.id === id); if(!row) return false;
+  if(WAI.typeSaving[id]){ waiTypeStatus(id,waiJobType(row),"Saving..."); return false; }
+  if(!Object.prototype.hasOwnProperty.call(JFS_JOB_TYPES, code)){
+    WAI.types[id] = ""; WAI.typeStatus[id] = {code:"", message:"Choose a listed type; not saved"}; waiTypeStatus(id,"",WAI.typeStatus[id].message); return false;
+  }
+  if(typeof sb === "undefined" || !sb || !sbUser){ waiTypeStatus(id,waiJobType(row),"Not saved — sign in first"); return false; }
+  const actor = sbUser.id || sbUser.email, currentActor = () => sbUser && (sbUser.id || sbUser.email) === actor;
+  const previous = {owned:Object.prototype.hasOwnProperty.call(WAI.types,id), code:WAI.types[id]};
+  WAI.types[id] = code; WAI.typeSaving[id] = true; WAI.typeStatus[id] = {code, message:"Saving..."}; waiTypeStatus(id,code,"Saving...");
+  try{
+    // Use the latest note and compare it during the write so another staff note is never overwritten.
+    const found = await sb.from("dg_inbox").select("id,note").eq("id",id).maybeSingle();
+    if(!currentActor()) throw new Error("The signed-in account changed. Refresh the inbox.");
+    if(found.error || !found.data) throw new Error(found.error ? found.error.message : "This inbox job is no longer available.");
+    const oldNote = found.data.note, note = waiTypeNote(oldNote,code);
+    let write = sb.from("dg_inbox").update({note}).eq("id",id);
+    write = oldNote == null ? write.is("note",null) : write.eq("note",oldNote);
+    const saved = await write.select("id,note").maybeSingle();
+    if(!currentActor()) throw new Error("The signed-in account changed. Refresh the inbox.");
+    if(saved.error || !saved.data || saved.data.id !== id || saved.data.note !== note) throw new Error(saved.error ? saved.error.message : "The job note changed while saving. Refresh and try again.");
+    row.note = note;
+    // A refresh may have replaced this row while the save was pending.
+    const displayed = WAI.rows.find(item => item.id === id); if(displayed) displayed.note = note;
+    delete WAI.types[id]; WAI.typeStatus[id] = {code, message:"Saved"};
+    delete WAI.typeSaving[id]; waiTypeStatus(id,waiJobType(displayed || row),"Saved");
+    try{ await waiLoad(true); }catch(e){
+      const msg = document.getElementById("wai_msg");
+      if(currentActor() && msg) msg.textContent = "Job type saved. Inbox refresh failed: " + e.message;
+    }
+    return true;
+  }catch(e){
+    if(previous.owned) WAI.types[id] = previous.code; else delete WAI.types[id];
+    delete WAI.typeSaving[id];
+    WAI.typeStatus[id] = {code:waiJobType(row), message:"Not saved — " + e.message};
+    if(currentActor()) waiTypeStatus(id,waiJobType(row),WAI.typeStatus[id].message);
+    return false;
+  }
 }
 function waiResetJobInputs(){
   // jobStart/applySnapshot do not clear all these fields. Never carry them into the next inbox job.
@@ -9620,13 +9659,17 @@ function waiAgo(t){
 }
 async function waiLoad(silent){
   if(typeof sb === "undefined" || !sb || !sbUser) return;
+  const token = ++WAI.loadToken, actor = sbUser.id || sbUser.email;
   const show = (document.getElementById("wai_show") || {}).value || "OPEN";
   let q = sb.from("dg_inbox").select("*").order("created_at", {ascending: false}).limit(60);
   if(show === "OPEN") q = q.in("status", ["NEW", "OPENED"]);
   const { data, error } = await q;
+  if(token !== WAI.loadToken || !sbUser || (sbUser.id || sbUser.email) !== actor) return;
   const msg = document.getElementById("wai_msg");
   if(error){ if(msg && !silent) msg.textContent = "Inbox error: " + error.message; return; }
   WAI.rows = data || [];
+  // A refresh must use the saved note rather than disguising an old local selector value as persistence.
+  WAI.types = Object.fromEntries(Object.entries(WAI.types).filter(([id]) => WAI.typeSaving[id]));
   waiBadge(); waiRender();
 }
 function waiBadge(){
@@ -9649,12 +9692,12 @@ function waiRender(){
       return `<tr style="border-bottom:1px solid #e3e8ef;">
         <td style="padding:6px 8px; font-size:12px; white-space:nowrap;">${esc(waiAgo(r.created_at))}<br><span style="color:#7a8794;">${esc(new Date(r.created_at).toLocaleString("en-GB"))}</span></td>
         <td style="padding:6px 8px; font-weight:bold;">${r.job_no ? esc(r.job_no) : '<span style="color:#a40000;">no job no.</span>'}</td>
-        <td style="padding:6px 8px; font-size:12px;"><select id="wai_type_${r.id}" aria-label="Job type for ${esc(r.job_no || r.id)}" onchange="waiChooseType('${r.id}', this.value)" style="max-width:210px;"><option value=""${code ? "" : " selected"}>— select job type —</option>${jobTypeOptions(code)}</select><div id="wai_dest_${r.id}" style="margin-top:3px;">${destination === "DG" ? "DG Shipment" : destination === "GC" ? "General Cargo" : "Select type before opening"}</div></td>
+        <td style="padding:6px 8px; font-size:12px;"><select id="wai_type_${r.id}" aria-label="Job type for ${esc(r.job_no || r.id)}" onchange="waiChooseType('${r.id}', this.value)"${WAI.typeSaving[r.id] ? " disabled" : ""} style="max-width:210px;"><option value=""${code ? "" : " selected"}>— select job type —</option>${jobTypeOptions(code)}</select><div id="wai_dest_${r.id}" style="margin-top:3px;">${destination === "DG" ? "DG Shipment" : destination === "GC" ? "General Cargo" : "Select type before opening"}${WAI.typeStatus[r.id] && WAI.typeStatus[r.id].code === code ? " — " + esc(WAI.typeStatus[r.id].message) : ""}</div></td>
         <td style="padding:6px 8px; font-size:12px;">${esc(r.sender_name || "")}<br><span style="color:#7a8794;">+${esc(r.sender)}</span></td>
         <td style="padding:6px 8px; font-size:12px;">${files}${r.message ? `<div style="color:#5b6b7d; margin-top:2px;">"${esc(String(r.message).slice(0, 80))}"</div>` : ""}</td>
         <td style="padding:6px 8px; font-weight:bold; color:${ST[r.status] || "#333"}; font-size:12px;">${esc(r.status)}${r.opened_by ? `<div style="font-weight:normal; color:#7a8794;">${esc(r.opened_by)}</div>` : ""}</td>
         <td style="padding:6px 8px; white-space:nowrap;">
-          <button class="smallbtn sb-green" ${ready ? "" : "disabled"} onclick="waiOpen('${r.id}')">&#9654; OPEN &amp; LOAD</button>
+          <button class="smallbtn sb-green" ${ready && !WAI.typeSaving[r.id] ? "" : "disabled"} onclick="waiOpen('${r.id}')">&#9654; OPEN &amp; LOAD</button>
           <button class="smallbtn sb-blue" onclick="waiFiles('${r.id}')">&#128065; files</button>
           ${r.job_no && skydDraftUuid(r.id) ? `<button class="smallbtn sb-blue" onclick="skydDraftOpen('${r.id}')">SKYD drafts</button>` : ""}
           ${r.status !== "DONE" ? `<button class="smallbtn" onclick="waiSet('${r.id}','DONE')">&#10004; done</button>` : ""}
@@ -9699,6 +9742,7 @@ function waiPut(inputId, files){
 }
 async function waiOpen(id){
   const r = WAI.rows.find(x => x.id === id); if(!r || WAI.busy) return;
+  if(WAI.typeSaving[id]){ alert("Wait until the job type says Saved before opening this job or sending a SKYD preparation command."); return; }
   const msg = document.getElementById("wai_msg");
   const code = waiJobType(r), destination = waiDestination(code), tab = destination === "GC" ? "gc" : "dgd";
   if(!destination){ alert("Select the job type in the inbox before opening this job."); return; }

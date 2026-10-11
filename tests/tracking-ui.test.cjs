@@ -886,10 +886,12 @@ test('initial carrier retrieval errors describe unavailable evidence instead of 
 
 test('tracking report printing leaves existing DGD print data and label styles untouched', () => {
   const source=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-  const handlers=[], zone={innerHTML:'Existing DGD print pages'};let open=true,built=0,removed=0,classChanges=0;
-  const sandbox={window:{addEventListener:(name,fn)=>handlers.push({name,fn})},document:{body:{classList:{contains:name=>name==='dgdoc-report-open'&&open,add:()=>classChanges++,remove:()=>classChanges++}},getElementById:id=>id==='printzone'?zone:{remove:()=>removed++}},buildPrintPages:()=>{built++;return 2;}};
+  const handlers=[], zone={innerHTML:'Existing DGD print pages'},houses={list:[{no:'Existing house AWB'}]};let open=true,built=0,removed=0,classChanges=0,previews=0;
+  const sandbox={window:{addEventListener:(name,fn)=>handlers.push({name,fn})},document:{body:{classList:{contains:name=>name==='dgdoc-report-open'&&open,add:()=>classChanges++,remove:()=>classChanges++}},getElementById:id=>id==='printzone'?zone:{remove:()=>removed++}},buildPrintPages:()=>{built++;return 2;},HOUSES:houses,schedulePreview:()=>{previews++;}};
   for(const match of source.matchAll(/window\.addEventListener\("(?:beforeprint|afterprint)", \(\) => \{[\s\S]*?\}\);/g)) vm.runInNewContext(match[0],sandbox);
-  assert.equal(handlers.length,3);handlers.forEach(handler=>handler.fn());
+  assert.ok(handlers.some(handler=>handler.name==='beforeprint'));assert.ok(handlers.some(handler=>handler.name==='afterprint'));handlers.forEach(handler=>handler.fn());
   assert.equal(built,0);assert.equal(removed,0);assert.equal(classChanges,0);assert.equal(zone.innerHTML,'Existing DGD print pages');
+  assert.equal(previews,1);assert.deepEqual(houses,{list:[{no:'Existing house AWB'}]});
   open=false;handlers.forEach(handler=>handler.fn());assert.equal(built,1);assert.equal(removed,1);assert.equal(zone.innerHTML,'');
+  assert.equal(previews,2);assert.deepEqual(houses,{list:[{no:'Existing house AWB'}]});
 });
