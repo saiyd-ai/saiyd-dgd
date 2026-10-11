@@ -57,4 +57,22 @@ Deployment order for expanded intake:
 
 Maintained Code node bodies are `n8n/parse-owner-message.js` and `n8n/add-owner-file.js`. Shared admission logic is in `supabase/functions/dg-inbox/media-validation.mjs`, and receiver behavior is in `inbox-handler.mjs`; generated code is rebuilt from these sources. A redundant or failed append upload is removed on a best-effort basis. If storage cleanup fails, an unreferenced object may remain; the handler does not acknowledge a failed append. The resolver prevents new concurrent duplicate rows; it does not merge historical duplicate rows, and chooses the latest active row when historical duplicates exist. Database migration SQL and concurrency are contract-tested locally with atomic mocks; live database validation remains part of deployment verification.
 
+## SKYD WhatsApp AWB drafts
+
+After the owner sends all shipment messages and documents, `SKYD PREPARE AEXP-C00465 AWB` prepares the exact active inbox job. The command requires a job number and is limited to the existing owner phone. Preparation captures an immutable source snapshot, extracts each source separately using the company's configured AI model, and validates quoted evidence, required fields, AWB check digit and source conflicts. A General Cargo job containing positive DG information needs classification clarification. This prepares an AWB draft only; it does not prepare or approve a DGD.
+
+Every distinct command creates a preserved version in `skyd_awb_runs`. Repeated delivery of the same Meta message ID does not create another version. Original messages/files remain unchanged. Draft PDFs are stored privately under `dgdocs/skyd-awb/<inbox id>/v<version>-<run id>.pdf`, with DRAFT on every page, blank unknown financial fields and no approval/signature. Inbox → SKYD drafts displays versions and review issues separately from the open manual form.
+
+Preparation admits at most 6 originals, 10 MiB each, 20 MiB combined, 3 pages per PDF, 4 sheets / 12,000 extracted characters per Excel workbook, and 12,000 shipment-message characters. Larger or unsupported source sets are rejected in full rather than silently truncated. Missing fields and conflicting evidence produce NEEDS_INPUT and a WhatsApp explanation. A new preparation includes subsequent clarifications.
+
+The n8n delivery branch claims a ready version once, obtains a 120-second signed link for its exact private PDF, and sends it only to the owner using the existing WhatsApp credential. Meta's accepted message ID records SENT. A failed or ambiguous send records UNCERTAIN and is not retried automatically. SENT means Meta accepted the request, not confirmed handset delivery. A interrupted claim remains CLAIMED for staff investigation. No final AWB submission, stamp or shipment booking occurs.
+
+Deployment order:
+
+1. `npm ci`, `npm run build:skyd`, `npm run test:skyd` and `npm run test:inbox`.
+2. Apply `supabase/migrations/202610110003_skyd_awb_draft_runs.sql`, then run transactional database assertions. Authenticated active staff can read only the UI columns; private claim tokens, source snapshots and AI usage remain service-only. RPC mutations require the service role.
+3. Deploy the generated `supabase/functions/skyd-prepare/index.ts` with the same existing `x-dg-key` authentication as `dg-inbox`. Runtime imports pin Supabase JS, PDF-lib and official SheetJS. It reads the existing private AI configuration; no new token is embedded in source or workflow exports.
+4. Run `node scripts/build-skyd-workflow.cjs <current exported workflow.json>`. Add the five generated delivery nodes and their connections, connect DGDOC inbox to SKYD draft ready?, set the existing inbox URL to the generated routing expression and its timeout to 120,000 ms. Preserve the existing webhook, owner filter, media intake, credential references and normal reply branch. Publish after database/worker checks pass.
+5. Deploy the UI, then test an owner command with a complete synthetic shipment and confirm a DRAFT_READY version, preserved originals, a saved private PDF and Meta acceptance. Also test missing/conflicting fields and duplicate command delivery.
+
 © JFS Logistics / SAIYD.AI
