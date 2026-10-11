@@ -15,6 +15,8 @@ const INBOX='10000000-0000-4000-8000-000000000001';
 const FIELDS={awb:'176-12345675',shipper:'Synthetic Shipper\nDubai UAE',consignee:'Synthetic Consignee\nLondon UK',origin:'DXB',destination:'LHR',pieces:12,grossWeight:10284,goods:'GENERAL MACHINE PARTS'};
 const TEXT=Object.entries(FIELDS).map(([key,value])=>key+': '+value+(key==='grossWeight'?' KG':'')).join('\n');
 const extract=(fields=FIELDS,id='messages',text=TEXT)=>({sources:[{source_id:id,fields:Object.fromEntries(Object.entries(fields).map(([key,value])=>[key,{value,excerpt:key+': '+value+(key==='grossWeight'?' KG':'')}]))}],conflicts:[]});
+const providerExtract=(...args)=>{const extraction=extract(...args);return {sources:extraction.sources.map(source=>({source_id:source.source_id,fields:Object.entries(source.fields).map(([field,item])=>({field,value:String(item.value),excerpt:item.excerpt}))})),conflicts:extraction.conflicts};};
+const providerResponse=value=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(value)}],usage:{input_tokens:20,output_tokens:40}});
 const snapshot=(changes={})=>({inbox_id:INBOX,job_no:'AEXP-C00465',message:'DG AEXP-C00465\n'+TEXT,files:[],note:'Job type: AEXP',...changes});
 const ready=()=>reconcileExtraction(extract(),[{id:'messages',text:TEXT}],snapshot());
 const attachment=(kind,changes={})=>({path:'wa-inbox/'+INBOX+'/synthetic.'+kind,name:'synthetic.'+kind,mime:{pdf:'application/pdf',jpg:'image/jpeg',png:'image/png',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',xls:'application/vnd.ms-excel'}[kind],...changes});
@@ -68,7 +70,7 @@ function setup(options={}){
     });
     throw new Error('Unexpected RPC: '+name);
   }};
-  const handler=createSkydHandler({sb,getKey:async()=>KEY,now:()=>new Date(NOW),deadlineMs:options.deadlineMs??SKYD_LIMITS.deadlineMs,prepareSnapshot:async(s,signal)=>{calls.prepare.push(structuredClone(s));return options.prepare?options.prepare(s,signal):ready();},
+  const handler=createSkydHandler({sb,getKey:async()=>KEY,now:()=>new Date(NOW),deadlineMs:options.deadlineMs??SKYD_LIMITS.deadlineMs,prepareSnapshot:async(s,signal,reportStage)=>{calls.prepare.push(structuredClone(s));return options.prepare?options.prepare(s,signal,reportStage):ready();},
     renderPdf:async(fields,opts)=>{calls.render.push({fields,opts});if(options.render)return options.render(fields,opts);return new Uint8Array(PDF);}});
   async function send(body,options={}){const response=await handler(new Request('https://synthetic.invalid/skyd-prepare',{method:options.method||'POST',headers:{'content-type':'application/json','x-dg-key':options.key??KEY},body:options.method==='GET'?undefined:JSON.stringify({from:SKYD_OWNER,...body})}));return {status:response.status,body:await response.json()};}
   const prepare=(message_id='wamid.synthetic-1',job='AEXP-C00465')=>send({text:'SKYD PREPARE '+job+' AWB',message_id});
@@ -139,15 +141,16 @@ test('foreign file paths and an aborted download do not reach extraction',async(
   const controller=new AbortController();await assert.rejects(readSkydSources(snapshot({files:[attachment('pdf')]}),{...readers,download:async()=>{controller.abort();return PDF;}},controller.signal),/PREPARE_TIMEOUT/);
 });
 test('company configured AI model is used and token usage is stored without secrets',async()=>{
-  let request;const sb={from:()=>({select(){return this;},eq(){return this;},async maybeSingle(){return {data:{value:{key:'never-output-this-synthetic-key',model:'configured-test-model'}}};}})};
-  const prep=createSkydPreparation({sb,fetcher:async(url,opts)=>{request={url,opts};return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(extract())}],usage:{input_tokens:123,output_tokens:456,private:'secret'}})};}});
-  const result=await prep(snapshot()),requestBody=JSON.parse(request.opts.body);assert.equal(requestBody.model,'configured-test-model');
+  let request;const stages=[],sb={from:()=>({select(){return this;},eq(){return this;},async maybeSingle(){return {data:{value:{key:'never-output-this-synthetic-key',model:'configured-test-model'}}};}})};
+  const prep=createSkydPreparation({sb,fetcher:async(url,opts)=>{request={url,opts};return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(providerExtract())}],usage:{input_tokens:123,output_tokens:456,private:'secret'}})};}});
+  const result=await prep(snapshot(),undefined,stage=>stages.push(stage)),requestBody=JSON.parse(request.opts.body);assert.equal(requestBody.model,'configured-test-model');
   assert.deepEqual(requestBody.output_config,{format:{type:'json_schema',schema:SKYD_OUTPUT_SCHEMA}});assert.equal(requestBody.tools,undefined);assert.equal(requestBody.tool_choice,undefined);
   assert.equal(result.ai_usage.input_tokens,123);assert.equal(result.ai_usage.output_tokens,456);assert.equal(result.ai_usage.parse_stage,'accepted');assert.equal(result.ai_usage.stop_reason,'end_turn');assert.deepEqual(result.ai_usage.content_types,['text']);
   assert.equal(JSON.stringify(result).includes('never-output'),false);assert.equal(JSON.stringify(result.ai_usage).includes('secret'),false);
+  assert.deepEqual(stages,['source_read','settings','ai_request','ai_body','ai_parse']);assert.equal(result.status,'DRAFT_READY');
 });
 
-test('output schema stays generic and within provider optional/union limits',()=>{
+test('compact output schema has no optional properties or unions and preserves evidence shape',()=>{
   let optional=0,unions=0;
   function walk(schema){
     if(Array.isArray(schema.type)) unions++;
@@ -158,31 +161,69 @@ test('output schema stays generic and within provider optional/union limits',()=
     }
     if(schema.items) walk(schema.items);
   }
-  walk(SKYD_OUTPUT_SCHEMA);assert.equal(optional,16);assert.equal(unions,0);
+  walk(SKYD_OUTPUT_SCHEMA);assert.equal(optional,0);assert.equal(unions,0);
+  assert.equal(SKYD_OUTPUT_SCHEMA.properties.sources.items.properties.fields.type,'array');
+  const fieldSchema=SKYD_OUTPUT_SCHEMA.properties.sources.items.properties.fields.items;
+  assert.deepEqual(fieldSchema.required,['field','value','excerpt']);assert.equal(fieldSchema.properties.value.type,'string');assert.equal(fieldSchema.properties.field.enum.length,16);
   assert.doesNotMatch(JSON.stringify(SKYD_OUTPUT_SCHEMA),/AEXP-C|SKYD TEST|971562977774/);
-  const result=parseSkydAiResult({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(extract())}],usage:{}},'configured-model');
+  const result=parseSkydAiResult(providerResponse(providerExtract()),'configured-model');
   assert.deepEqual(result.extraction,extract());assert.equal(result.ai_usage.parse_stage,'accepted');
 });
 
 test('provider output is parsed exactly and fails closed on prose, fences, wrong shapes and types',()=>{
   const response=text=>({stop_reason:'end_turn',content:[{type:'text',text}],usage:{input_tokens:20,output_tokens:40}});
-  const json=JSON.stringify(extract());
+  const json=JSON.stringify(providerExtract());
   for(const text of ['```json\n'+json+'\n```','Here is the shipment: '+json,'{invalid private-source-text}']){
     assert.throws(()=>parseSkydAiResult(response(text),'configured-model'),error=>error instanceof SkydAiError && error.message==='AI_JSON_PARSE' && error.ai_usage.parse_stage==='json_parse' && error.ai_usage.input_tokens===20 && !JSON.stringify(error.ai_usage).includes(text));
   }
-  const wrongType=extract();wrongType.sources[0].fields.pieces.value='12';
-  const nullField=extract();nullField.sources[0].fields.grossWeight.value=null;
-  const unknownField=extract();unknownField.sources[0].fields.signature={value:'approved',excerpt:'approved'};
-  for(const value of [{sources:[]},[],{sources:[],conflicts:[],private:'unknown'},wrongType,nullField,unknownField,{sources:[],conflicts:[{private:'customer data'}]}]){
+  const wrongType=providerExtract();wrongType.sources[0].fields.find(item=>item.field==='pieces').value=12;
+  const nullField=providerExtract();nullField.sources[0].fields.find(item=>item.field==='grossWeight').value=null;
+  const unknownField=providerExtract();unknownField.sources[0].fields.push({field:'signature',value:'approved',excerpt:'approved'});
+  for(const value of [{sources:[]},[],{sources:[],conflicts:[],private:'unknown'},extract(),wrongType,nullField,unknownField,{sources:[],conflicts:[{private:'customer data'}]}]){
     assert.throws(()=>parseSkydAiResult(response(JSON.stringify(value)),'configured-model'),error=>error.message==='AI_RESULT_SCHEMA' && error.ai_usage.parse_stage==='result_schema');
   }
-  const omitted=parseSkydAiResult(response(JSON.stringify({sources:[{source_id:'messages',fields:{}}],conflicts:[]})),'configured-model');
+  const omitted=parseSkydAiResult(response(JSON.stringify({sources:[{source_id:'messages',fields:[]}],conflicts:[]})),'configured-model');
   assert.deepEqual(omitted.extraction.sources[0].fields,{});
   const missing=reconcileExtraction(omitted.extraction,[{id:'messages',text:TEXT}],snapshot());assert.equal(missing.status,'NEEDS_INPUT');assert.ok(missing.missing_fields.includes('awb'));
 });
 
+test('compact records reject duplicates, unknown or prototype fields, missing keys and source aliases',()=>{
+  const value=()=>providerExtract(),invalid=[];
+  let item=value();item.sources[0].fields.push({...item.sources[0].fields[0]});invalid.push(item);
+  item=value();item.sources.push(structuredClone(item.sources[0]));invalid.push(item);
+  for(const field of ['__proto__','constructor','toString','unknown']){item=value();item.sources[0].fields[0].field=field;invalid.push(item);}
+  for(const key of ['field','value','excerpt']){item=value();delete item.sources[0].fields[0][key];invalid.push(item);}
+  item=value();item.sources[0].fields[0].private='ignored?';invalid.push(item);
+  item=value();delete item.sources[0].fields;invalid.push(item);
+  for(const id of ['file:6','another-job','Messages',null]){item=value();item.sources[0].source_id=id;invalid.push(item);}
+  item=value();item.sources[0].fields=Array.from({length:17},()=>({field:'goods',value:'parts',excerpt:'parts'}));invalid.push(item);
+  item=value();item.sources=Array.from({length:8},(_,index)=>({source_id:'file:'+index,fields:[]}));invalid.push(item);
+  for(const extraction of invalid)assert.throws(()=>parseSkydAiResult(providerResponse(extraction),'configured-model'),/AI_RESULT_SCHEMA/);
+  assert.equal({}.polluted,undefined);
+});
+
+test('numeric record strings normalize without losing precision or accepting unit/format changes',()=>{
+  const parse=value=>parseSkydAiResult(providerResponse({sources:[{source_id:'messages',fields:[{field:'grossWeight',value,excerpt:'weight evidence'}]}],conflicts:[]}),'configured-model').extraction.sources[0].fields.grossWeight.value;
+  for(const [text,number] of [['10284',10284],['10284.5000',10284.5],['0',0],['0.0000001',0.0000001],['9007199254740991',Number.MAX_SAFE_INTEGER]])assert.equal(parse(text),number);
+  for(const value of ['10,284','12 KG','1e3','-1','+12',' 12','12 ','012','.5','12.','NaN','Infinity','9007199254740992','9007199254740991.1','0.100000000000000001',12,null])assert.throws(()=>parse(value),/AI_RESULT_SCHEMA/);
+  const provider=providerExtract();provider.sources[0].fields.find(item=>item.field==='grossWeight').excerpt='Gross weight: 10,284 KG';
+  const extraction=parseSkydAiResult(providerResponse(provider),'configured-model').extraction;
+  const result=reconcileExtraction(extraction,[{id:'messages',text:TEXT.replace('grossWeight: 10284 KG','Gross weight: 10,284 KG')}],snapshot());
+  assert.equal(result.status,'DRAFT_READY');assert.equal(result.fields.grossWeight,10284);assert.equal(result.evidence.grossWeight[0].text_verified,true);
+});
+
+test('schema-valid records still require complete source coverage and preserve conflicts',()=>{
+  const provider=providerExtract();provider.conflicts=['gross weight differs between invoice and packing list'];
+  const extraction=parseSkydAiResult(providerResponse(provider),'configured-model').extraction;
+  const result=reconcileExtraction(extraction,[{id:'messages',text:TEXT},{id:'file:0',kind:'pdf'}],snapshot());
+  assert.equal(result.status,'NEEDS_INPUT');assert.ok(result.missing_fields.includes('unread_source_documents'));assert.ok(result.missing_fields.includes('conflicting_source_fields'));
+  const acknowledged=providerExtract();acknowledged.sources.push({source_id:'file:0',fields:[]});
+  const complete=reconcileExtraction(parseSkydAiResult(providerResponse(acknowledged),'configured-model').extraction,[{id:'messages',text:TEXT},{id:'file:0',kind:'pdf'}],snapshot());
+  assert.equal(complete.status,'DRAFT_READY');assert.ok(complete.warnings.some(value=>value.includes('manual review')));
+});
+
 test('refusal, token exhaustion and unexpected stops never become accepted drafts',()=>{
-  const text=JSON.stringify(extract());
+  const text=JSON.stringify(providerExtract());
   for(const [stop,code] of [['refusal','AI_REFUSAL'],['max_tokens','AI_INCOMPLETE'],['tool_use','AI_RESPONSE_STOP'],['private stop value','AI_RESPONSE_STOP']]){
     assert.throws(()=>parseSkydAiResult({stop_reason:stop,content:[{type:'text',text}],usage:{output_tokens:6500}},'configured-model'),error=>error.message===code && error.ai_usage.output_tokens===6500 && !JSON.stringify(error.ai_usage).includes('private stop value'));
   }
@@ -248,6 +289,35 @@ test('an unresponsive source SDK cannot hold the preparation indefinitely or cre
   let finishSource,signal;const env=setup({deadlineMs:10,prepare:async(s,providedSignal)=>{signal=providedSignal;return new Promise(resolve=>{finishSource=resolve;});}});
   const result=await env.prepare();assert.equal(result.body.status,'FAILED');assert.equal(env.runs[0].error_code,'PREPARE_TIMEOUT');assert.equal(signal.aborted,true);assert.equal(env.calls.render.length,0);
   finishSource(ready());await tick();assert.equal(env.calls.render.length,0);assert.equal(env.uploads.size,0);assert.equal(env.runs[0].status,'FAILED');
+  assert.equal(env.runs[0].ai_usage.timeout_stage,'source_read');assert.ok(Number.isInteger(env.runs[0].ai_usage.elapsed_ms));
+});
+
+test('timeouts store only validated fixed stages and locally bounded elapsed timing',async()=>{
+  let observer;const env=setup({deadlineMs:10,prepare:async(s,signal,reportStage)=>{
+    observer=reportStage;reportStage('settings');reportStage('ai_request');
+    for(const value of [{private_key:'source data'},'PRIVATE-CUSTOMER-DATA',42,'pdf_render'])reportStage(value);
+    return new Promise(()=>{});
+  }});
+  const result=await env.prepare(),usage=env.runs[0].ai_usage;
+  assert.equal(env.runs[0].error_code,'PREPARE_TIMEOUT');assert.equal(usage.timeout_stage,'ai_request');
+  assert.deepEqual(Object.keys(usage).sort(),['elapsed_ms','timeout_stage']);assert.ok(Number.isInteger(usage.elapsed_ms)&&usage.elapsed_ms>=0&&usage.elapsed_ms<=120000);
+  observer('source_read');assert.equal(env.runs[0].ai_usage.timeout_stage,'ai_request');assert.equal(result.body.ai_usage,undefined);
+  assert.doesNotMatch(JSON.stringify(usage),/PRIVATE|private_key|source data/);
+});
+
+test('PDF timeout identifies rendering and keeps available safe provider token counts',async()=>{
+  const env=setup({deadlineMs:10,prepare:async()=>({...ready(),ai_usage:{input_tokens:21,output_tokens:33,parse_stage:'accepted'}}),render:async()=>new Promise(()=>{})});
+  const result=await env.prepare();assert.equal(result.body.status,'FAILED');assert.equal(env.runs[0].ai_usage.timeout_stage,'pdf_render');assert.equal(env.runs[0].ai_usage.input_tokens,21);assert.equal(env.runs[0].artifact_path,null);
+});
+
+test('optional stage observers cannot change preparation and aborted settings cannot start late AI',async()=>{
+  const sb={from:()=>({select(){return this;},eq(){return this;},async maybeSingle(){return {data:{value:{key:'synthetic',model:'configured'}}};}})};
+  const prep=createSkydPreparation({sb,fetcher:async()=>({ok:true,json:async()=>providerResponse(providerExtract())})});
+  assert.equal((await prep(snapshot(),undefined,()=>{throw new Error('observer failure');})).status,'DRAFT_READY');
+  let release,fetches=0;const controller=new AbortController(),waitingSb={from:()=>({select(){return this;},eq(){return this;},maybeSingle(){return new Promise(resolve=>{release=resolve;});}})};
+  const pending=createSkydPreparation({sb:waitingSb,fetcher:async()=>{fetches++;throw new Error('late AI');}})(snapshot(),controller.signal);
+  await tick();controller.abort();release({data:{value:{key:'synthetic',model:'configured'}}});
+  await assert.rejects(pending,/PREPARE_TIMEOUT/);assert.equal(fetches,0);
 });
 test('delivery claim is atomic, bound to owner/version and signs one private object for 120 seconds',async()=>{
   const env=setup();await env.prepare();const id=env.runs[0].id;
@@ -304,7 +374,7 @@ test('generated entry boots and prepares a real private PDF with injected databa
   const source=fs.readFileSync(new URL('../../supabase/functions/skyd-prepare/index.ts',import.meta.url),'utf8');
   const js=stripTypeScriptTypes(source).replace(/^import .*;\r?\n/gm,'');
   // Execute in the same realm as PDF-lib: its Array validators use instanceof.
-  const provider=async(url,options)=>{apiRequest={url,options};return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(extract())}],usage:{input_tokens:100,output_tokens:200}})};};
+  const provider=async(url,options)=>{apiRequest={url,options};return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(providerExtract())}],usage:{input_tokens:100,output_tokens:200}})};};
   new Function('createClient','pdfLib','XLSX','Deno','fetch',js)(()=>sb,pdfLib,{}, {env:{get:()=> 'synthetic-env'},serve(handler){served=handler;}},provider);assert.equal(typeof served,'function');
   const response=await served(new Request('https://synthetic.invalid/skyd-prepare',{method:'POST',headers:{'content-type':'application/json','x-dg-key':KEY},body:JSON.stringify({from:SKYD_OWNER,text:'SKYD PREPARE AEXP-C00465 AWB',message_id:'wamid.generated-entry'})}));
   const result=await response.json();assert.equal(result.status,'DRAFT_READY');assert.equal(JSON.parse(apiRequest.options.body).model,'configured-model');

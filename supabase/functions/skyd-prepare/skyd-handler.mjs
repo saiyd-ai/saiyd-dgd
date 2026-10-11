@@ -1,5 +1,5 @@
 import { SKYD_OWNER, SKYD_LIMITS, skydCommand } from './skyd-fields.mjs';
-import { SkydInputError, SkydAiError } from './skyd-runtime.mjs';
+import { SkydInputError, SkydAiError, SKYD_PREPARE_STAGES } from './skyd-runtime.mjs';
 const SKYD_CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'content-type, x-dg-key','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const skydResponse=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json',...SKYD_CORS}});
 const skydUuid=value=>typeof value==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -31,22 +31,29 @@ export function createSkydHandler({sb,getKey,prepareSnapshot,renderPdf,now=()=>n
       // Storage SDK downloads may not support AbortSignal. Race the worker
       // deadline too; post-download signal checks prevent late AI work.
       const bounded=promise=>Promise.race([promise,deadline]);
+      const startedAt=Date.now();let prepareStage='source_read';
+      const reportStage=value=>{if(!controller.signal.aborted && typeof value==='string' && SKYD_PREPARE_STAGES.includes(value)) prepareStage=value;};
       let result,artifactPath=null,aiUsage={};
       try{
-        result=await bounded(prepareSnapshot(run.source_snapshot,controller.signal));
+        result=await bounded(prepareSnapshot(run.source_snapshot,controller.signal,reportStage));
         aiUsage=result.ai_usage || {};
         if(controller.signal.aborted) throw new Error('PREPARE_TIMEOUT');
         if(result.status==='DRAFT_READY'){
+          prepareStage='pdf_render';
           const bytes=await bounded(renderPdf(result.fields,{jobNo:job,version:run.version}));
           if(controller.signal.aborted) throw new Error('PREPARE_TIMEOUT');
           if(!(bytes instanceof Uint8Array) || !bytes.length || bytes.length>SKYD_LIMITS.fileBytes || String.fromCharCode(...bytes.slice(0,5))!=='%PDF-') throw new Error('PDF_FAILED');
           artifactPath='skyd-awb/'+run.inbox_id+'/v'+run.version+'-'+run.id+'.pdf';
+          prepareStage='pdf_store';
           const saved=await bounded(sb.storage.from('dgdocs').upload(artifactPath,bytes,{contentType:'application/pdf',upsert:false}));
           if(saved.error) throw new Error('PDF_STORE_FAILED');
         }
       }catch(error){
         artifactPath=null;
         if(error instanceof SkydAiError) aiUsage=error.ai_usage;
+        // Fixed stages plus a locally measured duration only. Provider output,
+        // source metadata and arbitrary observer values never enter diagnostics.
+        if(controller.signal.aborted) aiUsage={...aiUsage,timeout_stage:prepareStage,elapsed_ms:Math.min(120000,Math.max(0,Math.trunc(Date.now()-startedAt)))};
         result=error?.code==='unsupported_awb_pdf_text'?{status:'NEEDS_INPUT',fields:result?.fields || {},evidence:result?.evidence || {},warnings:['Provide English or romanized AWB names, addresses and goods. The original messages remain saved; no characters were silently removed.'],missing_fields:['english_awb_fields']}:
           error instanceof SkydInputError?{status:'NEEDS_INPUT',fields:{},evidence:{},warnings:[error.message],missing_fields:[error.code]}:
           {status:'FAILED',fields:{},evidence:{},warnings:['Preparation failed safely. Check the source documents and company AI configuration, then send a new prepare command.'],missing_fields:[],error_code:controller.signal.aborted?'PREPARE_TIMEOUT':(new Set(['AI_CONFIGURATION','AI_REQUEST_FAILED','AI_INCOMPLETE','AI_INVALID_RESULT','AI_RESPONSE_SHAPE','AI_RESPONSE_STOP','AI_REFUSAL','AI_EMPTY_RESULT','AI_JSON_PARSE','AI_RESULT_SCHEMA','PDF_FAILED','PDF_STORE_FAILED']).has(error?.message)?error.message:'PREPARE_FAILED')};
