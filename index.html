@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-W</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-X</span></span>
           </div>
         </div>
       </div>
@@ -524,12 +524,11 @@
               oninput="const f=document.getElementById('f_customer'); if(f) f.value=this.value;"></div>
           <span id="gc_jobmsg" style="display:none;"></span>
         </div>
-        <div class="warnbar" style="margin-top:0;">Add the AWB PDF, photos, Excel or text below and press AUTO-FILL &mdash; the airline is detected automatically. Then use the buttons below for LABELS, AIRLINE DOCUMENTS and DNATA. No DGD needed.</div>
         <!-- v25.11-W ADD DOCUMENTS + AUTO-FILL -->
         <div id="dc_gc" style="margin-bottom:10px;">
           <div id="dc_zone_gc" tabindex="0" style="border:2px dashed #7b2d8b; border-radius:10px; padding:16px; text-align:center; color:#7b2d8b; font-weight:bold; font-size:13.5px; background:#faf5fc; outline:none; cursor:default;">
             &#128206; ADD DOCUMENTS &mdash; drop files here, <a href="#" class="dc_pick" onclick="return false;" style="color:#7b2d8b; text-decoration:underline;">choose files</a>, or click here and press <b>Ctrl+V</b> to paste
-            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; JPG / PNG &middot; screenshots &mdash; AWB, house AWB, label photo, packing list &mdash; several at once</div>
+            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; JPG / PNG &middot; screenshots &mdash; AWB, house AWB, label photo, packing list, invoice &mdash; several at once</div>
           </div>
           <input type="file" id="dc_file_gc" accept=".pdf,.xlsx,.xls,.csv,image/*" multiple style="display:none;">
           <div id="dc_list_gc"></div>
@@ -746,7 +745,7 @@
         <div id="dc_dg" style="margin-bottom:10px;">
           <div id="dc_zone_dg" tabindex="0" style="border:2px dashed #7b2d8b; border-radius:10px; padding:16px; text-align:center; color:#7b2d8b; font-weight:bold; font-size:13.5px; background:#faf5fc; outline:none; cursor:default;">
             &#128206; ADD DOCUMENTS &mdash; drop files here, <a href="#" class="dc_pick" onclick="return false;" style="color:#7b2d8b; text-decoration:underline;">choose files</a>, or click here and press <b>Ctrl+V</b> to paste
-            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; JPG / PNG &middot; screenshots &mdash; MASTER + all HOUSE AWBs + label photos + packing list(s) together</div>
+            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; JPG / PNG &middot; screenshots &mdash; MASTER + all HOUSE AWBs + label photos + packing list(s) + invoice together</div>
           </div>
           <input type="file" id="dc_file_dg" accept=".pdf,.xlsx,.xls,.csv,image/*" multiple style="display:none;">
           <div id="dc_list_dg"></div>
@@ -9877,9 +9876,10 @@ waiInit();
 /* CREATE DGD (dg) and CREATE AWB (gc) use the same box. It only collects the files + text and hands them to the
    existing readers (AWB / house AWB / label reader, packing-list reader, text extraction) — no rule changes. */
 const DC = {dg: {files: [], kinds: []}, gc: {files: [], kinds: []}, busy: false};
-const DC_KINDS = {AWB: "AWB", LABEL: "LABEL", PL: "PACKING LIST"};
+const DC_KINDS = {AWB: "AWB", LABEL: "LABEL", PL: "PACKING LIST", INV: "INVOICE"};
 function dcKind(f){
   const n = (f.name || "").toLowerCase(), m = (f.type || "").toLowerCase();
+  if(/invoice|\binv\b|inv[\s_-]?no|\binv\d/.test(n)) return "INV";
   if(/\.(xlsx|xls|csv)$/.test(n) || /sheet|excel|csv/.test(m)) return "PL";
   if(/pack|plist|p\.l\b|\bpl\b/.test(n)) return "PL";
   if(m.startsWith("image/") || /\.(jpe?g|png|webp|heic)$/.test(n)) return "LABEL";
@@ -9945,8 +9945,13 @@ async function dcRun(mode){
   DC.busy = true;
   const btn = document.getElementById("dc_go_" + mode); if(btn) btn.disabled = true;
   try{
-    const awb = [], pl = [];
-    st.files.forEach((f, i) => (st.kinds[i] === "PL" ? pl : awb).push(f));
+    const awb = [], pl = [], inv = [];
+    st.files.forEach((f, i) => (st.kinds[i] === "PL" ? pl : st.kinds[i] === "INV" ? inv : awb).push(f));
+    // INVOICE → the existing INVOICE reader (fills the INVOICE tab items / values), one file at a time
+    for(const f of inv){
+      dcMsg(mode, "Reading invoice " + f.name + " ...");
+      if(dcPut("inv_file", [f]) && typeof invImportFile === "function") await invImportFile();
+    }
     if(mode === "dg"){
       if(awb.length){ dcMsg(mode, "Reading " + awb.length + " AWB / label file(s) ..."); dcPut("awbfile", awb); await readAwbPdf(); }
       if(pl.length){ dcMsg(mode, "Reading " + pl.length + " packing list(s) ..."); dcPut("pt_file", pl); await ptReadPdf(); }
@@ -9975,7 +9980,7 @@ async function dcRun(mode){
     const n = st.files.length;
     st.files = []; st.kinds = []; dcRender(mode);
     const ta = document.getElementById("dc_text_" + mode); if(ta) ta.value = "";
-    dcMsg(mode, "✓ AUTO-FILL done — " + n + " file(s)" + (text.trim() ? " + text" : "") + ". Check every field before saving.");
+    dcMsg(mode, "✓ AUTO-FILL done — " + n + " file(s)" + (text.trim() ? " + text" : "") + (inv.length ? " • invoice → INVOICE tab" : "") + ". Check every field before saving.");
   }catch(e){
     dcMsg(mode, "AUTO-FILL stopped: " + e.message, true);
   }finally{
