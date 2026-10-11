@@ -17,8 +17,7 @@ const source = modules.map(file => '// SOURCE: ' + file + '\n' + fs.readFileSync
   // The browser deployment has no Node package.json/import map; reuse its
   // explicitly pinned top-level dependency instead of the module's Node fallback.
   .replace("return import('pdf-lib');", 'return pdfLib;')).join('\n\n');
-const bootstrap = `import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+const bootstrap = `import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import * as pdfLib from "npm:pdf-lib@1.17.1";
 import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
 const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });

@@ -8,8 +8,9 @@
   "scripts": {
     "test": "node --test --test-isolation=none tests/tracking-ui.test.cjs tests/tracking-report.test.cjs tests/tracking-integration.test.cjs tests/whatsapp-inbox-routing.test.cjs tests/whatsapp-intake-code.test.cjs tests/whatsapp-media-validation.test.mjs tests/whatsapp-inbox-handler.test.mjs tests/skyd-awb-pdf.test.mjs tests/skyd-draft-ui.test.cjs tests/skyd-workflow.test.cjs tests/backend/*.test.mjs",
     "test:inbox": "node --test tests/whatsapp-inbox-routing.test.cjs tests/whatsapp-intake-code.test.cjs tests/whatsapp-media-validation.test.mjs tests/whatsapp-inbox-handler.test.mjs",
-    "test:skyd": "node --test tests/backend/skyd-prepare.test.mjs tests/skyd-awb-pdf.test.mjs tests/skyd-draft-ui.test.cjs tests/skyd-workflow.test.cjs",
+    "test:skyd": "node --test tests/backend/skyd-prepare.test.mjs tests/backend/skyd-bundle.test.mjs tests/skyd-awb-pdf.test.mjs tests/skyd-draft-ui.test.cjs tests/skyd-workflow.test.cjs",
     "build:skyd": "node scripts/build-skyd-prepare.cjs",
+    "build:skyd:bundle": "node scripts/build-skyd-bundle.cjs",
     "build:whatsapp-intake": "node scripts/build-whatsapp-intake.cjs",
     "test:backend": "node --test --test-isolation=none tests/backend/*.test.mjs",
     "validate:tracking": "node scripts/check-tracking-integration.cjs",
