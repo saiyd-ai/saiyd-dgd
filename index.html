@@ -333,6 +333,9 @@
 </style>
 </head>
 <body>
+<div id="wai_readinglock" role="status" aria-live="polite" tabindex="-1" style="display:none; position:fixed; inset:0; z-index:1200; background:rgba(18,34,77,.3); align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#fff; border-radius:10px; padding:22px; max-width:520px;"><b>Reading WhatsApp documents</b><div id="wai_readingprogress" style="margin-top:8px;"></div><p style="margin-bottom:0; font-size:12px;">Keep this job open until reading finishes. Extracted fields remain drafts for review.</p></div>
+</div>
 
 <!-- ================= DGDOC AUTH GATE ================= -->
 <div id="authgate">
@@ -743,6 +746,7 @@
         <input type="file" id="hd_lblfiles" accept="image/*" multiple style="display:none;" onchange="if(this.files.length) hdReadMulti([...this.files]); this.value='';">
       </div>
       <div id="hd_attach" style="display:none; margin-bottom:10px;"></div>
+      <div id="dg_inbox_files" style="font-size:12px; margin:8px 0;"></div>
       <label>...or paste the Air Waybill copy text, booking e-mail, or shipment details (any format)</label>
       <textarea id="f_auto" style="min-height:110px;" placeholder="Example:&#10;AWB: 176-12345675&#10;Shipper: ABC Trading LLC, Dubai, UAE, Tel +971...&#10;Consignee: XYZ Ltd, Cochin, India&#10;From: DUBAI (DXB)  To: COCHIN (COK)&#10;UN1263 Paint, PG III, PI 355, 2 fibreboard boxes x 4.5 L, CAO"></textarea>
       <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
@@ -1488,7 +1492,7 @@
     </div>
     <div class="tab" id="tab-wainbox">
       <div class="card" style="border-left:5px solid #25a35a;"><h2 style="background:#e8f6ee; color:#1d6b34;">&#128242; WHATSAPP INBOX &mdash; DG and General Cargo jobs</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">Staff send <b>DG &lt;job no&gt;</b> (e.g. DG DGS-C00422 or DG AEXP-C00465), then the documents. Check the <b>Job type</b> before <b>OPEN &amp; LOAD</b>: DGS / ELI / ELM open <b>DG SHIPMENT</b>; other listed types open <b>GENERAL CARGO</b>. DG documents use the existing readers. General Cargo documents are attached to the job; choose the PDF to read in General Cargo, then prepare the AWB and labels. All documents remain drafts for review.</div>
+        <div class="warnbar" style="margin-top:0;">Staff send <b>DG &lt;job no&gt;</b> (e.g. DG DGS-C00422 or DG AEXP-C00465), then shipment messages, PDFs, Excel files or photos. Check the <b>Job type</b> before <b>OPEN &amp; LOAD</b>: DGS / ELI / ELM open <b>DG SHIPMENT</b>; other listed types open <b>GENERAL CARGO</b>. Documents are attached first. Check each document's role, then read one, selected documents or all documents in the job. All extracted fields remain drafts for review.</div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
           <select id="wai_show" onchange="waiLoad()"><option value="OPEN">Open jobs (NEW / OPENED)</option><option value="ALL">All (last 60)</option></select>
           <button class="smallbtn sb-blue" onclick="waiLoad()">&#8635; REFRESH</button>
@@ -9255,7 +9259,7 @@ async function aicExcel(){
    n8n stores them in dg_inbox (files in bucket dgdocs/wa-inbox/<id>/). Staff review the job type before OPEN & LOAD:
    DG uses the existing AWB/pallet readers; General Cargo attaches documents for individual PDF reading.
    DRAFT only — staff still check, CONFIRM, sign and stamp. */
-let WAI = {rows: [], timer: null, busy: false, types: {}, gcFiles: [], gcJob: ""};
+let WAI = {rows: [], timer: null, busy: false, extracting: false, types: {}, gcFiles: [], gcJob: "", documents: [], packingSources: {}, text: "", messageRole: "SHIPMENT", messageSelected: true, loadedJob: "", loadedDestination: "", status: ""};
 const WAI_OWNER = "ms@jfslogistics.com";
 function waiNoteType(note){
   const lines = String(note || "").split(/\r?\n/);
@@ -9293,30 +9297,207 @@ function waiChooseType(id, code){
 function waiResetJobInputs(){
   // jobStart/applySnapshot do not clear all these fields. Never carry them into the next inbox job.
   ["gc_awb", "gc_hawb", "gc_dep", "gc_dest", "gc_pcs", "gc_wt", "gc_goods", "gc_shipper", "gc_consignee", "gc_auto",
-    "f_auto", "cs_goods", "aw_no", "aw_flight", "aw_to1", "aw_by1", "aw_chwt", "aw_rate", "aw_dims", "aw_handl"].forEach(id => {
+    "f_auto", "f_pl", "pt_paste", "cs_goods", "aw_no", "aw_flight", "aw_to1", "aw_by1", "aw_chwt", "aw_rate", "aw_dims", "aw_handl"].forEach(id => {
     const e = document.getElementById(id); if(e) e.value = "";
   });
   const pc = document.getElementById("aw_pc"); if(pc) pc.value = "PREPAID";
-  ["gc_awbfile", "awbfile", "pt_file"].forEach(id => { const e = document.getElementById(id); if(e) e.value = ""; });
-  ["gc_pdfmsg", "gc_msg", "gc_inbox_files"].forEach(id => { const e = document.getElementById(id); if(e) e.textContent = ""; });
+  ["gc_awbfile", "awbfile", "pt_file", "plfile", "hd_lblfiles"].forEach(id => { const e = document.getElementById(id); if(e) e.value = ""; });
+  ["gc_pdfmsg", "gc_msg", "gc_inbox_files", "dg_inbox_files", "autoresult", "awbpdfmsg", "pt_pdfmsg", "awb_photobox", "pt_photobox"].forEach(id => { const e = document.getElementById(id); if(e) e.textContent = ""; });
   WAI.gcFiles = []; WAI.gcJob = "";
+  WAI.documents = []; WAI.packingSources = {}; WAI.text = ""; WAI.loadedJob = ""; WAI.loadedDestination = ""; WAI.status = "";
 }
-function waiGcFilesRender(){
-  const box = document.getElementById("gc_inbox_files"); if(!box) return;
-  box.innerHTML = `<b>Documents from WhatsApp (${WAI.gcFiles.length})</b><br>Choose the shipment PDF to extract. Review the fields before preparing the AWB and labels.` +
-    WAI.gcFiles.map((file, i) => `<div style="margin-top:5px;">${esc(file.name)} <button class="smallbtn sb-blue" onclick="waiReadGcFile(${i})">Read this PDF</button></div>`).join("");
+function waiMessageText(row){
+  // Command lines select the job; keep every other line as shipment evidence.
+  const job = String(row.job_no || "").trim().toUpperCase();
+  return String(row.message || "").split(/\r?\n/).filter(line => {
+    const m = line.trim().match(/^DG\s+([A-Z0-9-]+)\s*$/i);
+    return !(m && m[1].toUpperCase() === job);
+  }).join("\n").trim();
 }
-async function waiReadGcFile(i){
-  const file = WAI.gcFiles[i];
-  if(!file || JOBTYPE !== "GC" || v("f_job").trim().toUpperCase() !== WAI.gcJob){ alert("Open this General Cargo inbox job again before reading its PDF."); return; }
+function waiFormat(f){
+  const n = String(f.name || "").toLowerCase(), m = String(f.mime || f.type || "").toLowerCase();
+  if(/\.(xlsx|xls|csv)$/.test(n) || /spreadsheet|excel|csv/.test(m)) return "EXCEL";
+  if(m === "application/pdf" || /\.pdf$/.test(n)) return "PDF";
+  if(m.startsWith("image/") || /\.(jpe?g|png|webp|heic)$/.test(n)) return "IMAGE";
+  if(m === "text/plain" || /\.txt$/.test(n)) return "TEXT";
+  return "UNSUPPORTED";
+}
+function waiDefaultRole(f){
+  const n = String(f.name || "").toLowerCase();
+  if(waiFormat(f) === "EXCEL" || /pack|p\.?l\b|plist/.test(n)) return "PACKING";
+  return /label/.test(n) ? "LABEL" : "SHIPMENT";
+}
+const WAI_ROLES = {SHIPMENT: "Shipment details / invoice", AWB: "Master / House AWB", PACKING: "Packing list", LABEL: "Shipping label"};
+const WAI_FORMATS = {PDF: "PDF", EXCEL: "Excel / CSV", IMAGE: "photo", TEXT: "text file", UNSUPPORTED: "unsupported file"};
+function waiChooseDocumentRole(i, role){ if(!WAI.busy && WAI.documents[i] && Object.prototype.hasOwnProperty.call(WAI_ROLES, role)) WAI.documents[i].role = role; }
+function waiChooseDocument(i, selected){ if(!WAI.busy && WAI.documents[i]) WAI.documents[i].selected = !!selected; }
+function waiDocumentsRender(){
+  const active = WAI.loadedDestination === "GC" ? "gc_inbox_files" : "dg_inbox_files";
+  const inactive = document.getElementById(active === "gc_inbox_files" ? "dg_inbox_files" : "gc_inbox_files"); if(inactive) inactive.textContent = "";
+  const box = document.getElementById(active); if(!box) return;
+  const roleOptions = role => Object.entries(WAI_ROLES).map(([c,n]) => `<option value="${c}"${c === role ? " selected" : ""}>${n}</option>`).join("");
+  box.innerHTML = `<div style="padding:10px; border:1px solid #b9c8d8; border-radius:6px;"><b>WhatsApp documents — ${esc(WAI.loadedJob)} (${WAI.documents.length} files)</b><p style="margin:5px 0;">Job type selects DG or General Cargo. Document role selects what to read. Check the roles before reading; no draft is approved automatically.</p>` +
+    (WAI.text ? `<div style="margin:8px 0;"><label style="display:inline; text-transform:none;"><input type="checkbox"${WAI.messageSelected ? " checked" : ""} onchange="WAI.messageSelected=this.checked"> WhatsApp shipment messages</label> <select aria-label="Role for WhatsApp messages" onchange="WAI.messageRole=this.value"><option value="SHIPMENT"${WAI.messageRole === "SHIPMENT" ? " selected" : ""}>Shipment details</option><option value="PACKING"${WAI.messageRole === "PACKING" ? " selected" : ""}>Packing list</option></select> <button class="smallbtn sb-blue" onclick="waiReadMessage()">Read messages</button><pre style="white-space:pre-wrap; max-height:120px; overflow:auto; margin:5px 0;">${esc(WAI.text.slice(0, 2500))}${WAI.text.length > 2500 ? "\n[Preview shortened — original messages retained]" : ""}</pre></div>` : "") +
+    WAI.documents.map((d,i) => `<div style="padding:6px 0; border-top:1px solid #e3e8ef;"><label style="display:inline; text-transform:none;"><input type="checkbox"${d.selected ? " checked" : ""} onchange="waiChooseDocument(${i},this.checked)"> ${esc(d.file.name)}</label> <span>(${WAI_FORMATS[d.format]})</span> <select aria-label="Document role for ${esc(d.file.name)}" onchange="waiChooseDocumentRole(${i},this.value)">${roleOptions(d.role)}</select> <button class="smallbtn sb-blue"${d.format === "UNSUPPORTED" ? " disabled" : ""} onclick="waiReadDocument(${i})">Read ${WAI_FORMATS[d.format]}</button>${d.result ? `<div style="margin-top:3px; color:#5b6b7d;">${esc(d.result)}</div>` : ""}</div>`).join("") +
+    `<div style="margin-top:8px;"><button class="smallbtn sb-green" onclick="waiReadSelected(false)">Read selected</button> <button class="smallbtn sb-blue" onclick="waiReadSelected(true)">Read all</button></div><p style="margin:6px 0; color:#5b6b7d;">Shipment PDFs use up to 3 text pages / 1 image page; single AWB PDFs use up to 5 text pages / 2 image pages; label PDFs use page 1. AI Excel/text input uses up to 4 sheets / 12,000 characters. Long documents can need manual review. Photos must be readable by this browser. DG packing sources already read are combined; rereading one source replaces its rows. Review any manual packing-table edits.</p><div id="wai_document_status" role="status" style="font-weight:bold;">${esc(WAI.status)}</div></div>`;
+}
+function waiGcFilesRender(){ waiDocumentsRender(); }
+function waiLoadedHere(){ return WAI.loadedJob && JOBTYPE === WAI.loadedDestination && v("f_job").trim().toUpperCase() === WAI.loadedJob; }
+function waiReadingStatus(text){
+  WAI.status = text;
+  ["wai_document_status", "wai_readingprogress"].forEach(id => { const e = document.getElementById(id); if(e) e.textContent = text; });
+}
+function waiReadingLock(on){
+  WAI.extracting = on;
+  const box = document.getElementById("wai_readinglock"); if(box){ box.style.display = on ? "flex" : "none"; if(on && typeof box.focus === "function") box.focus(); }
+}
+// Keep keyboard activation from changing the job behind the progress overlay.
+document.addEventListener("keydown", e => { if(WAI.extracting && !((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === "r") && e.key !== "F5") e.preventDefault(); }, true);
+function waiMissingFields(){
+  const required = [["AWB number", "f_awb"], ["shipper", "f_shipper"], ["consignee", "f_consignee"], ["origin", "f_dep"], ["destination", "f_dest"]];
+  if(JOBTYPE === "GC") required.push(["pieces", "gc_pcs"], ["gross weight", "gc_wt"], ["goods description", "gc_goods"]);
+  const missing = required.filter(([,id]) => !v(id).trim()).map(([label]) => label);
+  if(JOBTYPE === "DG" && typeof getItems === "function" && !getItems().some(it => String(it.qty || "").trim())) missing.push("DG quantities / packing-list data");
+  return missing.length ? "Still missing: " + missing.join(", ") + "." : "Basic shipment fields are present; verify them against the source documents.";
+}
+async function waiExcelText(file){
+  await loadSheetJs();
+  const wb = XLSX.read(await file.arrayBuffer(), {type:"array"});
+  return wb.SheetNames.slice(0,4).map(n => "SHEET " + n + ":\n" + XLSX.utils.sheet_to_csv(wb.Sheets[n])).join("\n\n").slice(0,12000);
+}
+async function waiShipmentText(text){
+  document.getElementById("f_auto").value = text.slice(0,12000);
+  if(JOBTYPE === "GC") document.getElementById("gc_auto").value = text.slice(0,12000);
+  await aiAutoFill();
+  if(JOBTYPE === "GC") gcSyncFromMain();
+  return document.getElementById("autoresult").textContent || "Text read — review the fields.";
+}
+function waiSourceKey(source){ return String(source.path || [source.name || "file",source.mime || source.type || "",source.size || "",source.at || ""].join("|")); }
+function waiPackingKey(d){ return waiSourceKey(d.source || d.file); }
+function waiApplyPackingSources(){
+  // Rebuild from source records, not from the previous combined table, so a reread is not duplicated.
+  const allowed = new Set(WAI.documents.filter(d => d.role === "PACKING").map(waiPackingKey));
+  if(WAI.text && WAI.messageRole === "PACKING") allowed.add("__messages");
+  const sources = Object.entries(WAI.packingSources).filter(([key]) => allowed.has(key)).map(([,source]) => source);
+  const rows = sources.flatMap(source => source.rows.map(row => ({...row})));
+  const msg = document.getElementById("pt_pdfmsg");
+  if(!rows.length) throw new Error("No packing rows were extracted from the selected sources.");
+  const tareValues = [...new Set(sources.map(source => source.tare).filter(Boolean))];
+  const res = {rows, tare:tareValues[0] || null, hdr:(sources.find(source => source.hdr) || {}).hdr || {}};
+  if(typeof hdStore === "function") hdStore(); // keep edits for the active house before rebuilding all source rows
+  if(!_ptApply(res,msg,"combined WhatsApp sources",sources.map(source => source.name).join(" + "))) throw new Error("No packing rows found.");
+  const warning = tareValues.length > 1 ? " Different tare values were found; confirm the tare manually." : "";
+  msg.textContent = rows.length + " packing row(s) combined from " + sources.length + " source(s). Rereads replace that source's rows. Check totals, tare, house assignments and DG item selection before filling the DGD." + warning;
+  return msg.textContent;
+}
+async function waiReadPacking(sourceKey,name,input){
+  if(JOBTYPE !== "DG") throw new Error("DG packing readers are not used for General Cargo.");
+  let res;
+  if(typeof input === "string"){
+    if(!aiKey()) throw new Error("Packing-list text needs the AI key; you can paste pallet rows manually.");
+    res = await aiPalletRows([],input.slice(0,12000));
+  }else if(waiFormat(input) === "TEXT"){
+    if(!aiKey()) throw new Error("Packing-list text needs the AI key; you can paste pallet rows manually.");
+    res = await aiPalletRows([],(await input.text()).slice(0,12000));
+  }else res = await ptRowsFromFile(input);
+  if(!res || !Array.isArray(res.rows) || !res.rows.length) throw new Error("No packing rows found in " + name + ".");
+  const rows = res.rows.map(row => ({...row}));
+  const known = [...new Set([...(typeof HAWBS !== "undefined" ? HAWBS : []).map(h => h.no), ...(typeof HOUSES !== "undefined" ? HOUSES.list : []).map(h => h.no)].filter(Boolean))];
+  if(!rows.some(row => row.hawb)){
+    const blob = (name + " " + JSON.stringify(res.hdr || {})).toUpperCase();
+    let house = known.find(k => blob.replace(/[^A-Z0-9]/g,"").includes(hdNorm(k))) || "";
+    if(!house && known.length) house = (prompt("Which HOUSE AWB is this packing source for?\n\n" + name + "\nKnown houses: " + known.join(", ") + "\nLeave empty when this source is not assigned to one house.", known.length === 1 ? known[0] : "") || "").trim().toUpperCase();
+    if(house) rows.forEach(row => { row.hawb = house; });
+  }
+  WAI.packingSources[sourceKey] = {rows, tare:res.tare || null, hdr:res.hdr || null, name};
+  return waiApplyPackingSources();
+}
+async function waiShipmentPdf(file,msgId){
+  const read = await hdPdfRead(file);
+  if(aiKey()){
+    await aiExtractShipment(read.text,"Shipment document / invoice PDF (" + file.name + ") — extract only information supported by the document",read.imgs);
+    document.getElementById(msgId).textContent = "Shipment PDF read — check the extracted fields (up to 3 text pages / 1 image page).";
+  }else{
+    if(read.text.trim().length < 30) throw new Error("This scanned PDF needs the AI key in Settings.");
+    await waiShipmentText(read.text);
+    document.getElementById(msgId).textContent = document.getElementById("autoresult").textContent;
+  }
+}
+async function waiReadInput(d){
+  const file = d.file, msgId = JOBTYPE === "GC" ? "gc_pdfmsg" : "awbpdfmsg";
+  if(d.format === "UNSUPPORTED") throw new Error("Unsupported file format — keep this attachment for manual review.");
+  if(d.role === "LABEL" && !["PDF","IMAGE"].includes(d.format)) throw new Error("Shipping-label reading needs a PDF or photo; choose the shipment or packing-list role for this file.");
+  if(JOBTYPE === "DG" && d.role === "PACKING") return waiReadPacking(waiPackingKey(d),file.name,file);
+  if(d.format === "EXCEL") return waiShipmentText(await waiExcelText(file));
+  if(d.format === "TEXT") return waiShipmentText(await file.text());
+  if(JOBTYPE === "DG" && d.role === "LABEL"){
+    let image = file;
+    if(d.format === "PDF"){
+      const read = await hdPdfRead(file), b64 = read.imgs[0];
+      if(!b64) throw new Error("No label image could be rendered from the PDF.");
+      const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      image = new File([bytes], file.name + " (page 1).jpg", {type:"image/jpeg"});
+    }
+    await awbFromImage(image, msgId);
+  }else if(d.format === "IMAGE"){
+    if(!aiKey()) throw new Error("Photo reading needs the AI key in Settings.");
+    await aiExtractShipment("", "Shipment document photo (" + file.name + ") — extract only information visible in this document", [await imgFileToB64(file,2200)]);
+    document.getElementById(msgId).textContent = "Photo read — check the extracted fields.";
+  }else if(d.role !== "AWB") await waiShipmentPdf(file,msgId);
+  else{
+    const inputId = JOBTYPE === "GC" ? "gc_awbfile" : "awbfile";
+    waiPut(inputId,[file]); await readAwbPdf(inputId,msgId);
+  }
+  if(JOBTYPE === "GC") gcSyncFromMain();
+  return document.getElementById(msgId).textContent || "Document read — review the fields.";
+}
+function waiReadWarning(result){ return /fail|could not|couldn't|no (?:pallet|packing) rows|not loaded|needs? (?:the )?AI|add (?:your |the )?(?:Claude |AI )?(?:API )?key|scanned image \(no text\)/i.test(result); }
+async function waiReadInputs(documents, includeMessage){
   if(WAI.busy) return;
-  WAI.busy = true;
+  if(!waiLoadedHere()){ alert("Open this WhatsApp inbox job again before reading its documents."); return; }
+  if(!documents.length && !includeMessage){ alert("Select at least one document or shipment message."); return; }
+  WAI.busy = true; waiReadingLock(true);
+  const errors = [], changes = new Set(); let attempted = 0;
+  const fields = ["f_awb","f_shipper","f_consignee","f_dep","f_dest","gc_pcs","gc_wt","gc_goods"];
+  const attempt = async (name, docs, read) => {
+    if(!waiLoadedHere()) throw new Error("The open job changed — stop reading and reopen the intended inbox job.");
+    waiReadingStatus("Reading " + name + " ...");
+    const before = Object.fromEntries(fields.map(id => [id,v(id)]));
+    let result;
+    try{ result = await read(); if(waiReadWarning(result)) errors.push(name + ": " + result); }
+    catch(e){ result = "Could not read: " + e.message; errors.push(name + ": " + e.message); }
+    attempted += docs.length || 1;
+    docs.forEach(d => { d.result = result; });
+    fields.forEach(id => { if(before[id].trim() && v(id).trim() && before[id] !== v(id)) changes.add(id.replace(/^f_|^gc_/,"")); });
+  };
   try{
-    waiPut("gc_awbfile", [file]);
-    await readAwbPdf("gc_awbfile", "gc_pdfmsg");
-    gcSyncFromMain();
-  }finally{ WAI.busy = false; }
+    const packingMessage = includeMessage && JOBTYPE === "DG" && WAI.messageRole === "PACKING";
+    if(includeMessage && !packingMessage){
+      await attempt("WhatsApp messages", [], async () => {
+        return waiShipmentText(WAI.text);
+      });
+    }
+    const shipmentPdfs = JOBTYPE === "DG" ? documents.filter(d => d.role === "AWB" && d.format === "PDF") : [];
+    const packing = JOBTYPE === "DG" ? documents.filter(d => d.role === "PACKING" && ["PDF","EXCEL","IMAGE","TEXT"].includes(d.format)) : [];
+    const grouped = new Set();
+    if(shipmentPdfs.length > 1){
+      shipmentPdfs.forEach(d => grouped.add(d));
+      await attempt(shipmentPdfs.length + " Master / House AWB PDFs", shipmentPdfs, async () => { await hdReadMulti(shipmentPdfs.map(d => d.file)); return document.getElementById("awbpdfmsg").textContent; });
+    }
+    // Labels are read before packing lists so DG house matching keeps the existing label authority.
+    const ordered = documents.filter(d => !grouped.has(d) && !packing.includes(d)).sort((a,b) => (a.role === "LABEL") - (b.role === "LABEL"));
+    for(const d of ordered) await attempt(d.file.name,[d],() => waiReadInput(d));
+    if(packingMessage) await attempt("WhatsApp packing-list messages", [], () => waiReadPacking("__messages","WhatsApp packing-list messages",WAI.text));
+    for(const d of packing) await attempt(d.file.name,[d],() => waiReadInput(d));
+    waiReadingStatus("Reading finished: " + attempted + " input(s) attempted. " + (errors.length ? errors.length + " read warning(s): " + errors.join(" • ") + " " : "") + (changes.size ? "Fields changed by later documents: " + [...changes].join(", ") + ". " : "") + waiMissingFields() + " Review the draft before confirming or printing.");
+    autosaveCurrent();
+  }catch(e){ waiReadingStatus("Reading stopped: " + e.message); }
+  finally{ waiReadingLock(false); WAI.busy = false; waiDocumentsRender(); }
 }
+async function waiReadDocument(i){ const d = WAI.documents[i]; if(d) return waiReadInputs([d],false); }
+async function waiReadGcFile(i){ return waiReadDocument(i); }
+async function waiReadMessage(){ return waiReadInputs([],!!WAI.text); }
+async function waiReadSelected(all){ return waiReadInputs(WAI.documents.filter(d => all || d.selected), !!WAI.text && (all || WAI.messageSelected)); }
 function waiKind(f){
   const n = (f.name || "").toLowerCase(), m = (f.mime || "").toLowerCase();
   if(/\.(xlsx|xls|csv)$/.test(n) || /sheet|excel|csv/.test(m)) return "PL";
@@ -9342,7 +9523,7 @@ async function waiLoad(silent){
 }
 function waiBadge(){
   const b = document.getElementById("nav-wainbox"); if(!b) return;
-  const n = WAI.rows.filter(r => r.status === "NEW" && r.job_no && (r.files || []).length).length;
+  const n = WAI.rows.filter(r => r.status === "NEW" && r.job_no && ((r.files || []).length || waiMessageText(r))).length;
   b.innerHTML = "&#128242; WHATSAPP INBOX" + (n ? ` <span style="background:#c8102e; color:#fff; border-radius:9px; padding:0 6px; font-size:11px;">${n}</span>` : "");
 }
 function waiRender(){
@@ -9352,9 +9533,10 @@ function waiRender(){
   t.innerHTML = `<tr style="background:#12224d; color:#fff;"><th style="padding:6px 8px; text-align:left;">Received</th><th style="padding:6px 8px; text-align:left;">Job no</th><th style="padding:6px 8px; text-align:left;">Job type / destination</th><th style="padding:6px 8px; text-align:left;">From</th><th style="padding:6px 8px; text-align:left;">Files</th><th style="padding:6px 8px; text-align:left;">Status</th><th style="padding:6px 8px;"></th></tr>` +
     WAI.rows.map(r => {
       const fs = r.files || [];
-      const cnt = {AWB: 0, LABEL: 0, PL: 0}; fs.forEach(f => cnt[waiKind(f)]++);
-      const files = fs.length ? Object.keys(cnt).filter(k => cnt[k]).map(k => cnt[k] + " " + WAI_KLBL[k]).join(" · ") : '<span style="color:#a40000;">no files yet</span>';
-      const ready = r.job_no && fs.length;
+      const cnt = {}; fs.forEach(f => { const format = waiFormat(f); cnt[format] = (cnt[format] || 0) + 1; });
+      const text = waiMessageText(r);
+      const files = [fs.length ? Object.keys(cnt).map(k => cnt[k] + " " + WAI_FORMATS[k]).join(" · ") : "", text ? "shipment text" : ""].filter(Boolean).join(" · ") || '<span style="color:#a40000;">no documents yet</span>';
+      const ready = r.job_no && (fs.length || text);
       const code = waiJobType(r), destination = waiDestination(code);
       return `<tr style="border-bottom:1px solid #e3e8ef;">
         <td style="padding:6px 8px; font-size:12px; white-space:nowrap;">${esc(waiAgo(r.created_at))}<br><span style="color:#7a8794;">${esc(new Date(r.created_at).toLocaleString("en-GB"))}</span></td>
@@ -9411,17 +9593,21 @@ async function waiOpen(id){
   const msg = document.getElementById("wai_msg");
   const code = waiJobType(r), destination = waiDestination(code), tab = destination === "GC" ? "gc" : "dgd";
   if(!destination){ alert("Select the job type in the inbox before opening this job."); return; }
-  if(!r.job_no || !(r.files || []).length){ alert("This inbox job needs a job number and documents first."); return; }
-  if(destination === "DG" && !aiKey()){ alert("The AI reads the documents — add the Claude API key in SETTINGS → AI first."); return; }
+  const text = waiMessageText(r);
+  if(!r.job_no || (!(r.files || []).length && !text)){ alert("This inbox job needs a job number and shipment documents or messages first."); return; }
   const cur = v("f_job").trim().toUpperCase();
   const fresh = cur !== r.job_no || JOBTYPE !== destination;
   if(cur && fresh && !confirm("Job " + cur + " is open now.\n\nStart WhatsApp job " + r.job_no + " in " + (destination === "GC" ? "General Cargo" : "DG Shipment") + " (fresh form)? Save the current job first if needed.")) return;
   WAI.busy = true;
   try{
     msg.textContent = "Downloading " + (r.files || []).length + " file(s) for " + r.job_no + " ...";
-    const awb = [], pl = [], all = [], fails = [];
+    const all = [], fails = [], documents = [];
+    const previous = !fresh && WAI.loadedJob === r.job_no ? WAI.documents : [];
     for(const f of (r.files || [])){
-      try{ const file = await waiFile(f); all.push(file); (waiKind(f) === "PL" ? pl : awb).push(file); }catch(e){ fails.push(f.name); }
+      try{
+        const file = await waiFile(f), prior = previous.find(d => waiSourceKey(d.source) === waiSourceKey(f));
+        all.push(file); documents.push({file, source:f, format:waiFormat(f), role:prior ? prior.role : waiDefaultRole(f), selected:prior ? prior.selected : true, result:prior ? prior.result : ""});
+      }catch(e){ fails.push(f.name); }
     }
     if(fails.length){ msg.textContent = "Could not download: " + fails.join(", ") + ". The current job was not changed. Retry OPEN & LOAD."; return; }
     // Persist the reviewed type with the existing inbox note, without requiring a schema change.
@@ -9441,34 +9627,17 @@ async function waiOpen(id){
     const typeSelect = document.getElementById(destination === "GC" ? "job_type_gc" : "job_type_dg");
     if(typeSelect) typeSelect.value = code;
     showTab(tab);
-    if(destination === "GC"){
-      // Keep all files available without invoking DG house/pallet readers for General Cargo.
-      WAI.gcFiles = all; WAI.gcJob = r.job_no;
-      waiPut("gc_awbfile", all);
-      waiGcFilesRender();
-      msg.textContent = "✓ " + r.job_no + " (" + code + ") — " + all.length + " document(s) attached in General Cargo. Choose the PDF to read, then prepare the AWB and airline labels.";
-      const gm = document.getElementById("gc_jobmsg"); if(gm) gm.textContent = msg.textContent;
-      autosaveCurrent();
-      return;
-    }
-    // AWBs (master + houses) and label photos → the normal AWB reader (several files = house AWB reader)
-    if(awb.length){
-      msg.textContent = "🤖 Reading " + awb.length + " AWB / label file(s) ...";
-      waiPut("awbfile", awb);
-      await readAwbPdf();
-    }
-    // packing list(s) → the normal pallet reader
-    if(pl.length){
-      msg.textContent = "🤖 Reading " + pl.length + " packing list(s) ...";
-      waiPut("pt_file", pl);
-      await ptReadPdf();
-    }
-    const note = r.message ? " • message: \"" + String(r.message).slice(0, 60) + "\"" : "";
-    msg.textContent = "✓ " + r.job_no + " loaded from WhatsApp: " + awb.length + " AWB/label + " + pl.length + " packing list" +
-      (fails.length ? " • FAILED: " + fails.join(", ") : "") + note + " — check the DGD tab, then SAVE DRAFT → CONFIRM.";
-    const jm = document.getElementById("jobmsg");
-    if(jm) jm.textContent = "Job " + r.job_no + " — from WhatsApp (" + (r.sender_name || "+" + r.sender) + "). Check everything before CONFIRM.";
-    showTab(tab); autosaveCurrent();
+    // Cache every attachment; reading is a separate, reviewed action for both destinations.
+    WAI.documents = documents; WAI.text = text; WAI.loadedJob = r.job_no; WAI.loadedDestination = destination;
+    WAI.messageSelected = true; if(fresh) WAI.messageRole = "SHIPMENT";
+    WAI.gcFiles = destination === "GC" ? all : []; WAI.gcJob = destination === "GC" ? r.job_no : "";
+    if(text){ document.getElementById("f_auto").value = text; if(destination === "GC") document.getElementById("gc_auto").value = text; }
+    if(destination === "GC") waiPut("gc_awbfile",all);
+    WAI.status = "Documents attached. Check their roles, then choose what to read. " + waiMissingFields();
+    waiDocumentsRender();
+    msg.textContent = "✓ " + r.job_no + " (" + code + ") — " + all.length + " file(s)" + (text ? " + shipment messages" : "") + " attached in " + (destination === "GC" ? "General Cargo" : "DG Shipment") + ". Check document roles before reading. Draft only.";
+    const jm = document.getElementById(destination === "GC" ? "gc_jobmsg" : "jobmsg"); if(jm) jm.textContent = msg.textContent;
+    autosaveCurrent();
   }catch(e){
     msg.textContent = "Could not load: " + e.message;
   }finally{ WAI.busy = false; }
