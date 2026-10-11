@@ -55,29 +55,16 @@ export function createInboxHandler({ sb, getKey, now = () => new Date(), newId =
       try { attachment = decodeAttachment(body.file, body.type); }
       catch { return response({ ok: false, error: 'Unsupported or invalid attachment. Use PDF, XLSX/XLS, JPG/PNG of at most 10 MiB.' }, 400); }
     }
-    const time = now(), timestamp = time.toISOString(), since = new Date(time.getTime() - OPEN_MIN * 60000).toISOString();
-    const active = () => sb.from('dg_inbox').select('*').eq('sender', from).in('status', ['NEW', 'OPENED']).gte('updated_at', since);
-    // Without an explicit job, use the sender's most recently active row. A job
-    // command/caption searches only that exact active job, never another job.
-    let query = active();
-    if (job) query = query.eq('job_no', job);
-    let { data: rows, error: readError } = await query.order('updated_at', { ascending: false }).order('created_at', { ascending: false }).limit(1);
-    if (readError) return response({ ok: false, error: 'could not find active job' }, 500);
-    let row = rows?.[0], created = false;
-    if (!row && job) {
-      // An attachment/text received before its job command can be assigned later.
-      const orphan = await active().is('job_no', null).order('updated_at', { ascending: false }).order('created_at', { ascending: false }).limit(1);
-      if (orphan.error) return response({ ok: false, error: 'could not find unassigned job' }, 500);
-      row = orphan.data?.[0];
-    }
-    if (!row && (job || attachment || text.trim())) {
-      // Text is appended by the same row-locked RPC as files, including for new
-      // rows. A duplicate delivery can therefore never append its caption twice.
-      const inserted = await sb.from('dg_inbox').insert({ job_no: job, sender: from, sender_name: staff.name || body.name || from, message: null, updated_at: timestamp }).select().single();
-      if (inserted.error) return response({ ok: false, error: 'could not create inbox job' }, 500);
-      row = inserted.data; created = true;
-    }
-    if (!row) return response({ ok: true, dg: true, reply: null });
+    if (!job && !attachment && !text.trim()) return response({ ok: true, dg: true, reply: null });
+    const time = now(), timestamp = time.toISOString();
+    // Resolve/create under the database's per-sender transaction lock. The
+    // first command, a document batch and duplicate deliveries must share one
+    // canonical row instead of racing separate reads and inserts.
+    const resolved = await sb.rpc('dg_inbox_resolve_whatsapp', { p_sender: from, p_job_no: job,
+      p_sender_name: staff.name || (typeof body.name === 'string' ? body.name : '') || from, p_at: timestamp });
+    if (resolved.error || !resolved.data?.row) return response({ ok: false, error: 'could not resolve inbox job' }, 500);
+    let row = resolved.data.row;
+    const created = resolved.data.created === true;
     let file = null, uploadedPath = null;
     const discardUpload = async () => {
       if (!uploadedPath) return;
