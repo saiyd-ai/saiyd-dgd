@@ -1489,10 +1489,22 @@
         <h3>&#128220; SKYD RUN LOG</h3>
         <table class="dtable" id="skyd_log"></table>
       </div>
+      <div class="card" style="border-left:5px solid #3ec9a7;">
+        <h3>&#128196; WHATSAPP AWB DRAFT VERSIONS</h3>
+        <p style="font-size:12.5px; color:#5b6b7d;">After sending a job's messages and documents, send <b>SKYD PREPARE &lt;job no&gt; AWB</b> in WhatsApp. Each preparation is saved separately. Missing or conflicting information needs your review; a prepared PDF is always a draft. Original inbox messages and attachments remain with the job. This list does not change your open form, approve an AWB or add a signature.</p>
+        <p style="font-size:12px; color:#5b6b7d;">WhatsApp AWB preparation limits: 6 original files, 3 pages per PDF, 4 sheets / 12,000 characters per Excel workbook, 12,000 shipment-message characters, 10 MiB per file and 20 MiB total files. Inputs above these limits need a smaller document set. A General Cargo job containing DG information needs classification clarification. This command prepares an AWB draft; it does not prepare or approve a DGD.</p>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <b id="skyd_drafts_job">Choose SKYD drafts beside a WhatsApp inbox job.</b>
+          <button id="skyd_drafts_refresh" class="smallbtn sb-blue" onclick="skydDraftLoad()" disabled>&#8635; Refresh drafts</button>
+          <button class="smallbtn" onclick="showTab('wainbox')">WhatsApp Inbox</button>
+        </div>
+        <div id="skyd_drafts_status" role="status" style="margin:8px 0; font-size:12.5px;"></div>
+        <div id="skyd_drafts_list" style="font-size:12.5px;"></div>
+      </div>
     </div>
     <div class="tab" id="tab-wainbox">
       <div class="card" style="border-left:5px solid #25a35a;"><h2 style="background:#e8f6ee; color:#1d6b34;">&#128242; WHATSAPP INBOX &mdash; DG and General Cargo jobs</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">Staff send <b>DG &lt;job no&gt;</b> (e.g. DG DGS-C00422 or DG AEXP-C00465), then shipment messages, PDFs, Excel files or photos. Check the <b>Job type</b> before <b>OPEN &amp; LOAD</b>: DGS / ELI / ELM open <b>DG SHIPMENT</b>; other listed types open <b>GENERAL CARGO</b>. Documents are attached first. Check each document's role, then read one, selected documents or all documents in the job. All extracted fields remain drafts for review.</div>
+        <div class="warnbar" style="margin-top:0;">Staff send <b>DG &lt;job no&gt;</b> (e.g. DG DGS-C00422 or DG AEXP-C00465), then shipment messages, PDFs, Excel files or photos. Check the <b>Job type</b> before <b>OPEN &amp; LOAD</b>: DGS / ELI / ELM open <b>DG SHIPMENT</b>; other listed types open <b>GENERAL CARGO</b>. Documents are attached first. Check each document's role, then read one, selected documents or all documents in the job. For an AWB draft through WhatsApp, send <b>SKYD PREPARE &lt;job no&gt; AWB</b> after all documents arrive; review the result under <b>SKYD drafts</b>. All extracted fields remain drafts for review.</div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
           <select id="wai_show" onchange="waiLoad()"><option value="OPEN">Open jobs (NEW / OPENED)</option><option value="ALL">All (last 60)</option></select>
           <button class="smallbtn sb-blue" onclick="waiLoad()">&#8635; REFRESH</button>
@@ -8221,6 +8233,7 @@ function skydLogRender(){
   tb.innerHTML = h + (store("jfs_skyd_log").length ? "" : `<tr><td colspan="5" style="color:#8a97a5;">No runs yet.</td></tr>`);
 }
 function skydFill(){
+  if(SKYD_DRAFTS.userId && (!sbUser || sbUser.id !== SKYD_DRAFTS.userId)) skydDraftReset();
   const j = v("f_job") || "(no job number)";
   const el = document.getElementById("skyd_job");
   if(el) el.textContent = "Current job: " + j + "  |  " + ((typeof JOBTYPE !== "undefined" && JOBTYPE === "GC") ? "GENERAL CARGO" : "DG SHIPMENT");
@@ -8270,6 +8283,99 @@ async function skydRun(){
     SKYD stops here — review each document and print / submit yourself. SkyCargo portal auto-fill is STEP 2 (coming next).</div></div></div>`;
   rep.innerHTML = h;
   skydLogAdd({when: new Date().toLocaleString("en-GB"), job: v("f_job") || "-", type: gc ? "GC" : "DG", airline: airline || "-", warns: warns.length, docs: done.length});
+}
+/* Saved server preparations are reviewed separately from the mutable manual job form. */
+let SKYD_DRAFTS = {inboxId:"", job:"", rows:[], token:0, userId:""};
+const SKYD_DRAFT_STATUSES = {PROCESSING:"Preparing draft", NEEDS_INPUT:"Needs information / review", DRAFT_READY:"Draft PDF ready — review required", FAILED:"Preparation failed"};
+const SKYD_DELIVERY_STATUSES = {NOT_SENT:"Not sent", CLAIMED:"Sending to WhatsApp", SENT:"Accepted by WhatsApp", UNCERTAIN:"WhatsApp send result needs checking"};
+function skydDraftUuid(value){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || "")); }
+function skydDraftReset(){
+  SKYD_DRAFTS.token++; SKYD_DRAFTS.inboxId = ""; SKYD_DRAFTS.job = ""; SKYD_DRAFTS.rows = []; SKYD_DRAFTS.userId = "";
+  const job = document.getElementById("skyd_drafts_job"), status = document.getElementById("skyd_drafts_status"), list = document.getElementById("skyd_drafts_list"), refresh = document.getElementById("skyd_drafts_refresh");
+  if(job) job.textContent = "Choose SKYD drafts beside a WhatsApp inbox job.";
+  if(status) status.textContent = "";
+  if(list) list.innerHTML = "";
+  if(refresh) refresh.disabled = true;
+}
+function skydDraftScope(token,userId){ return token === SKYD_DRAFTS.token && !!sbUser && sbUser.id === userId; }
+function skydDraftNote(value){
+  if(value == null) return "";
+  return (typeof value === "string" ? value : JSON.stringify(value)).slice(0,1200);
+}
+function skydDraftNotes(title,values){
+  if(!Array.isArray(values) || !values.length) return "";
+  return `<div style="margin-top:6px;"><b>${esc(title)}</b><ul style="margin:4px 0; padding-left:22px;">${values.slice(0,30).map(value => `<li>${esc(skydDraftNote(value))}</li>`).join("")}</ul>${values.length > 30 ? "<p>More review items are recorded in this version.</p>" : ""}</div>`;
+}
+function skydDraftFields(fields){
+  if(!fields || typeof fields !== "object" || Array.isArray(fields)) return "";
+  const labels = {awb:"AWB number", shipper:"Shipper", consignee:"Consignee", origin:"Origin", destination:"Destination", pieces:"Pieces", grossWeight:"Gross weight (kg)", chargeableWeight:"Chargeable weight (kg)", goods:"Goods", dimensions:"Dimensions", flight:"Flight", date:"Flight date", handling:"Handling information", currency:"Currency", chargesPayment:"Charges payment", rate:"Rate"};
+  const lines = Object.keys(labels).filter(key => fields[key] != null && fields[key] !== "").map(key => `<div><b>${labels[key]}:</b> ${esc(skydDraftNote(fields[key]))}</div>`);
+  return lines.length ? `<details style="margin-top:6px;"><summary>View extracted draft information</summary><div style="padding:5px 0; white-space:pre-wrap;">${lines.join("")}</div></details>` : "";
+}
+function skydDraftRender(){
+  const list = document.getElementById("skyd_drafts_list"); if(!list) return;
+  if(!sbUser || sbUser.id !== SKYD_DRAFTS.userId){ skydDraftReset(); return; }
+  list.innerHTML = SKYD_DRAFTS.rows.map(run => {
+    const version = Number.isInteger(run.version) && run.version > 0 ? run.version : "?";
+    const ready = run.status === "DRAFT_READY", failed = run.status === "FAILED";
+    const date = new Date(run.created_at), when = Number.isNaN(date.getTime()) ? "" : date.toLocaleString("en-GB");
+    return `<section style="border:1px solid #d6e0eb; border-radius:8px; padding:10px; margin:8px 0;">
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;"><b>${esc(run.job_no)} — AWB draft v${version}</b><span style="color:${ready ? "#1d6b34" : failed ? "#a40000" : "#8a5b00"}; font-weight:bold;">${esc(SKYD_DRAFT_STATUSES[run.status] || "Unknown preparation status")}</span>
+      ${ready && skydDraftUuid(run.id) && run.artifact_path ? `<button class="smallbtn sb-blue" onclick="skydDraftPdf('${run.id}')">Open draft PDF</button>` : ""}</div>
+      <div style="margin-top:4px; color:#5b6b7d;">${esc(when)} · ${esc(SKYD_DELIVERY_STATUSES[run.delivery_status] || "Send status unavailable")}</div>
+      ${skydDraftNotes("Missing information",run.missing_fields)}${skydDraftNotes("Review warnings",run.warnings)}${skydDraftFields(run.fields)}
+      ${failed && run.error_code ? `<div style="margin-top:6px; color:#a40000;">Preparation issue: ${esc(skydDraftNote(run.error_code))}. The original inbox documents are unchanged.</div>` : ""}
+      <div id="skyd_draft_pdf_${skydDraftUuid(run.id) ? run.id : "invalid"}" style="margin-top:6px;"></div>
+      <div style="margin-top:6px; color:#5b6b7d;">DRAFT ONLY. Check every field against the original documents. No approval, signature or submission has been made.</div>
+    </section>`;
+  }).join("");
+}
+async function skydDraftOpen(inboxId){
+  const row = WAI.rows.find(item => item.id === inboxId);
+  if(!row || !row.job_no || !skydDraftUuid(inboxId)) return;
+  showTab("skyd");
+  return skydDraftLoad(inboxId,row.job_no);
+}
+async function skydDraftLoad(inboxId,job){
+  const status = document.getElementById("skyd_drafts_status"), list = document.getElementById("skyd_drafts_list"), refresh = document.getElementById("skyd_drafts_refresh"), title = document.getElementById("skyd_drafts_job");
+  inboxId = inboxId || SKYD_DRAFTS.inboxId; job = job || SKYD_DRAFTS.job;
+  if(typeof sb === "undefined" || !sb || !sbUser || !sbUser.id){ skydDraftReset(); if(status) status.textContent = "Sign in to review saved draft versions."; return; }
+  if(!skydDraftUuid(inboxId) || !job){ if(status) status.textContent = "Choose SKYD drafts beside the intended WhatsApp inbox job."; return; }
+  const token = ++SKYD_DRAFTS.token, userId = sbUser.id;
+  SKYD_DRAFTS.inboxId = inboxId; SKYD_DRAFTS.job = job; SKYD_DRAFTS.userId = userId; SKYD_DRAFTS.rows = [];
+  if(title) title.textContent = job + " — saved WhatsApp AWB drafts";
+  if(list) list.innerHTML = "";
+  if(status) status.textContent = "Loading draft versions...";
+  if(refresh) refresh.disabled = true;
+  try{
+    const {data,error} = await sb.from("skyd_awb_runs").select("id,inbox_id,job_no,version,status,fields,warnings,missing_fields,artifact_path,error_code,created_at,delivery_status").eq("inbox_id",inboxId).eq("job_no",job).order("version",{ascending:false}).limit(50);
+    if(!skydDraftScope(token,userId)) return;
+    if(error) throw new Error(error.message);
+    SKYD_DRAFTS.rows = (Array.isArray(data) ? data : []).filter(run => run.inbox_id === inboxId && run.job_no === job);
+    skydDraftRender();
+    if(status) status.textContent = SKYD_DRAFTS.rows.length ? "Showing the latest " + SKYD_DRAFTS.rows.length + " saved version(s). Original messages and attachments are in WhatsApp Inbox → files. Preparation does not modify the open job form." : "No saved SKYD AWB preparation for this inbox job yet. Send SKYD PREPARE " + job + " AWB after sending its documents.";
+  }catch(e){ if(skydDraftScope(token,userId) && status) status.textContent = "Could not load saved drafts: " + e.message; }
+  finally{ if(skydDraftScope(token,userId) && refresh) refresh.disabled = false; }
+}
+function skydDraftPath(run){
+  // Accept only this version's generated PDF in the private preparation folder.
+  return skydDraftUuid(run.id) && skydDraftUuid(run.inbox_id) && Number.isInteger(run.version) && run.version > 0 &&
+    typeof run.artifact_path === "string" && run.artifact_path === "skyd-awb/" + run.inbox_id + "/v" + run.version + "-" + run.id + ".pdf";
+}
+async function skydDraftPdf(runId){
+  const run = SKYD_DRAFTS.rows.find(item => item.id === runId), token = SKYD_DRAFTS.token, userId = SKYD_DRAFTS.userId;
+  if(typeof sb === "undefined" || !sb || !skydDraftScope(token,userId) || !run || run.status !== "DRAFT_READY" || run.inbox_id !== SKYD_DRAFTS.inboxId || run.job_no !== SKYD_DRAFTS.job) return;
+  const box = document.getElementById("skyd_draft_pdf_" + run.id); if(!box) return;
+  if(!skydDraftPath(run)){ box.textContent = "The draft PDF reference is invalid. Refresh drafts or ask an administrator to check this version."; return; }
+  box.textContent = "Opening private draft...";
+  try{
+    const {data,error} = await sb.storage.from("dgdocs").createSignedUrl(run.artifact_path,600);
+    if(!skydDraftScope(token,userId)) return;
+    if(error) throw new Error(error.message);
+    const url = new URL(data && data.signedUrl);
+    if(url.protocol !== "https:" || url.origin !== new URL(SB_URL).origin || url.pathname !== "/storage/v1/object/sign/dgdocs/" + run.artifact_path) throw new Error("Unexpected draft download address.");
+    box.innerHTML = `<a href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">Open ${esc(run.job_no)} AWB draft v${run.version} PDF</a> <span style="color:#5b6b7d;">(private link expires in 10 minutes)</span>`;
+  }catch(e){ if(skydDraftScope(token,userId)) box.textContent = "Could not open draft PDF: " + e.message; }
 }
 function exportAll(){
   const data = {}; ALL_KEYS.forEach(k => data[k] = localStorage.getItem(k));
@@ -8339,6 +8445,7 @@ async function doSignup(){
 async function doLogout(){
   if(sb) await sb.auth.signOut();
   sbUser = null;
+  if(typeof skydDraftReset === "function") skydDraftReset();
   document.getElementById("userchip").style.display = "none";
   document.getElementById("authgate").style.display = "flex";
 }
@@ -8364,6 +8471,7 @@ function userDisplayName(email){
   return e.split("@")[0].replace(/[._]/g, " ").toUpperCase();
 }
 async function enterApp(user){
+  if(SKYD_DRAFTS.userId && SKYD_DRAFTS.userId !== user.id) skydDraftReset();
   sbUser = user;
   document.getElementById("authgate").style.display = "none";
   document.getElementById("userchip").style.display = "flex";
@@ -9548,6 +9656,7 @@ function waiRender(){
         <td style="padding:6px 8px; white-space:nowrap;">
           <button class="smallbtn sb-green" ${ready ? "" : "disabled"} onclick="waiOpen('${r.id}')">&#9654; OPEN &amp; LOAD</button>
           <button class="smallbtn sb-blue" onclick="waiFiles('${r.id}')">&#128065; files</button>
+          ${r.job_no && skydDraftUuid(r.id) ? `<button class="smallbtn sb-blue" onclick="skydDraftOpen('${r.id}')">SKYD drafts</button>` : ""}
           ${r.status !== "DONE" ? `<button class="smallbtn" onclick="waiSet('${r.id}','DONE')">&#10004; done</button>` : ""}
           ${r.status === "NEW" ? `<button class="smallbtn sb-red" onclick="waiSet('${r.id}','REJECTED')">x</button>` : ""}
         </td></tr>
