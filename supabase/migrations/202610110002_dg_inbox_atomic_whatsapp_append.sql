@@ -67,3 +67,72 @@ $$;
 
 revoke all on function public.dg_inbox_append_whatsapp(uuid,text,text,text,jsonb,text,timestamptz) from public, anon, authenticated;
 grant execute on function public.dg_inbox_append_whatsapp(uuid,text,text,text,jsonb,text,timestamptz) to service_role;
+
+-- Serialize the initial lookup/claim/create as well as appending. A row lock in
+-- append alone cannot prevent two first messages from each creating a new row.
+create or replace function public.dg_inbox_resolve_whatsapp(
+  p_sender text,
+  p_sender_name text,
+  p_job_no text,
+  p_at timestamptz
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_row public.dg_inbox%rowtype;
+  created boolean := false;
+begin
+  if p_sender is null or p_sender !~ '^[0-9]+$' or p_at is null
+     or (p_job_no is not null and (length(p_job_no) = 0 or length(p_job_no) > 64)) then
+    raise exception 'Invalid WhatsApp resolution';
+  end if;
+  -- A transaction-scoped lock also covers the no-row-yet case. Prefix the key
+  -- so unrelated features using advisory locks do not share this namespace.
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('dg_inbox_whatsapp:' || p_sender, 0));
+
+  if p_job_no is not null then
+    select * into current_row from public.dg_inbox
+    where sender = p_sender and job_no = p_job_no
+      and status in ('NEW', 'OPENED')
+      and updated_at >= p_at - interval '120 minutes'
+    order by updated_at desc, created_at desc, id
+    limit 1 for update;
+
+    if not found then
+      -- Claim only an unassigned active row, never a different named job. This
+      -- assignment happens before releasing the same sender lock.
+      select * into current_row from public.dg_inbox
+      where sender = p_sender and job_no is null
+        and status in ('NEW', 'OPENED')
+        and updated_at >= p_at - interval '120 minutes'
+      order by updated_at desc, created_at desc, id
+      limit 1 for update;
+      if found then
+        update public.dg_inbox
+        set job_no = p_job_no, updated_at = greatest(updated_at, p_at)
+        where id = current_row.id returning * into current_row;
+      end if;
+    end if;
+  else
+    select * into current_row from public.dg_inbox
+    where sender = p_sender and status in ('NEW', 'OPENED')
+      and updated_at >= p_at - interval '120 minutes'
+    order by updated_at desc, created_at desc, id
+    limit 1 for update;
+  end if;
+
+  if current_row.id is null then
+    insert into public.dg_inbox(job_no, sender, sender_name, message, updated_at)
+    values (p_job_no, p_sender, coalesce(nullif(p_sender_name, ''), p_sender), null, p_at)
+    returning * into current_row;
+    created := true;
+  end if;
+  return jsonb_build_object('row', to_jsonb(current_row), 'created', created);
+end;
+$$;
+
+revoke all on function public.dg_inbox_resolve_whatsapp(text,text,text,timestamptz) from public, anon, authenticated;
+grant execute on function public.dg_inbox_resolve_whatsapp(text,text,text,timestamptz) to service_role;
