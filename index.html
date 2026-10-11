@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-T</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-U</span></span>
           </div>
         </div>
       </div>
@@ -397,8 +397,8 @@
         <span class="pwlbl">powered by</span>
         <span class="saiydwm"><i class="s1">s</i><i class="s2">Ai</i><i class="s3">yd</i><i class="s4">.ai</i></span></div>
       <button id="nav-dash" class="on" onclick="showTab('dash')">&#128202; DASHBOARD</button>
-      <button id="nav-dgd" onclick="if(typeof setJobType==='function')setJobType('DG'); showTab('dgd');">&#129513; DG SHIPMENT</button>
-      <button id="nav-gc" onclick="if(typeof setJobType==='function')setJobType('GC'); showTab('gc');">&#128230; GENERAL CARGO</button>
+      <button id="nav-gc" onclick="if(typeof setJobType==='function')setJobType('GC'); showTab('gc');">&#9992; CREATE AWB</button>
+      <button id="nav-dgd" onclick="if(typeof setJobType==='function')setJobType('DG'); showTab('dgd');">&#128196; CREATE DGD</button>
       <button id="nav-pl" onclick="showTab('pl')">&#128196; PACKING LIST</button>
       <button id="nav-checklist" onclick="showTab('checklist')">&#9989; CHECKLIST</button>
       <button id="nav-msds" onclick="showTab('msds')">&#128269; MSDS CHECKER</button>
@@ -456,9 +456,9 @@
           <span id="adm_note" style="display:none; font-size:11.5px; color:#a40000; font-weight:bold;">ADMIN: tick jobs, then DELETE SELECTED</span>
           <button class="smallbtn sb-green" onclick="dashReport()">&#11015; DOWNLOAD REPORT (Excel)</button>
         </div>
-        <div style="font-weight:bold; color:#a40000; font-size:14px; margin:6px 0;">&#129513; DG CARGO &mdash; <span id="rpt_dg_n"></span> jobs</div>
+        <div style="font-weight:bold; color:#a40000; font-size:14px; margin:6px 0;">&#128196; CREATE DGD &mdash; <span id="rpt_dg_n"></span> jobs</div>
         <div style="overflow-x:auto;"><table id="rpt_dg_table" style="border-collapse:collapse; width:100%;"></table></div>
-        <div style="font-weight:bold; color:#1d6b34; font-size:14px; margin:18px 0 6px;">&#128230; GENERAL CARGO (NON-DG) &mdash; <span id="rpt_gc_n"></span> jobs</div>
+        <div style="font-weight:bold; color:#1d6b34; font-size:14px; margin:18px 0 6px;">&#9992; CREATE AWB &mdash; <span id="rpt_gc_n"></span> jobs</div>
         <div style="overflow-x:auto;"><table id="rpt_gc_table" style="border-collapse:collapse; width:100%;"></table></div>
       </div></div>
     </div>
@@ -512,7 +512,7 @@
     <!-- ============ JFS PACKING LIST TAB (editable document) ============ -->
     <!-- ================= GENERAL CARGO TAB ================= -->
     <div class="tab" id="tab-gc">
-      <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#128230; GENERAL CARGO JOB &mdash; <span id="gc_jobno"></span> <span id="gc_jobstart" style="font-weight:normal; font-size:12px; color:#5b6b7d; margin-left:10px;"></span></h2><div class="body">
+      <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#9992; CREATE AWB &mdash; <span id="gc_jobno"></span> <span id="gc_jobstart" style="font-weight:normal; font-size:12px; color:#5b6b7d; margin-left:10px;"></span></h2><div class="body">
         <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:nowrap; overflow-x:auto; margin-bottom:10px;">
           <button class="btn btn-save" style="background:#1d6b34; white-space:nowrap;" onclick="jobNew()">&#10133; NEW JOB (auto number)</button>
           <div style="min-width:190px;"><label>Job type (auto GEN)</label><select id="job_type_gc" style="width:190px;"></select></div>
@@ -670,7 +670,7 @@
     </div>
 
     <!-- JOB NUMBER BAR -->
-    <div class="card" style="border-left:5px solid #a40000;"><h2 style="background:#fdecec; color:#a40000;">&#129513; DG SHIPMENT JOB &mdash; <span id="dg_jobno"></span> <span id="dg_jobstart" style="font-weight:normal; font-size:12px; color:#5b6b7d; margin-left:10px;"></span></h2><div class="body" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:nowrap; overflow-x:auto;">
+    <div class="card" style="border-left:5px solid #a40000;"><h2 style="background:#fdecec; color:#a40000;">&#128196; CREATE DGD &mdash; <span id="dg_jobno"></span> <span id="dg_jobstart" style="font-weight:normal; font-size:12px; color:#5b6b7d; margin-left:10px;"></span></h2><div class="body" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:nowrap; overflow-x:auto;">
       <button class="btn btn-save" style="background:#0f2b4c; white-space:nowrap;" onclick="jobNew()">&#10133; NEW JOB (auto number)</button>
       <div style="min-width:190px;"><label>Job type (auto DGS)</label><select id="job_type_dg" style="width:190px;"></select></div>
       <div style="min-width:165px;"><label>JFS JOB NUMBER</label>
@@ -1504,7 +1504,7 @@
     </div>
     <div class="tab" id="tab-wainbox">
       <div class="card" style="border-left:5px solid #25a35a;"><h2 style="background:#e8f6ee; color:#1d6b34;">&#128242; WHATSAPP INBOX &mdash; DG and General Cargo jobs</h2><div class="body">
-        <div class="warnbar" style="margin-top:0;">Staff send <b>DG &lt;job no&gt;</b> (e.g. DG DGS-C00422 or DG AEXP-C00465), then shipment messages, PDFs, Excel files or photos. Check the <b>Job type</b> before <b>OPEN &amp; LOAD</b>. A type change saves immediately; wait for <b>Saved</b> before opening the job or sending a SKYD command. DGS / ELI / ELM open <b>DG SHIPMENT</b>; other listed types open <b>GENERAL CARGO</b>. Documents are attached first. Check each document's role, then read one, selected documents or all documents in the job. For an AWB draft through WhatsApp, send <b>SKYD PREPARE &lt;job no&gt; AWB</b> after all documents arrive; review the result under <b>SKYD drafts</b>. All extracted fields remain drafts for review.</div>
+        <div class="warnbar" style="margin-top:0;">Staff send <b>DG &lt;job no&gt;</b> (e.g. DG DGS-C00422 or DG AEXP-C00465), then shipment messages, PDFs, Excel files or photos. Check the <b>Job type</b> before <b>OPEN &amp; LOAD</b>. A type change saves immediately; wait for <b>Saved</b> before opening the job or sending a SKYD command. DGS / ELI / ELM open <b>CREATE DGD</b>; other listed types open <b>CREATE AWB</b>. Documents are attached first. Check each document's role, then read one, selected documents or all documents in the job. For an AWB draft through WhatsApp, send <b>SKYD PREPARE &lt;job no&gt; AWB</b> after all documents arrive; review the result under <b>SKYD drafts</b>. All extracted fields remain drafts for review.</div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
           <select id="wai_show" onchange="waiLoad()"><option value="OPEN">Open jobs (NEW / OPENED)</option><option value="ALL">All (last 60)</option></select>
           <button class="smallbtn sb-blue" onclick="waiLoad()">&#8635; REFRESH</button>
@@ -1755,8 +1755,8 @@
       <!-- STEP 1 — pick the job type -->
       <div id="jg_step1">
         <div style="font-size:12.5px; color:#5b6b7d; margin-bottom:12px;">Pick the job type &mdash; the job number comes next.</div>
-        <button class="btn btn-save" style="background:#a40000; width:100%; margin-top:4px; font-size:15px; padding:13px;" onclick="jgPick('DG')">&#129513; DG SHIPMENT</button>
-        <button class="btn btn-save" style="background:#1d6b34; width:100%; margin-top:10px; font-size:15px; padding:13px;" onclick="jgPick('GC')">&#128230; GENERAL CARGO</button>
+        <button class="btn btn-save" style="background:#1d6b34; width:100%; margin-top:4px; font-size:15px; padding:13px;" onclick="jgPick('GC')">&#9992; CREATE AWB</button>
+        <button class="btn btn-save" style="background:#a40000; width:100%; margin-top:10px; font-size:15px; padding:13px;" onclick="jgPick('DG')">&#128196; CREATE DGD</button>
         <button class="btn btn-load" id="jg_cont" style="width:100%; margin-top:10px;" onclick="jobContinue()">&#8617; CONTINUE LAST WORK</button>
         <button class="smallbtn sb-blue" style="margin-top:10px;" onclick="_acceptRow=null; document.getElementById('jobgate').style.display='none'; showTab('dash');">&#128202; Open dashboard</button>
       </div>
@@ -4488,8 +4488,8 @@ function jgPick(type){
   document.getElementById("jg_step1").style.display = "none";
   document.getElementById("jg_step2").style.display = "";
   const chip = document.getElementById("jg_typechip"), btn = document.getElementById("jg_gobtn");
-  if(type === "GC"){ chip.textContent = "📦 GENERAL CARGO"; chip.style.background = "#1d6b34"; btn.style.background = "#1d6b34"; btn.innerHTML = "&#9654; START GENERAL CARGO"; }
-  else { chip.textContent = "🧨 DG SHIPMENT"; chip.style.background = "#a40000"; btn.style.background = "#a40000"; btn.innerHTML = "&#9654; START DG SHIPMENT"; }
+  if(type === "GC"){ chip.textContent = "✈ CREATE AWB"; chip.style.background = "#1d6b34"; btn.style.background = "#1d6b34"; btn.innerHTML = "&#9654; START CREATE AWB"; }
+  else { chip.textContent = "📄 CREATE DGD"; chip.style.background = "#a40000"; btn.style.background = "#a40000"; btn.innerHTML = "&#9654; START CREATE DGD"; }
   setTimeout(() => { const el = document.getElementById("jg_job"); if(el) el.focus(); }, 100);
 }
 function jgGo(){ jobStart(_jgType); }
@@ -4669,8 +4669,8 @@ function renderDash(){
   document.getElementById("dashkpi").innerHTML =
     kpiChip(todayN, "TODAY", "#7b2d8b", "rpt", "#faf5fc") +
     kpiChip(mon, "THIS MONTH", "#1d6b34", "rpt", "#f0f9f2") +
-    kpiChip(dgN, "DG SHIPMENT JOBS", "#a40000", "rpt", "#fdf3f3") +
-    kpiChip(gcN, "GENERAL CARGO JOBS", "#b45309", "rpt", "#fff8ec") +
+    kpiChip(dgN, "CREATE DGD JOBS", "#a40000", "rpt", "#fdf3f3") +
+    kpiChip(gcN, "CREATE AWB JOBS", "#b45309", "rpt", "#fff8ec") +
     kpiChip(log.length, "TOTAL JOBS", "#0f2b4c", "rpt", "#f2f6fb");
   // Use the same unique AWBs and provider evidence as the Tracking page.
   const trkEl = document.getElementById("dashtrk");
@@ -5077,7 +5077,7 @@ async function inboxPoll(){
   const fresh = news.some(r => !window._seenInbox.has(r.id));
   news.forEach(r => window._seenInbox.add(r.id));
   const navDg = document.getElementById("nav-dgd");
-  if(navDg) navDg.innerHTML = "&#129513; DG SHIPMENT" + (n
+  if(navDg) navDg.innerHTML = "&#128196; CREATE DGD" + (n
     ? ` <span style="background:#e03a3a; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px; ${fresh ? "animation:inboxpulse 1s ease 6;" : ""}">&#128276; ${n}</span>` : "");
 }
 function _inboxRowsHtml(rows, adm){
@@ -8236,7 +8236,7 @@ function skydFill(){
   if(SKYD_DRAFTS.userId && (!sbUser || sbUser.id !== SKYD_DRAFTS.userId)) skydDraftReset();
   const j = v("f_job") || "(no job number)";
   const el = document.getElementById("skyd_job");
-  if(el) el.textContent = "Current job: " + j + "  |  " + ((typeof JOBTYPE !== "undefined" && JOBTYPE === "GC") ? "GENERAL CARGO" : "DG SHIPMENT");
+  if(el) el.textContent = "Current job: " + j + "  |  " + ((typeof JOBTYPE !== "undefined" && JOBTYPE === "GC") ? "CREATE AWB" : "CREATE DGD");
   skydLogRender();
 }
 async function skydRun(){
@@ -8268,7 +8268,7 @@ async function skydRun(){
   try{ if(typeof dnataFill === "function"){ dnataFill(); done.push(["DNATA forms", "dnata"]); } }catch(e){}
   /* 3 — report */
   let h = `<div style="border:1.5px solid #2547c9; border-radius:10px; overflow:hidden;">
-    <div style="background:#12224d; color:#fff; padding:8px 12px; font-weight:bold; font-size:13px;">SKYD REPORT — ${esc(v("f_job") || "no job no.")} &nbsp;|&nbsp; ${gc ? "GENERAL CARGO" : "DG SHIPMENT"} &nbsp;|&nbsp; ${esc(airline || "airline not detected")}</div>
+    <div style="background:#12224d; color:#fff; padding:8px 12px; font-weight:bold; font-size:13px;">SKYD REPORT — ${esc(v("f_job") || "no job no.")} &nbsp;|&nbsp; ${gc ? "CREATE AWB" : "CREATE DGD"} &nbsp;|&nbsp; ${esc(airline || "airline not detected")}</div>
     <div style="padding:10px 12px;">`;
   if(warns.length){
     h += `<div style="font-size:12px; font-weight:bold; color:#b02020; margin-bottom:4px;">&#9888; MISSING — fix these before printing:</div>`;
@@ -9836,6 +9836,6 @@ authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
 <script src="/tracking-ai.js?v=muki3j3g"></script>
-<script src="/mobile.js?v=v2511h"></script>
+<script src="/mobile.js?v=v2511u"></script>
 </body>
 </html>

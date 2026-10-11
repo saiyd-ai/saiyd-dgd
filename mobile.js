@@ -150,7 +150,7 @@
   }
   window.mobSharePdf = async function () {
     var src = document.querySelector(".previewwrap");
-    if (!src || !src.innerHTML.trim()) { alert("Open the DG SHIPMENT tab first — the DGD preview is what gets shared."); return; }
+    if (!src || !src.innerHTML.trim()) { alert("Open the CREATE DGD tab first — the DGD preview is what gets shared."); return; }
     try {
       await loadHtml2Pdf();
       var job = (document.getElementById("f_job") || {}).value || "DGD";
