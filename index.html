@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-X</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-Y</span></span>
           </div>
         </div>
       </div>
@@ -1298,7 +1298,16 @@
 
     <!-- ================= AWB / MANIFEST TAB ================= -->
     <div class="tab" id="tab-awb">
-      <div class="card" style="border-left:5px solid #0f2b4c;"><h2>&#128459; MASTER AWB DRAFT &mdash; IATA standard layout (EK style)</h2><div class="body">
+      <div class="card" style="border-left:5px solid #0f2b4c;"><h2 id="aw_title">&#128459; MASTER AWB DRAFT &mdash; CALOGI STYLE (IATA 600A laser AWB)</h2><div class="body">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+          <label style="margin:0;">AWB STYLE</label>
+          <select id="aw_style" style="width:auto; font-weight:bold;" onchange="aw6StyleChange()">
+            <option value="CALOGI" selected>CALOGI STYLE (600A)</option>
+            <option value="EK">EK STYLE</option>
+            <option value="OTHER">OTHER AIRLINE (600A)</option>
+          </select>
+          <span style="font-size:11.5px; color:#5b6b7d;">Master and house AWBs print in the chosen style.</span>
+        </div>
         <div class="warnbar" style="margin-top:0;">Fill the fields &mdash; shipper/consignee/route/pieces/weight come automatically from the job. Print the draft AWB in the standard IATA layout.</div>
         <div class="grid g4">
           <div><label>AWB Number (auto)</label><input type="text" id="aw_no" oninput="mawbRender()"></div>
@@ -1329,8 +1338,43 @@
             </div></div>
           <div style="align-self:end;">
             <button class="btn btn-save" style="background:#0f2b4c;" onclick="mawbRender()">&#8635; GENERATE</button>
-            <button class="btn btn-print" onclick="mawbRender(); printAlt('aw_doc');">&#128424; PRINT DRAFT AWB</button>
+            <button class="btn btn-print" onclick="aw6PrintMaster()">&#128424; PRINT DRAFT AWB</button>
           </div>
+        </div>
+        <div id="aw6_box" style="margin-top:12px; border:1px solid #d7dee8; border-radius:10px; padding:10px 12px; background:#f8fafc;">
+          <div style="font-weight:bold; color:#0f2b4c; font-size:13px; margin-bottom:6px;">600A DETAILS</div>
+          <div class="grid g4">
+            <div><label>Issued by (carrier name &amp; address)</label><textarea id="aw6_issuer" style="min-height:52px;" oninput="mawbRender()"></textarea></div>
+            <div><label>Accounting information</label><textarea id="aw6_acc" style="min-height:52px;" oninput="mawbRender()"></textarea></div>
+            <div><label>Reference no. / Optional shipping info</label>
+              <div style="display:flex; gap:5px;"><input type="text" id="aw6_ref" placeholder="CAL012913181" oninput="mawbRender()"><input type="text" id="aw6_osi" placeholder="FG8" style="width:70px;" oninput="mawbRender()"></div></div>
+            <div><label>Routing 2 / 3 (to &middot; by)</label>
+              <div style="display:flex; gap:5px;"><input type="text" id="aw6_to2" placeholder="MIA" style="width:56px;" oninput="mawbRender()"><input type="text" id="aw6_by2" placeholder="LH" style="width:50px;" oninput="mawbRender()"><input type="text" id="aw6_to3" style="width:56px;" oninput="mawbRender()"><input type="text" id="aw6_by3" style="width:50px;" oninput="mawbRender()"></div></div>
+            <div><label>Requested flight / date 1 &middot; 2</label>
+              <div style="display:flex; gap:5px;"><input type="text" id="aw6_fl1" placeholder="LH8031/5" oninput="mawbRender()"><input type="text" id="aw6_fl2" placeholder="LH0462/11" oninput="mawbRender()"></div></div>
+            <div><label>Airport of departure / destination (names)</label>
+              <div style="display:flex; gap:5px;"><input type="text" id="aw6_depn" placeholder="DUBAI WORLD CENTRAL" oninput="mawbRender()"><input type="text" id="aw6_destn" placeholder="Miami International" oninput="mawbRender()"></div></div>
+            <div><label>Currency &middot; Decl. value carriage / customs &middot; Insurance</label>
+              <div style="display:flex; gap:5px;"><input type="text" id="aw6_cur" style="width:56px;" oninput="mawbRender()"><input type="text" id="aw6_dvc" style="width:60px;" oninput="mawbRender()"><input type="text" id="aw6_dvcu" style="width:60px;" oninput="mawbRender()"><input type="text" id="aw6_ins" placeholder="NIL" style="width:60px;" oninput="mawbRender()"></div></div>
+            <div><label>Rate class &middot; SCI &middot; HS code</label>
+              <div style="display:flex; gap:5px;"><input type="text" id="aw6_rcls" style="width:46px;" oninput="mawbRender()"><input type="text" id="aw6_sci" style="width:60px;" oninput="mawbRender()"><input type="text" id="aw6_hs" placeholder="33030010" oninput="mawbRender()"></div></div>
+            <div><label>Other charges (code + amount, e.g. MRC 41136 MXC 5 MCC 50)</label><input type="text" id="aw6_oc" oninput="mawbRender()"></div>
+            <div><label>Line under pieces (e.g. NOTIFY PARTY: ...)</label><input type="text" id="aw6_note" oninput="mawbRender()"></div>
+            <div><label>Nature &amp; quantity of goods (empty = automatic)</label><textarea id="aw6_nature" style="min-height:52px;" oninput="mawbRender()"></textarea></div>
+            <div><label>Volume CBM (empty = from dimensions) &middot; Copy</label>
+              <div style="display:flex; gap:5px;"><input type="text" id="aw6_vol" style="width:70px;" oninput="mawbRender()">
+                <select id="aw6_copy" style="width:auto;" onchange="mawbRender()"><option>ORIGINAL 3 (FOR SHIPPER)</option><option>ORIGINAL 1 (FOR ISSUING CARRIER)</option><option>ORIGINAL 2 (FOR CONSIGNEE)</option></select></div></div>
+          </div>
+          <details style="margin-top:8px;"><summary style="cursor:pointer; font-size:12.5px; font-weight:bold; color:#0f2b4c;">JFS agent details (saved defaults)</summary>
+            <div class="grid g4" style="margin-top:6px;">
+              <div><label>Agent name &amp; city</label><textarea id="aw6_agent" style="min-height:52px;" oninput="mawbRender()"></textarea></div>
+              <div><label>Agent IATA code &middot; Account no</label>
+                <div style="display:flex; gap:5px;"><input type="text" id="aw6_iata" oninput="mawbRender()"><input type="text" id="aw6_acct" oninput="mawbRender()"></div></div>
+              <div><label>Shipper certification line</label><input type="text" id="aw6_cert" oninput="mawbRender()"></div>
+              <div><label>Signature prefix (staff name is added)</label><input type="text" id="aw6_signp" oninput="mawbRender()"></div>
+            </div>
+            <button class="smallbtn sb-green" style="margin-top:6px;" onclick="aw6SaveDef()">&#128190; SAVE AS DEFAULT</button> <span id="aw6_msg" style="font-size:11.5px; color:#1d6b34; font-weight:bold;"></span>
+          </details>
         </div>
         <div style="margin-top:14px; overflow-x:auto;"><div id="aw_doc"></div></div>
       </div></div>
@@ -10010,6 +10054,294 @@ function dcInit(){
   });
 }
 if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", dcInit); else dcInit();
+
+/* ================= v25.11-Y AWB STYLE — CALOGI (IATA Res. 600A laser AWB) / EK / OTHER AIRLINE ================= */
+/* CALOGI STYLE + OTHER AIRLINE print the IATA 600A laser layout (page 1 AWB + page 2 Conditions of Contract) for the
+   MASTER and each HOUSE AWB. EK STYLE keeps the existing layout unchanged. */
+const AW6_COND = {"notice": "If the carriage involves an ultimate destination or stop in a country other than the country of departure, the Montreal Convention or the Warsaw Convention may be applicable to the liability of the Carrier in respect of loss of, damage or delay to cargo. Carrier's limitation of liability in accordance with those Conventions shall be as set forth in subparagraph 4 unless a higher value is declared.", "left": "1. In this contract and the Notices appearing hereon:\nCARRIER includes the air carrier issuing this air waybill and all carriers that\ncarry or undertake to carry the cargo or perform any other services related\nto such carriage\nSPECIAL DRAWING RIGHT (SDR) is a Special Drawing Right as defined\nby the International Monetary Fund.\nWARSAW CONVENTION means whichever of the following instruments is\napplicable to the contract of carriage:\nthe Convention for the Unification of Certain Rules Relating to International\nCarriage by Air, signed at Warsaw, 12 October 1929;\nthat Convention as amended at The Hague on 28 September 1955;\nthat Convention as amended at The Hague 1955 and by Montreal Protocol\nNo. 1, 2, or 4 (1975) as the case may be.\nMONTREAL CONVENTION means the Convention for the Unification of\nCertain Rules for International Carriage by Air, done at Montreal on 28\nMay 1999.\n\n2. 2.1 Carriage is subject to the rules relating to liability established by the\nWarsaw Convention or the Montreal Convention unless such carriage is\nnot \"international carriage\" as defined by the applicable Conventions.\n2.2 To the extent not in conflict with the foregoing, carriage and other\nrelated services performed by each Carrier are subject to:\n2.2.1 applicable laws and government regulations;\n2.2.2 provisions contained in the air waybill, Carrier's conditions of carriage\nand related rules, regulations, and timetables (but not the times of\ndeparture and arrival stated therein) and applicable tariffs of such Carrier,\nwhich are made part hereof, and which may be inspected at any airports or\nother cargo sales offices from which it operates regular services. When\ncarriage is to/from the USA, the shipper and the consignee are entitled,\nupon request, to receive a free copy of the Carrier's conditions of carriage.\nThe Carrier's conditions of carriage include, but are not limited to:\n2.2.2.1 limits on the Carrier's liability for loss, damage or delay of goods,\nincluding fragile or perishable goods;\n2.2.2.2 claims restrictions, including time periods within which shippers or\nconsignees must file a claim or bring an action against the Carrier for its\nacts or omissions, or those of its agents;\n2.2.2.3 rights, if any, of the Carrier to change the terms of the contract;\n2.2.2.4 rules about Carrier's right to refuse to carry;\n2.2.2.5 rights of the Carrier and limitations concerning delay or failure to\nperform service, including schedule changes, substitution of alternate\nCarrier or aircraft and rerouting.\n3. The agreed stopping places (which may be altered by Carrier in case of\nnecessity) are those places, except the place of departure and place of\ndestination, set forth on the face hereof or shown in Carrier's timetables as\nscheduled stopping places for the route. Carriage to be performed\nhereunder by several successive Carriers is regarded as a single\noperation.\n4. For carriage to which the Montreal Convention does not apply, Carrier's\nliability limitation for cargo lost, damaged or delayed shall be 19 SDRs per\nkilogram unless a greater per kilogram monetary limit is provided in any\napplicable Convention or in Carrier's tariffs or general conditions of\ncarriage.\n5. 5.1 Except when the Carrier has extended credit to the consignee\nwithout the written consent of the shipper, the shipper guarantees payment\nof all charges for the carriage due in accordance with Carrier's tariff,\nconditions of carriage and related regulations, applicable laws (including\nnational laws implementing the Warsaw Convention and the Montreal\nConvention), government regulations, orders and requirements.\n5.2 When no part of the consignment is delivered, a claim with respect to\nsuch consignment will be considered even though transportation charges\nthereon are unpaid.", "right": "6. 6.1 For cargo accepted for carriage, the Warsaw Convention and the\nMontreal Convention permit shipper to increase the limitation of\nliability by declaring a higher value for carriage and paying a\nsupplemental charge if required.\n6.2 In carriage to which neither the Warsaw Convention nor the\nMontreal Convention applies Carrier shall, in accordance with the\nprocedures set forth in its general conditions of carriage and\napplicable tariffs, permit shipper to increase the limitation of liability\nby declaring a higher value for carriage and paying a supplemental\ncharge if so required\n7. 7.1 In cases of loss of, damage or delay to part of the cargo, the weight\nto be taken into account in determining Carrier's limit of liability shall be\nonly the weight of the package or packages concerned.\n7.2 Notwithstanding any other provisions, for foreign air transportation\nas defined by the U.S. Transportation Code:\n7.2.1 in the case of loss of, damage or delay to a shipment, the weight to\nbe used in determining Carrier's limit of liability shall be the weight which\nis used to determine the charge for carriage of such shipment; and\n7.2.2 in the case of loss of, damage or delay to a part of a shipment, the\nshipment weight in 7.2.1 shall be prorated to the packages covered by the\nsame air waybill whose values is affected by the loss, damage or delay.\nThe weight applicable in the case of loss or damage to one or more\narticles in a package shall be the weight of the entire package.\n8. Any exclusion or limitation of liability applicable to Carrier shall apply\nto Carrier's agents, employees, and representatives and to any person\nwhose aircraft or equipment is used by Carrier for carriage and such\nperson's agents, employees and representatives.\n9. Carrier undertakes to complete the carriage with reasonable dispatch.\nWhere permitted by applicable laws, tariffs and government regulations,\nCarrier may use alternative carriers, aircraft or modes of transport without\nnotice but with due regard to interests of the shipper. Carrier is authorised\nby the shipper to select the routing and all intermediate stopping\nplaces that it deems appropriate or to change or deviate from the\nrouting shown on the face hereof.\n10. Receipt by the person entitled to delivery of the cargo without complaint\nshall be prima facie evidence that the cargo has been delivered in good\ncondition and in accordance with the contract of carriage.\n10.1 In the case of loss of, damage or delay to cargo a written complaint\nmust be made to Carrier by the person entitled to delivery. Such\ncomplaint must be made;\n10.1.1 in the case of damage to the cargo, immediately after discovery\nof the damage and at the latest within 14 days from the date of receipt\nof the cargo\n10.1.2 in the case of delay, within 21 days from the date on which\nthe cargo was placed at the disposal of the person entitled to delivery.\n10.1.3 in the case of non-delivery of the cargo, within 120 days from\nthe date of issue of the air waybill, or if an air waybill has not been\nissued, within 120 days from the date of receipt of the cargo for\ntransportation by the Carrier.\n10.2 Such complaint may be made to the Carrier whose air waybill was\nused, or to the first Carrier or to the last Carrier or to the Carrier,\nwhich performed the carriage during which the loss, damage or delay\ntook place.\n10.3 Unless a written complaint is made within the time limits specified\nin 10.1 no action may be brought against Carrier.\n10.4 Any rights to damages against Carrier shall be extinguished unless\nan action is brought within two years from the date of arrival at the\ndestination, or from the date on which the aircraft ought to have\narrived, or from the date on which the carriage stopped.\n11. Shipper shall comply with all applicable laws and government\nregulations of any country to or from which the cargo may be carried,\nincluding those relating to the packing, carriage or delivery of the cargo, and\nfurnish such information and attach such documents to the air waybill as\nmay be necessary to comply with such laws and regulations.Carrier is not\nliable to shipper and shipper shall indemnify Carrier for loss or expense\ndue to shipper's failure to comply with this provision.\n12. No agent, employee or representative of Carrier has authority to alter,\nmodify or waive any provisions of this contract."};
+const AW6_DEF0 = {agent: "JFS LOGISTICS FZCO\nDAFZA\nAE,TL:+971 50 884 9897", iata: "8645305", acct: "DCW292",
+  cert: "JFS LOGISTICS FZCO, F18, DAFZA, +971 50 884 9897", accM: "DCW292-CALOGI POOLED", accH: "DCW292-CALOGI POOLED",
+  cur: "AED", dvc: "NVD", dvcu: "NCV", rcls: "Q", signp: "AGTJFZCOPS"};
+const AW6_AP = {DWC: "DUBAI WORLD CENTRAL", DXB: "DUBAI INTERNATIONAL", SHJ: "SHARJAH INTERNATIONAL", AUH: "ABU DHABI INTERNATIONAL"};
+const AW6_FIELDS = ["aw_style","aw6_issuer","aw6_acc","aw6_ref","aw6_osi","aw6_cur","aw6_dvc","aw6_dvcu","aw6_ins","aw6_rcls","aw6_to2","aw6_by2","aw6_to3","aw6_by3",
+  "aw6_fl1","aw6_fl2","aw6_depn","aw6_destn","aw6_sci","aw6_oc","aw6_note","aw6_hs","aw6_vol","aw6_nature","aw6_copy","aw6_agent","aw6_iata","aw6_acct","aw6_cert","aw6_signp"];
+function aw6Def(){ try{ return Object.assign({}, AW6_DEF0, JSON.parse(localStorage.getItem("jfs_aw6_def") || "{}")); }catch(e){ return Object.assign({}, AW6_DEF0); } }
+function aw6SaveDef(){
+  const d = {agent: v("aw6_agent"), iata: v("aw6_iata"), acct: v("aw6_acct"), cert: v("aw6_cert"), accM: v("aw6_acc"),
+    cur: v("aw6_cur"), dvc: v("aw6_dvc"), dvcu: v("aw6_dvcu"), rcls: v("aw6_rcls"), signp: v("aw6_signp")};
+  try{ localStorage.setItem("jfs_aw6_def", JSON.stringify(d)); }catch(e){}
+  const m = document.getElementById("aw6_msg"); if(m) m.textContent = "✓ Saved as default for new jobs.";
+}
+function aw6Style(){ return v("aw_style") || "CALOGI"; }
+function aw6Pfx(){ return (v("aw_no") || v("f_awb") || "").replace(/\D/g, "").slice(0, 3); }
+function aw6Fill(force){
+  const d = aw6Def(), set = (id, val) => { const e = document.getElementById(id); if(e && (force || !e.value)) e.value = val || ""; };
+  const pfx = aw6Pfx(), pa = (typeof PREFIX_AIRLINES !== "undefined") ? PREFIX_AIRLINES[pfx] : null;
+  const dep = iata3(v("f_dep")) || "", dest = iata3(v("f_dest")) || "";
+  set("aw6_agent", d.agent); set("aw6_iata", d.iata); set("aw6_acct", d.acct); set("aw6_cert", d.cert);
+  set("aw6_cur", d.cur); set("aw6_dvc", d.dvc); set("aw6_dvcu", d.dvcu); set("aw6_rcls", d.rcls); set("aw6_signp", d.signp);
+  set("aw6_acc", aw6Style() === "OTHER" ? "" : d.accM);
+  set("aw6_issuer", CARRIER_HQ[pfx] || (pa ? pa[1] : ""));
+  set("aw6_depn", AW6_AP[dep] || (dep ? (airportPlace(dep) + " INTERNATIONAL").toUpperCase() : ""));
+  set("aw6_destn", dest ? airportPlace(dest) + " International" : "");
+  set("aw6_fl1", (v("aw_flight") || "").toUpperCase());
+}
+function aw6StyleChange(){
+  const s = aw6Style();
+  const box = document.getElementById("aw6_box"); if(box) box.style.display = s === "EK" ? "none" : "";
+  const h = document.getElementById("aw_title"); if(h) h.innerHTML = "&#128459; MASTER AWB DRAFT &mdash; " + (s === "EK" ? "IATA standard layout (EK style)" : s === "CALOGI" ? "CALOGI STYLE (IATA 600A laser AWB)" : "OTHER AIRLINE (IATA 600A laser AWB)");
+  if(s === "OTHER"){ const a = document.getElementById("aw6_acc"); if(a && /CALOGI POOLED/.test(a.value)) a.value = ""; }
+  mawbRender();
+}
+function aw6Num(x){ const n = parseFloat(String(x || "").replace(/,/g, "")); return isFinite(n) ? n : 0; }
+function aw6Money(n){ return n ? n.toFixed(2) : ""; }
+function aw6Charges(txt){
+  const out = {list: [], agent: 0, carrier: 0};
+  String(txt || "").toUpperCase().replace(/([A-Z]{2,3})\s*[:=]?\s*([\d.,]+)/g, (m, c, a) => {
+    const amt = aw6Num(a); out.list.push([c, amt]);
+    if(c.slice(-1) === "A") out.agent += amt; else out.carrier += amt;   // IATA: last letter A = due agent, C = due carrier
+    return m;
+  });
+  return out;
+}
+function aw6Now(){
+  const d = new Date(), M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const p = n => String(n).padStart(2, "0");
+  return p(d.getDate()) + "-" + M[d.getMonth()] + "-" + d.getFullYear() + " Time: " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+}
+function aw6Nature(house){
+  if(v("aw6_nature").trim() && !house) return v("aw6_nature");
+  const goods = (house ? house.goods : v("cs_goods") || "").toUpperCase();
+  const hs = v("aw6_hs").trim();
+  let rows = [];
+  if(house && typeof HOUSES !== "undefined"){ const h = HOUSES.list.find(x => x.no === house.no); if(h) rows = h.rows || []; }
+  else if(!house && typeof PT !== "undefined") rows = PT;
+  const ctns = rows.reduce((a, r) => a + (parseInt(r.q) || 0), 0), plts = rows.length;
+  const pcs = house ? (parseInt(house.pcs) || plts) : (plts || parseInt(v("f_opcount")) || 0);
+  const L = [];
+  if(!house && typeof HAWBS !== "undefined" && HAWBS.length) L.push("CONSOLIDATION CARGO", "AS PER ATTACHED", "HOUSE MANIFEST");
+  else if(goods) L.push(goods);
+  if(hs && house) L.push("HS CODE " + hs);
+  if(ctns && plts){ L.push("SHIPMENT CONSISTS OF", ctns + " MASTER CARTONS", plts + " PALLETS STC " + ctns, "MASTER CARTONS"); }
+  if(hs && !house) L.push("HS CODE " + hs);
+  if(pcs) L.push(pcs + " SLAC");
+  return L.join("\n");
+}
+function aw6Vol(house){
+  if(v("aw6_vol").trim() && !house) return v("aw6_vol").trim();
+  if(house) return "";
+  const d = (typeof _parseDimsCm3 === "function") ? _parseDimsCm3(v("aw_dims")) : {cm3: 0};
+  return d.cm3 ? (d.cm3 / 1e6).toFixed(2) : "";
+}
+function aw6Data(house){
+  const n = _awNums();
+  const master = v("aw_no") || v("f_awb") || "";
+  const dig = master.replace(/\D/g, "");
+  const dep = (house ? house.org : iata3(v("f_dep"))) || "", dest = (house ? house.dest : iata3(v("f_dest"))) || "";
+  const pc = (v("aw_pc") || "PREPAID") === "COLLECT" ? "CC" : "PP";
+  const staffRaw = v("al_staff") || v("dn_staff") || "";
+  const staff = staffRaw.split(/[\/,(]/)[0].trim().toUpperCase();
+  const pcs = house ? house.pcs : n.pcs, gross = house ? house.wt : n.gross;
+  const chwt = house ? house.wt : (v("aw_chwt") || n.gross);
+  const rate = house ? "" : v("aw_rate");
+  const wc = aw6Num(chwt) * aw6Num(rate);
+  const oc = house ? {list: [], agent: 0, carrier: 0} : aw6Charges(v("aw6_oc"));
+  const tot = wc + oc.agent + oc.carrier;
+  return {
+    house: !!house, pfx: dig.slice(0, 3), ser: dig.slice(3), orgCode: dep,
+    topRight: house ? house.no : master, bottomNo: master ? dig.slice(0, 3) + "-" + dig.slice(3) : "",
+    shipper: house ? house.shipper : v("f_shipper"), consignee: house ? house.consignee : v("f_consignee"),
+    issuer: house ? v("aw6_agent") : v("aw6_issuer"),
+    agent: v("aw6_agent"), iata: v("aw6_iata"), acct: v("aw6_acct"),
+    acc: house ? (aw6Style() === "OTHER" ? "" : aw6Def().accH) : v("aw6_acc"),
+    mop: (v("aw_pc") || "PREPAID") === "COLLECT" ? "Collect" : "Prepaid",
+    ref: house ? "" : v("aw6_ref"), osi: house ? "" : v("aw6_osi"),
+    depn: house ? (AW6_AP[dep] || (dep ? airportPlace(dep).toUpperCase() : "")) : v("aw6_depn"),
+    destn: house ? (dest ? airportPlace(dest) + " International" : "") : v("aw6_destn"),
+    to1: (v("aw_to1") || dest).toUpperCase(), by1: (v("aw_by1") || "").toUpperCase(),
+    to2: v("aw6_to2").toUpperCase(), by2: v("aw6_by2").toUpperCase(), to3: v("aw6_to3").toUpperCase(), by3: v("aw6_by3").toUpperCase(),
+    fl1: (v("aw6_fl1") || v("aw_flight") || "").toUpperCase(), fl2: v("aw6_fl2").toUpperCase(),
+    cur: v("aw6_cur") || "AED", pc, dvc: v("aw6_dvc") || "NVD", dvcu: v("aw6_dvcu") || "NCV", ins: v("aw6_ins"),
+    handl: (v("aw_handl") || "").toUpperCase(), sci: v("aw6_sci").toUpperCase(),
+    pcs, gross, rcls: v("aw6_rcls") || "Q", chwt, rate, wc,
+    note: house ? "" : v("aw6_note").toUpperCase(),
+    nature: aw6Nature(house), vol: aw6Vol(house),
+    oc, tot,
+    cert: v("aw6_cert"), sign: (v("aw6_signp") || "AGTJFZCOPS") + (staff ? "-" + staff : ""),
+    exec: aw6Now(), place: (iata3(v("f_dep")) || dep || "DXB"),
+    copy: v("aw6_copy") || "ORIGINAL 3 (FOR SHIPPER)",
+    draft: document.getElementById("aw_draft") ? document.getElementById("aw_draft").checked : true
+  };
+}
+function aw6Layout(o){
+  const E = x => esc(String(x == null ? "" : x));
+  const B = "border:0.8pt solid #000;", C = "font-size:6.2pt; line-height:1.15; display:block;", T = "font-size:8.6pt; line-height:1.2; white-space:pre-line;";
+  const G = `<td style="${B} background:#9a9a9a; width:2.4mm; padding:0;"></td>`;
+  const x = (on) => on ? "X" : "";
+  const pp = o.pc === "PP";
+  const chg = (lbl, val, ccVal) => `<tr><td colspan="2" style="${B} padding:0; height:7.2mm; vertical-align:top;">
+      <div style="text-align:center; font-size:6.2pt;"><span style="border:0.6pt solid #000; border-top:0; padding:0 6mm; background:#fff;">${lbl}</span></div>
+      <div style="display:flex;"><div style="width:50%; text-align:center; ${T}">${E(val || "")}</div><div style="width:50%; border-left:0.8pt solid #000; text-align:center; ${T}">${E(ccVal || "")}</div></div></td></tr>`;
+  const due = (lbl, val) => chg(lbl, pp ? val : "", pp ? "" : val);
+  const ocLine = o.oc.list.map(([c, a]) => `<span style="display:inline-block; min-width:34mm;">${E(c)} ${a.toFixed(2)}</span>`).join("");
+  const page1 = `<div class="sheet" style="min-height:285mm; padding:6mm 8mm 4mm 10mm; font-family:Arial, Helvetica, sans-serif; color:#000; position:relative; page-break-after:always;">
+    ${o.draft ? `<div style="position:absolute; top:120mm; left:30mm; font-size:62pt; color:rgba(200,0,0,.12); font-weight:900; transform:rotate(-25deg); letter-spacing:9px; z-index:5;">DRAFT</div>` : ""}
+    <table style="width:100%; border-collapse:collapse;"><tr>
+      <td style="font-size:10pt; padding:0 0 1mm 0; white-space:nowrap;">
+        <span style="display:inline-block; border-right:0.8pt solid #000; padding:3mm 2mm 0 2mm;">${E(o.pfx)}</span><span style="display:inline-block; border-right:0.8pt solid #000; padding:3mm 2mm 0 2mm;">${E(o.orgCode)}</span><span style="display:inline-block; padding:3mm 2mm 0 3mm;">${E(o.ser)}</span>
+        <svg class="aw6bc" data-v="${E(o.pfx + o.ser)}" style="height:7mm; vertical-align:bottom; margin-left:2mm;"></svg></td>
+      <td style="text-align:right; font-size:15pt; padding-right:12mm; vertical-align:bottom;">${E(o.topRight)}</td></tr></table>
+    <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+      <colgroup><col style="width:24%"><col style="width:26%"><col style="width:50%"></colgroup>
+      <tr><td colspan="2" style="${B} padding:0; vertical-align:top;">
+          <div style="display:flex;"><div style="flex:1; padding:0.6mm 1.2mm; ${C} font-size:7pt;">Shipper's Name and Address</div><div style="width:46%; border-left:0.8pt solid #000; border-bottom:0.8pt solid #000; padding:0.6mm 1.2mm; font-size:7pt; height:9mm;">Shipper's Account Number</div></div>
+          <div style="padding:0 1.2mm 1mm; ${T} margin-top:-4mm; min-height:17mm;">${E(o.shipper)}</div></td>
+        <td style="${B} padding:0; vertical-align:top;">
+          <div style="padding:0.6mm 1.4mm;"><span style="${C}">Not Negotiable</span><div style="font-size:15pt; font-weight:bold; line-height:1.1;">Air Waybill</div>
+          <div style="${T} font-size:8.6pt;"><span style="font-size:6.2pt;">Issued By</span>&nbsp;&nbsp;&nbsp;&nbsp;${E(o.issuer)}</div></div>
+          <div style="border-top:0.8pt solid #000; padding:0.6mm 1.4mm; font-size:6.2pt;">Copies1,2 and 3 of this Air Waybill are originals and have the same validity</div></td></tr>
+      <tr><td colspan="2" style="${B} padding:0; vertical-align:top;">
+          <div style="display:flex;"><div style="flex:1; padding:0.6mm 1.2mm; font-size:7pt;">Consignee's Name and Address</div><div style="width:46%; border-left:0.8pt solid #000; border-bottom:0.8pt solid #000; padding:0.6mm 1.2mm; font-size:7pt; height:9mm;">Consignee's Account Number</div></div>
+          <div style="padding:0 1.2mm 1mm; ${T} margin-top:-4mm; min-height:18mm;">${E(o.consignee)}</div></td>
+        <td style="${B} padding:0.6mm 1.4mm; font-size:6.2pt; line-height:1.15; text-align:justify; vertical-align:top;">It is agreed that the goods described herein are accepted in apparent good order and condition (except as noted) for carriage SUBJECT TO THE CONDITIONS OF CONTRACT ON THE REVERSE HEREOF. ALL GOODS MAY BE CARRIED BY ANY OTHER MEANS INCLUDING ROAD OR ANY OTHER CARRIER UNLESS SPECIFIC CONTRARY INSTRUCTIONS ARE GIVEN HEREON BY THE SHIPPER, AND SHIPPER AGREES THAT THE SHIPMENT MAY BE CARRIED VIA INTERMEDIATE STOPPING PLACES WHICH THE CARRIER DEEMS APPROPRIATE. THE SHIPPERS ATTENTION IS DRAWN TO THE NOTICE CONCERNING CARRIERS LIMITATION OF LIABILITY. Shipper may increase such limitation of liability by declaring a higher value for carriage and paying a supplemental charge if required.</td></tr>
+      <tr><td colspan="2" style="${B} padding:0.6mm 1.2mm; vertical-align:top; height:14mm;"><span style="font-size:7pt;">Issuing Carrier's Agent Name and City</span><div style="${T} margin-top:1mm;">${E(o.agent)}</div></td>
+        <td rowspan="2" style="${B} padding:0.6mm 1.4mm; vertical-align:top; position:relative;"><span style="font-size:7pt;">Accounting Information</span><div style="${T} margin-top:1mm;">${E(o.acc)}</div>
+          <div style="position:absolute; bottom:0.6mm; left:1.4mm; font-size:8.6pt;">MODE OF PAYMENT:${E(o.mop)}</div></td></tr>
+      <tr><td style="${B} padding:0.6mm 1.2mm; height:8mm; vertical-align:top;"><span style="font-size:7pt;">Agent's IATA Code</span><div style="${T} padding-left:4mm;">${E(o.iata)}</div></td>
+        <td style="${B} padding:0.6mm 1.2mm; vertical-align:top;"><span style="font-size:7pt;">Account No</span><div style="${T}">${E(o.acct)}</div></td></tr>
+      <tr><td colspan="2" style="${B} padding:0.6mm 1.2mm; vertical-align:top; height:8mm;"><span style="font-size:7pt;">Airport of departure (Addr. of first Carrier) and requested Routing</span><div style="${T}">${E(o.depn)}</div></td>
+        <td style="${B} padding:0; vertical-align:top;"><div style="display:flex; height:100%;">
+          <div style="width:30%; padding:0.6mm 1.4mm;"><span style="font-size:7pt;">Reference Number</span><div style="${T}">${E(o.ref)}</div></div>
+          <div style="width:40%; border:0.6pt solid #000; border-top:0; margin-bottom:1.2mm; font-size:5.6pt; text-align:center;">Optional Shipping Information</div>
+          <div style="width:30%; ${T} text-align:center; padding-top:3mm;">${E(o.osi)}</div></div></td></tr>
+    </table>
+    <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+      <colgroup><col style="width:5.5%"><col style="width:18.5%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:3.5%"><col style="width:7%"><col style="width:7%"><col style="width:13%"><col style="width:12.5%"></colgroup>
+      <tr style="font-size:6.6pt; text-align:center;">
+        <td style="${B} border-bottom:0; text-align:left; padding-left:1mm;">to</td><td style="${B} border-bottom:0; text-align:left; padding-left:1mm;">By First Carrier <span style="font-size:5.4pt; border:0.6pt solid #000; border-top:0; padding:0 3mm;">Routing and Destination</span></td>
+        <td style="${B} border-bottom:0;">to</td><td style="${B} border-bottom:0;">by</td><td style="${B} border-bottom:0;">to</td><td style="${B} border-bottom:0;">by</td>
+        <td style="${B} border-bottom:0;">Currency</td><td style="${B} border-bottom:0; font-size:5pt;">Chgs<br>Code</td>
+        <td style="${B} border-bottom:0; font-size:5pt;">WT/VAL<br>PPD | COLL</td><td style="${B} border-bottom:0; font-size:5pt;">Other<br>PPD | COLL</td>
+        <td style="${B} border-bottom:0;">Declared Value for Carriage</td><td style="${B} border-bottom:0;">Declared Value for Customs</td></tr>
+      <tr style="font-size:9pt; text-align:center;">
+        <td style="${B} border-top:0; text-align:left; padding-left:1mm;">${E(o.to1)}</td><td style="${B} border-top:0;">${E(o.by1)}</td>
+        <td style="${B} border-top:0;">${E(o.to2)}</td><td style="${B} border-top:0;">${E(o.by2)}</td><td style="${B} border-top:0;">${E(o.to3)}</td><td style="${B} border-top:0;">${E(o.by3)}</td>
+        <td style="${B} border-top:0;">${E(o.cur)}</td><td style="${B} border-top:0;">${E(o.pc)}</td>
+        <td style="${B} border-top:0;"><span style="display:inline-block; width:45%;">${x(pp)}</span>|<span style="display:inline-block; width:45%;">${x(!pp)}</span></td>
+        <td style="${B} border-top:0;"><span style="display:inline-block; width:45%;">${x(pp)}</span>|<span style="display:inline-block; width:45%;">${x(!pp)}</span></td>
+        <td style="${B} border-top:0;">${E(o.dvc)}</td><td style="${B} border-top:0;">${E(o.dvcu)}</td></tr>
+      <tr><td colspan="2" style="${B} border-width:1.4pt; text-align:center; padding:0.4mm;"><span style="font-size:7pt;">Airport of Destination</span><div style="font-size:9pt;">${E(String(o.destn).slice(0, 24))}</div></td>
+        <td colspan="2" style="${B} font-size:9pt; padding-top:3mm;"><span style="position:absolute; font-size:5.4pt; margin:-3mm 0 0 2mm;">Requested Flight / Date</span>${E(o.fl1)}</td>
+        <td colspan="2" style="${B} font-size:9pt; padding-top:3mm;">${E(o.fl2)}</td>
+        <td colspan="2" style="${B} vertical-align:top; padding:0.6mm 1mm;"><span style="font-size:7pt;">Amount of Insurance</span><div style="font-size:9pt;">${E(o.ins)}</div></td>
+        <td colspan="4" style="${B} font-size:5.6pt; line-height:1.15; padding:0.6mm 1mm;">INSURANCE - If Carrier offers insurance, and such insurance is requested in accordance with the conditions thereof, indicate amount to be insured in figures in box marked 'Amount of Insurance'</td></tr>
+    </table>
+    <table style="width:100%; border-collapse:collapse;"><tr>
+      <td style="${B} border-top:0; padding:0.6mm 1.2mm; height:13mm; vertical-align:top; position:relative;"><span style="font-size:7pt;">Handling Information</span>
+        <div style="${T} padding-right:42mm;">${E(o.handl)}</div>
+        <div style="position:absolute; right:-0.8pt; bottom:-0.8pt; width:40mm; height:7mm; border:0.8pt solid #000; text-align:center; font-size:7pt;">SCI<div style="font-size:8.6pt;">${E(o.sci)}</div></div></td></tr></table>
+    <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+      <colgroup><col style="width:6%"><col style="width:10%"><col style="width:2%"><col style="width:2.4%"><col style="width:9%"><col style="width:2.4%"><col style="width:10%"><col style="width:2.4%"><col style="width:10%"><col style="width:2.4%"><col style="width:14%"><col style="width:2.4%"><col style="width:27%"></colgroup>
+      <tr style="font-size:6.6pt; text-align:center; vertical-align:top;">
+        <td style="${B} border-top:0;">No. of Pieces RCP</td><td style="${B} border-top:0;">Gross<br><br>Weight</td><td style="${B} border-top:0; font-size:5pt;">Kg<br><br>lb</td>${G}
+        <td style="${B} border-top:0; text-align:left;">Rate Class<div style="font-size:5.6pt; border-top:0.6pt solid #000; border-left:0.6pt solid #000; margin-top:1mm; padding-left:1mm;">Commodity Item No.</div></td>${G}
+        <td style="${B} border-top:0;">Chargeable<br><br>Weight</td>${G}
+        <td style="${B} border-top:0;"><div style="text-align:left; padding-left:1mm;">Rate</div><div style="text-align:right; padding-right:1mm; margin-top:2mm;">Charge</div></td>${G}
+        <td style="${B} border-top:0;">Total</td>${G}
+        <td style="${B} border-top:0;">Nature and Quantity of Goods<br>(incl. Dimensions or Volume)</td></tr>
+      <tr style="vertical-align:top; font-size:9pt; height:54mm;">
+        <td style="${B} text-align:center; position:relative;">${E(o.pcs)}
+          ${o.note ? `<div style="position:absolute; left:1mm; top:4.6mm; width:118mm; font-size:8.6pt; line-height:1.2; z-index:2; white-space:normal; text-align:left;">${E(o.note)}</div>` : ""}</td>
+        <td style="${B} text-align:right; padding-right:1mm;">${E(o.gross ? aw6Num(o.gross).toFixed(2) : "")}</td>
+        <td style="${B} text-align:center;">K</td>${G}
+        <td style="${B} padding-left:1mm;">${E(o.rcls)}</td>${G}
+        <td style="${B} padding-left:1mm;">${E(o.chwt ? aw6Num(o.chwt).toFixed(1) : "")}</td>${G}
+        <td style="${B} text-align:right; padding-right:1mm;">${E(o.rate ? aw6Num(o.rate).toFixed(2) : "")}</td>${G}
+        <td style="${B} text-align:center;">${E(aw6Money(o.wc))}</td>${G}
+        <td style="${B} padding-left:2mm; ${T} font-size:9pt;">${E(o.nature)}</td></tr>
+      <tr style="font-size:9pt; height:7mm;">
+        <td style="${B} text-align:center;">${E(o.pcs)}</td><td style="${B} text-align:right; padding-right:1mm;">${E(o.gross ? aw6Num(o.gross).toFixed(2) : "")}</td>
+        <td style="${B}"></td>${G}<td style="${B}"></td>${G}<td style="${B}"></td>${G}<td style="${B}"></td>${G}
+        <td style="${B} text-align:center;">${E(aw6Money(o.wc))}</td>${G}
+        <td style="${B} padding-left:2mm;">${o.vol ? "VOL. " + E(o.vol) + " CBM" : ""}</td></tr>
+    </table>
+    <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+      <colgroup><col style="width:19.5%"><col style="width:19.5%"><col style="width:61%"></colgroup>
+      <tr><td colspan="2" style="padding:0; vertical-align:top;"><table style="width:100%; border-collapse:collapse;">
+          ${chg("Prepaid &nbsp;&nbsp; Weight Charge &nbsp;&nbsp; Collect", pp ? aw6Money(o.wc) : "", pp ? "" : aw6Money(o.wc))}
+          ${chg("Valuation Charge", "", "")}${chg("Tax", "", "")}
+          ${due("Total other Charges Due Agent", aw6Money(o.oc.agent))}
+          ${due("Total other Charges Due Carrier", aw6Money(o.oc.carrier))}
+          <tr><td colspan="2" style="${B} background:#bdbdbd; height:7.2mm;"></td></tr>
+          ${chg("Total prepaid &nbsp;&nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp;&nbsp; Total collect", pp ? aw6Money(o.tot) : "", pp ? "" : aw6Money(o.tot))}
+          ${chg("Currency Conversion Rates &nbsp; | &nbsp; CC charges in Dest. Currency", "", "")}
+          <tr><td style="${B} height:11mm; text-align:center; font-size:7pt;">For Carriers Use only<br>at Destination</td><td style="${B} vertical-align:top; text-align:center; font-size:6.6pt;">Charges at Destination</td></tr>
+        </table></td>
+        <td style="padding:0; vertical-align:top;"><table style="width:100%; border-collapse:collapse;">
+          <tr><td style="${B} height:24mm; vertical-align:top; padding:0.6mm 1.4mm;"><span style="font-size:7pt;">Other Charges</span><div style="font-size:9pt; margin-top:1mm; padding-left:2mm;">${ocLine}</div></td></tr>
+          <tr><td style="${B} height:23mm; vertical-align:top; padding:0.6mm 1.4mm; position:relative;">
+            <div style="font-size:5.8pt; font-weight:bold; line-height:1.2;">Shipper certifies that the particulars on the face hereof are correct and that insofar as any part of the consignment contains dangerous goods, such part is properly described by name and is in proper condition for carriage by air according to the applicable Dangerous Goods Regulations.</div>
+            <div style="font-size:9pt; margin-top:1.5mm;">${E(o.cert)}</div>
+            <div style="position:absolute; left:1.4mm; right:1.4mm; bottom:0.6mm; text-align:center;"><div style="font-size:9pt; padding-bottom:0.6mm;">${E(o.sign)}</div>
+              <div style="border-top:0.8pt dashed #000; font-size:6.6pt;">Signature of Shipper or his Agent</div></div></td></tr>
+          <tr><td style="${B} height:13.6mm; vertical-align:bottom; padding:0 1.4mm 0.6mm;">
+            <div style="display:flex; font-size:9pt; padding-bottom:0.6mm;"><span style="width:45%;">${E(o.exec)}</span><span style="width:20%;">${E(o.place)}</span><span style="width:35%; text-align:right;">JFS LOGISTICS FZCO</span></div>
+            <div style="display:flex; border-top:0.8pt dashed #000; font-size:6.6pt;"><span style="width:45%;">Executed on (date)</span><span style="width:20%;">at (place)</span><span style="width:35%; text-align:right;">Signature of Issuing Carrier or its Agent</span></div></td></tr>
+          <tr><td style="padding:0;"><div style="display:flex;"><div style="width:40%; ${B} border-top:0; height:11mm; text-align:center; font-size:6.6pt;">Total collect Charges</div>
+            <div style="width:60%; text-align:center; font-size:10pt; padding-top:3mm;">${E(o.bottomNo)}</div></div></td></tr>
+        </table></td></tr>
+    </table>
+    <div style="text-align:center; font-size:10pt; margin-top:1.2mm;">${E(o.copy)}</div>
+  </div>`;
+  const page2 = `<div class="sheet" style="min-height:285mm; padding:10mm 10mm 8mm; font-family:Arial, Helvetica, sans-serif; color:#000; page-break-after:always;">
+    <div style="text-align:center; font-weight:bold; font-size:11pt; margin-top:3mm;">NOTICE CONCERNING CARRIER'S LIMITATION OF LIABILITY</div>
+    <div style="font-size:7pt; line-height:1.3; margin-top:2mm;">${E(AW6_COND.notice)}</div>
+    <div style="text-align:center; font-weight:bold; font-size:11pt; margin:6mm 0 3mm;">CONDITIONS OF CONTRACT</div>
+    <div style="display:flex; gap:6mm; font-size:6.6pt; line-height:1.28;">
+      <div style="width:50%; white-space:pre-line;">${E(AW6_COND.left)}</div>
+      <div style="width:50%; white-space:pre-line;">${E(AW6_COND.right)}</div></div>
+  </div>`;
+  return page1 + page2;
+}
+async function aw6Barcodes(root){
+  const els = [...(root || document).querySelectorAll("svg.aw6bc")]; if(!els.length) return;
+  try{ await loadJsBarcode(); }catch(e){ return; }
+  els.forEach(s => { const val = s.getAttribute("data-v"); if(val && val.length >= 4){ try{ JsBarcode(s, val, {format: "CODE128", height: 26, width: 1.1, displayValue: false, margin: 0}); }catch(e){} } });
+}
+/* MASTER: EK STYLE keeps the old renderer; CALOGI / OTHER use the 600A layout */
+const _aw6Mawb0 = mawbRender;
+mawbRender = function(){
+  if(aw6Style() === "EK") return _aw6Mawb0.apply(this, arguments);
+  const out = document.getElementById("aw_doc"); if(!out) return;
+  aw6Fill(false);
+  out.innerHTML = aw6Layout(aw6Data(null));
+  aw6Barcodes(out);
+};
+/* HOUSE: same style as the master */
+const _aw6Hb0 = hbPrint;
+hbPrint = function(i){
+  if(aw6Style() === "EK") return _aw6Hb0.apply(this, arguments);
+  const x = HAWBS[i]; if(!x) return;
+  const out = document.getElementById("hb_doc"); if(!out) return;
+  aw6Fill(false);
+  out.innerHTML = aw6Layout(aw6Data(x));
+  aw6Barcodes(out).then(() => printAlt("hb_doc"));
+};
+/* style + 600A fields travel with the job */
+const _aw6Snap0 = snapshot;
+snapshot = function(){ const s = _aw6Snap0(); s.aw6 = {}; AW6_FIELDS.forEach(id => { const e = document.getElementById(id); if(e) s.aw6[id] = e.value; }); return s; };
+const _aw6Apply0 = applySnapshot;
+applySnapshot = function(s){
+  const r = _aw6Apply0.apply(this, arguments);
+  AW6_FIELDS.forEach(id => { const e = document.getElementById(id); if(e) e.value = (s && s.aw6 && s.aw6[id] !== undefined) ? s.aw6[id] : (id === "aw_style" ? "CALOGI" : (id === "aw6_copy" ? "ORIGINAL 3 (FOR SHIPPER)" : "")); });
+  try{ aw6StyleChange(); }catch(e){}
+  return r;
+};
+function aw6PrintMaster(){
+  mawbRender();
+  aw6Barcodes(document.getElementById("aw_doc")).then(() => printAlt("aw_doc"));
+}
+document.addEventListener("DOMContentLoaded", () => { try{ aw6StyleChange(); }catch(e){} });
 
 authInit();
 </script>
