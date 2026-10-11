@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-U</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-V</span></span>
           </div>
         </div>
       </div>
@@ -4595,7 +4595,23 @@ const JFS_JOB_TYPES = {
   "STR":"STORAGE","TC":"TRANSFER CHARGES","WH":"WAREHOUSE STORAGE"
 };
 function jobTypeOptions(sel){
-  return Object.entries(JFS_JOB_TYPES).map(([c, n]) => `<option value="${c}"${c === sel ? " selected" : ""}>${c} — ${n}</option>`).join("");
+  // v25.11-V: grouped — EXPORT first, then DANGEROUS GOODS, IMPORT, CLEARANCE & OTHER (codes unchanged)
+  const GROUPS = [
+    ["EXPORT", ["AEXP", "ACEX", "LEXP", "LEDT", "SEFC", "SELC"]],
+    ["DANGEROUS GOODS", ["DGS", "ELI", "ELM"]],
+    ["IMPORT", ["AIMP", "ACIM", "LIMP", "LIDT", "SIFC", "SILC"]],
+    ["CLEARANCE & OTHER", ["ACCL", "SCCL", "BOE", "DPA", "AIO", "ATA", "CRT", "SCRT", "STR", "WH", "TC", "GEN"]]
+  ];
+  const opt = c => `<option value="${c}"${c === sel ? " selected" : ""}>${c} — ${JFS_JOB_TYPES[c]}</option>`;
+  const used = new Set();
+  let h = GROUPS.map(([g, list]) => {
+    const codes = list.filter(c => Object.prototype.hasOwnProperty.call(JFS_JOB_TYPES, c));
+    codes.forEach(c => used.add(c));
+    return `<optgroup label="${g}">${codes.map(opt).join("")}</optgroup>`;
+  }).join("");
+  const rest = Object.keys(JFS_JOB_TYPES).filter(c => !used.has(c));   // any new code still shows
+  if(rest.length) h += `<optgroup label="OTHER">${rest.map(opt).join("")}</optgroup>`;
+  return h;
 }
 /* per-type continuous counters (cloud-synced): DGS-C00032, ELI-C00001 ... */
 function jobNextNo(commit, code){
@@ -4620,13 +4636,13 @@ function jobNew(){
   const onGc = document.getElementById("tab-gc").classList.contains("on");
   const selId = onGc ? "job_type_gc" : "job_type_dg";
   const sel = document.getElementById(selId);
-  const code = sel ? sel.value : (onGc ? "GEN" : "DGS");
+  const code = sel ? sel.value : (onGc ? "AEXP" : "DGS");
   document.getElementById("jg_job").value = jobNextNo(true, code);
   jobStart(onGc ? "GC" : (document.getElementById("tab-dgd").classList.contains("on") ? "DG" : (typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG")));
 }
 function jobTypeFill(){
   const d = document.getElementById("job_type_dg"); if(d && !d.options.length) d.innerHTML = jobTypeOptions("DGS");
-  const g = document.getElementById("job_type_gc"); if(g && !g.options.length) g.innerHTML = jobTypeOptions("GEN");
+  const g = document.getElementById("job_type_gc"); if(g && !g.options.length) g.innerHTML = jobTypeOptions("AEXP");
   const w = document.getElementById("job_type_wh"); if(w && !w.options.length) w.innerHTML = jobTypeOptions("DGS");
 }
 document.addEventListener("DOMContentLoaded", jobTypeFill);
