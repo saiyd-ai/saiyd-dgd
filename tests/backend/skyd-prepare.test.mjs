@@ -237,7 +237,7 @@ test('standalone deployment is reproducible, syntax checked and pins all runtime
   execFileSync(process.execPath,['scripts/build-skyd-prepare.cjs'],{cwd:new URL('../../',import.meta.url)});
   const source=fs.readFileSync(new URL('../../supabase/functions/skyd-prepare/index.ts',import.meta.url),'utf8');
   const js=stripTypeScriptTypes(source).replace(/^import .*;\r?\n/gm,'');new vm.Script(js);
-  assert.match(source,/npm:pdf-lib@1\.17\.1/);assert.match(source,/xlsx-0\.20\.3\/package\/xlsx\.mjs/);assert.match(source,/cells>SKYD_LIMITS\.excelChars/);assert.doesNotMatch(source,/ignoreEncryption|sheetRows\s*:/);
+  assert.match(source,/npm:pdf-lib@1\.17\.1/);assert.match(source,/xlsx-0\.20\.3\/package\/xlsx\.mjs/);assert.match(source,/cells>SKYD_LIMITS\.excelChars/);assert.doesNotMatch(source,/ignoreEncryption|sheetRows\s*:|import\(['"]pdf-lib['"]\)/);
 });
 test('generated entry boots and prepares a real private PDF with injected database/provider',async()=>{
   const pdfLib=await import('pdf-lib');const env=setup();let served,apiRequest;

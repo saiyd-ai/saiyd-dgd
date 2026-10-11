@@ -426,7 +426,7 @@ function normalizeAwbPdfFields(fields = {}) {
 async function loadPdfLib(injected) {
   if (injected) return injected;
   if (typeof Deno !== 'undefined') return import('npm:pdf-lib@1.17.1');
-  return import('pdf-lib');
+  return pdfLib;
 }
 
 /** Every original field is rendered fully or carried to a labeled continuation. */

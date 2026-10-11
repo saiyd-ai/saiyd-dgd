@@ -12,7 +12,11 @@ const modules = [
   'supabase/functions/skyd-prepare/skyd-awb-pdf.mjs',
 ];
 const source = modules.map(file => '// SOURCE: ' + file + '\n' + fs.readFileSync(path.join(root, file), 'utf8')
-  .replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '')).join('\n\n');
+  .replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '')
+  // Deno's bundler also resolves literal dynamic imports in unused branches.
+  // The browser deployment has no Node package.json/import map; reuse its
+  // explicitly pinned top-level dependency instead of the module's Node fallback.
+  .replace("return import('pdf-lib');", 'return pdfLib;')).join('\n\n');
 const bootstrap = `import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import * as pdfLib from "npm:pdf-lib@1.17.1";
