@@ -14,10 +14,10 @@ const row = (id, changes = {}) => ({ id, sender: OWNER, sender_name: 'Synthetic 
 const fileBody = (id = 'media-1', { bytes = PDF, mime = 'application/pdf', name = 'synthetic.pdf', caption = 'Synthetic attachment caption', ...extra } = {}) =>
   ({ from: OWNER, type: 'document', message_id: id, caption, file: { name, mime, base64: bytes.toString('base64') }, ...extra });
 
-// Model the Supabase query contract and, separately, the row-locked RPC. Reads
-// return snapshots so a regression to read/replace JSONB fails the burst test.
+// Model separate sender-resolution and row-append transaction locks. The
+// handler must not do its own inbox lookup/insert or replace a JSONB snapshot.
 function database(initial = [], options = {}) {
-  const rows = structuredClone(initial), uploads = new Map(), removed = [], queries = [], appends = [], locks = new Map();
+  const rows = structuredClone(initial), uploads = new Map(), removed = [], queries = [], appends = [], resolutions = [], locks = new Map(), senderLocks = new Map();
   let serial = 0;
   class Query {
     constructor(table) { this.table = table; this.filters = []; this.orders = []; this.kind = 'read'; }
@@ -36,17 +36,7 @@ function database(initial = [], options = {}) {
     run() {
       queries.push({ table: this.table, kind: this.kind, filters: structuredClone(this.filters), orders: structuredClone(this.orders) });
       if (this.table === 'dg_staff_numbers') return { data: options.inactive ? null : { name: 'Synthetic owner', active: true }, error: options.staffError || null };
-      assert.equal(this.table, 'dg_inbox');
-      if (this.kind === 'insert') {
-        if (options.insertError) return { data: null, error: new Error('Synthetic insertion failure') };
-        const item = row('created-' + ++serial, { message: null, note: null, ...this.value, created_at: NOW });
-        rows.push(item); return { data: structuredClone(item), error: null };
-      }
-      if (options.readError) return { data: null, error: new Error('Synthetic lookup failure') };
-      let found = rows.filter(r => this.filters.every(([op, key, value]) => op === 'eq' ? r[key] === value : op === 'in' ? value.includes(r[key]) : r[key] >= value));
-      found.sort((a, b) => { for (const [key, asc] of this.orders) { if (a[key] !== b[key]) return (a[key] < b[key] ? -1 : 1) * (asc ? 1 : -1); } return 0; });
-      if (this.max !== undefined) found = found.slice(0, this.max);
-      return { data: structuredClone(this.one ? found[0] || null : found), error: null };
+      throw new Error('Inbox lookup/creation must use the sender-locked resolver RPC');
     }
   }
   const sb = {
@@ -59,6 +49,30 @@ function database(initial = [], options = {}) {
       async remove(paths) { removed.push(...paths); for (const p of paths) uploads.delete(p); return { error: null }; },
     }; } },
     async rpc(name, params) {
+      if (name === 'dg_inbox_resolve_whatsapp') {
+        resolutions.push(structuredClone(params));
+        const previous = senderLocks.get(params.p_sender) || Promise.resolve();
+        let unlock; const current = new Promise(resolve => { unlock = resolve; }); senderLocks.set(params.p_sender, current);
+        await previous;
+        try {
+          await new Promise(resolve => setImmediate(resolve));
+          if (options.resolveError) return { data: null, error: new Error('Synthetic resolution failure') };
+          const since = new Date(Date.parse(params.p_at) - OPEN_MIN * 60000).toISOString();
+          const eligible = rows.filter(r => r.sender === params.p_sender && ['NEW', 'OPENED'].includes(r.status) && r.updated_at >= since)
+            .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+          let target = params.p_job_no ? eligible.find(r => r.job_no === params.p_job_no) : eligible[0], created = false;
+          if (!target && params.p_job_no) {
+            target = eligible.find(r => r.job_no === null);
+            if (target) { target.job_no = params.p_job_no; if (target.updated_at < params.p_at) target.updated_at = params.p_at; }
+          }
+          if (!target) {
+            target = row('created-' + ++serial, { sender: params.p_sender, sender_name: params.p_sender_name, job_no: params.p_job_no,
+              message: null, note: null, created_at: NOW, updated_at: params.p_at });
+            rows.push(target); created = true;
+          }
+          return { data: { row: structuredClone(target), created }, error: null };
+        } finally { unlock(); }
+      }
       assert.equal(name, 'dg_inbox_append_whatsapp'); appends.push(structuredClone(params));
       const previous = locks.get(params.p_id) || Promise.resolve();
       let unlock; const current = new Promise(resolve => { unlock = resolve; }); locks.set(params.p_id, current);
@@ -85,7 +99,7 @@ function database(initial = [], options = {}) {
     const response = await handler(new Request('https://example.invalid/dg-inbox', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dg-key': key }, body: JSON.stringify(body) }));
     return { status: response.status, body: await response.json() };
   }
-  return { rows, uploads, removed, queries, appends, handler, send };
+  return { rows, uploads, removed, queries, appends, resolutions, handler, send };
 }
 
 test('job command without a file opens a job, records the command once, and acknowledges it', async () => {
@@ -106,9 +120,8 @@ test('PDF caption and existing text stay on the latest OPENED job without changi
   assert.equal(target.message, 'Existing shipment details\nSynthetic attachment caption');
   assert.equal(target.files[0].caption, 'Synthetic attachment caption'); assert.equal(target.files[0].message_id, 'media-1');
   assert.equal(target.updated_at, NOW); assert.match(target.files[0].path, /^wa-inbox\/latest-opened\//);
-  const query = db.queries.find(q => q.table === 'dg_inbox');
-  assert.deepEqual(query.filters.find(f => f[0] === 'in'), ['in', 'status', ['NEW', 'OPENED']]);
-  assert.deepEqual(query.filters.find(f => f[0] === 'gte'), ['gte', 'updated_at', '2026-10-11T10:00:00.000Z']);
+  assert.equal(db.resolutions.length, 1);
+  assert.deepEqual(db.resolutions[0], { p_sender: OWNER, p_job_no: null, p_sender_name: 'Synthetic owner', p_at: NOW });
 });
 
 test('server admits PDF, XLSX/XLS, JPG/PNG documents and native image with correct stored MIME', async () => {
@@ -181,6 +194,71 @@ test('four simultaneous documents append to current state without losing files o
   assert.deepEqual(results.map(r => r.body.files).sort(), [1, 2, 3, 4]);
 });
 
+test('simultaneous identical first-command retries create one row and record the command once', async () => {
+  const db = database();
+  const command = { from: OWNER, type: 'text', text: 'DG AEXP-C00422', message_id: 'first-command' };
+  const results = await Promise.all([db.send(command), db.send(command), db.send(command)]);
+  assert.ok(results.every(r => r.status === 200)); assert.equal(db.rows.length, 1);
+  assert.equal(db.rows[0].job_no, 'AEXP-C00422'); assert.equal(db.rows[0].message, 'DG AEXP-C00422');
+  assert.deepEqual(db.rows[0].wa_message_ids, ['first-command']);
+  assert.equal(results.filter(r => r.body.duplicate).length, 2);
+  assert.equal(results.filter(r => /job AEXP-C00422 opened/.test(r.body.reply || '')).length, 1);
+  assert.deepEqual(new Set(db.appends.map(p => p.p_id)), new Set([db.rows[0].id]));
+});
+
+test('simultaneous identical initial media retries resolve one row and retain one file', async () => {
+  const db = database();
+  const initial = fileBody('initial-media-retry', { caption: 'DG AEXP-C00422' });
+  const results = await Promise.all([db.send(initial), db.send(initial)]);
+  assert.ok(results.every(r => r.status === 200)); assert.equal(db.rows.length, 1);
+  assert.equal(db.rows[0].job_no, 'AEXP-C00422'); assert.equal(db.rows[0].files.length, 1);
+  assert.equal(db.rows[0].message, 'DG AEXP-C00422'); assert.equal(db.uploads.size, 1); assert.equal(db.removed.length, 1);
+  assert.equal(results.filter(r => r.body.duplicate).length, 1);
+  assert.deepEqual(new Set(db.appends.map(p => p.p_id)), new Set([db.rows[0].id]));
+});
+
+test('an initial batch with no existing row shares one unassigned row and keeps every document', async () => {
+  const db = database();
+  const results = await Promise.all([1, 2, 3, 4].map(i => db.send(fileBody('first-batch-' + i, { name: 'initial-' + i + '.pdf', caption: 'Initial part ' + i }))));
+  assert.ok(results.every(r => r.status === 200)); assert.equal(db.rows.length, 1);
+  assert.equal(db.rows[0].job_no, null); assert.equal(db.rows[0].files.length, 4); assert.equal(db.uploads.size, 4);
+  assert.deepEqual(new Set(db.appends.map(p => p.p_id)), new Set([db.rows[0].id]));
+  for (const i of [1, 2, 3, 4]) assert.equal(db.rows[0].message.split('\n').filter(t => t === 'Initial part ' + i).length, 1);
+  const originalId = db.rows[0].id;
+  await db.send({ from: OWNER, type: 'text', text: 'DG AEXP-C00422', message_id: 'assign-first-batch' });
+  assert.equal(db.rows.length, 1); assert.equal(db.rows[0].id, originalId); assert.equal(db.rows[0].job_no, 'AEXP-C00422');
+  assert.equal(db.rows[0].files.length, 4);
+});
+
+test('simultaneous first shipment text and a job-captioned file claim the same canonical row', async () => {
+  const db = database();
+  await Promise.all([
+    db.send({ from: OWNER, type: 'text', text: 'Shipper details sent first', message_id: 'first-details' }),
+    db.send(fileBody('first-captioned', { caption: 'DG AEXP-C00422' })),
+  ]);
+  assert.equal(db.rows.length, 1); assert.equal(db.rows[0].job_no, 'AEXP-C00422'); assert.equal(db.rows[0].files.length, 1);
+  assert.match(db.rows[0].message, /Shipper details sent first/); assert.match(db.rows[0].message, /DG AEXP-C00422/);
+});
+
+test('simultaneous different explicit jobs stay separate and cannot claim the same orphan', async () => {
+  const existingFile = { path: 'wa-inbox/orphan/existing.pdf', name: 'existing.pdf', mime: 'application/pdf', size: PDF.length };
+  const db = database([row('orphan', { job_no: null, message: 'Unassigned shipment details', files: [existingFile] })]);
+  const results = await Promise.all([
+    db.send({ from: OWNER, type: 'text', text: 'DG AEXP-C00422', message_id: 'job-aexp' }),
+    db.send({ from: OWNER, type: 'text', text: 'DG DGS-C00999', message_id: 'job-dgs' }),
+  ]);
+  assert.ok(results.every(r => r.status === 200)); assert.equal(db.rows.length, 2);
+  assert.deepEqual(new Set(db.rows.map(r => r.job_no)), new Set(['AEXP-C00422', 'DGS-C00999']));
+  assert.equal(db.rows.filter(r => r.files.some(f => f.path === existingFile.path)).length, 1);
+  await Promise.all([
+    db.send(fileBody('file-aexp', { caption: 'DG AEXP-C00422' })),
+    db.send(fileBody('file-dgs', { caption: 'DG DGS-C00999' })),
+  ]);
+  const aexp = db.rows.find(r => r.job_no === 'AEXP-C00422'), dgs = db.rows.find(r => r.job_no === 'DGS-C00999');
+  assert.ok(aexp.files.some(f => f.message_id === 'file-aexp')); assert.ok(dgs.files.some(f => f.message_id === 'file-dgs'));
+  assert.ok(!aexp.files.some(f => f.message_id === 'file-dgs')); assert.ok(!dgs.files.some(f => f.message_id === 'file-aexp'));
+});
+
 test('simultaneous duplicate deliveries append once and remove the redundant upload', async () => {
   const db = database([row('duplicate')]);
   const results = await Promise.all([db.send(fileBody('same-message')), db.send(fileBody('same-message'))]);
@@ -195,6 +273,12 @@ test('upload or append failure does not acknowledge receipt and append failure c
     assert.equal(result.status, 500); assert.equal(result.body.reply, undefined); assert.equal(db.rows[0].files.length, 0);
     assert.equal(db.uploads.size, 0); assert.equal(db.rows[0].message, 'Existing shipment details');
   }
+});
+
+test('resolver failure never uploads a file or acknowledges receipt', async () => {
+  const db = database([], { resolveError: true }); const result = await db.send(fileBody());
+  assert.equal(result.status, 500); assert.equal(result.body.reply, undefined);
+  assert.equal(db.rows.length, 0); assert.equal(db.uploads.size, 0); assert.equal(db.appends.length, 0);
 });
 
 test('existing header authentication and active staff admission remain required', async () => {
@@ -213,4 +297,20 @@ test('deployment migration requires a row lock and service-role-only execution a
   assert.match(sql, /jsonb_build_array\(p_file\)/); assert.match(sql, /p_message_id = any\(current_row\.wa_message_ids\)/);
   const update = sql.match(/update public\.dg_inbox[\s\S]+?returning \* into current_row;/i)[0];
   assert.doesNotMatch(update, /(?:status|note|opened_by|opened_at)\s*=/i);
+});
+
+test('resolver SQL locks by sender before exact-job lookup, orphan claim or creation with service-role-only ACL', () => {
+  const sql = fs.readFileSync(new URL('../supabase/migrations/202610110002_dg_inbox_atomic_whatsapp_append.sql', import.meta.url), 'utf8');
+  const resolver = sql.slice(sql.indexOf('create or replace function public.dg_inbox_resolve_whatsapp('));
+  assert.match(resolver, /security definer\s+set search_path = public/i);
+  assert.match(resolver, /pg_catalog\.pg_advisory_xact_lock\(\s*pg_catalog\.hashtextextended\('dg_inbox_whatsapp:' \|\| p_sender, 0\)\)/i);
+  assert.ok(resolver.indexOf('pg_advisory_xact_lock') < resolver.indexOf('select * into current_row'));
+  assert.ok(resolver.indexOf('job_no = p_job_no') < resolver.indexOf('job_no is null'));
+  assert.match(resolver, /where sender = p_sender and job_no = p_job_no\s+and status in \('NEW', 'OPENED'\)\s+and updated_at >= p_at - interval '120 minutes'/i);
+  assert.match(resolver, /where sender = p_sender and job_no is null\s+and status in \('NEW', 'OPENED'\)\s+and updated_at >= p_at - interval '120 minutes'/i);
+  assert.match(resolver, /set job_no = p_job_no, updated_at = greatest\(updated_at, p_at\)/);
+  assert.match(resolver, /if current_row\.id is null then\s+insert into public\.dg_inbox/i);
+  assert.match(resolver, /revoke all on function public\.dg_inbox_resolve_whatsapp\(text,text,text,timestamptz\) from public, anon, authenticated;/i);
+  assert.match(resolver, /grant execute on function public\.dg_inbox_resolve_whatsapp\(text,text,text,timestamptz\) to service_role;/i);
+  assert.doesNotMatch(resolver, /(?:status|note|opened_by|opened_at)\s*=/i);
 });
