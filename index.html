@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-Y</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-Z</span></span>
           </div>
         </div>
       </div>
@@ -9986,15 +9986,26 @@ async function dcRun(mode){
   const st = DC[mode];
   const text = (document.getElementById("dc_text_" + mode) || {}).value || "";
   if(!st.files.length && !text.trim()){ dcMsg(mode, "Add a document (drop / choose / Ctrl+V) or paste the text first.", true); return; }
+  if(st.files.length && typeof aiKey === "function" && !aiKey()){
+    dcMsg(mode, "The AI reads the documents — add the Claude API key in SETTINGS → AI first.", true); return;
+  }
   DC.busy = true;
   const btn = document.getElementById("dc_go_" + mode); if(btn) btn.disabled = true;
+  const MSG_IDS = ["gc_pdfmsg", "gc_msg", "inv_msg", "awbpdfmsg", "pt_pdfmsg", "autoresult"];
+  MSG_IDS.forEach(id => { const e = document.getElementById(id); if(e) e.textContent = ""; });
   try{
     const awb = [], pl = [], inv = [];
     st.files.forEach((f, i) => (st.kinds[i] === "PL" ? pl : st.kinds[i] === "INV" ? inv : awb).push(f));
     // INVOICE → the existing INVOICE reader (fills the INVOICE tab items / values), one file at a time
+    let invExtra = "";
     for(const f of inv){
-      dcMsg(mode, "Reading invoice " + f.name + " ...");
+      dcMsg(mode, "Reading invoice " + f.name + " (items) ...");
       if(dcPut("inv_file", [f]) && typeof invImportFile === "function") await invImportFile();
+      // CREATE AWB: the invoice also gives shipper / consignee / pieces / weight / goods (read BEFORE the AWB, so an AWB wins)
+      if(mode === "gc"){
+        if(/\.(xlsx|xls|csv)$/i.test(f.name || "")){ try{ invExtra += await dcSheetText(f); }catch(e){} }
+        else{ dcMsg(mode, "Reading invoice " + f.name + " (shipment details) ..."); dcPut("gc_awbfile", [f]); await readAwbPdf("gc_awbfile", "gc_pdfmsg"); gcSyncFromMain(); }
+      }
     }
     if(mode === "dg"){
       if(awb.length){ dcMsg(mode, "Reading " + awb.length + " AWB / label file(s) ..."); dcPut("awbfile", awb); await readAwbPdf(); }
@@ -10011,7 +10022,7 @@ async function dcRun(mode){
       for(const f of pl.filter(f => /\.(xlsx|xls|csv)$/i.test(f.name || ""))){
         try{ extra += await dcSheetText(f); }catch(e){ dcMsg(mode, "Could not read " + f.name + ": " + e.message, true); }
       }
-      const all = [text, extra].filter(s => s && s.trim()).join("\n\n");
+      const all = [text, extra, invExtra].filter(s => s && s.trim()).join("\n\n");
       if(all.trim()){
         dcMsg(mode, "Reading the text / Excel ...");
         document.getElementById("gc_auto").value = all;
@@ -10022,9 +10033,11 @@ async function dcRun(mode){
       }
     }
     const n = st.files.length;
+    const probs = MSG_IDS.map(id => (document.getElementById(id) || {}).textContent || "").filter(t => /fail|api key|no items|could not|not found|error|no pallet/i.test(t));
+    if(probs.length){ dcMsg(mode, "⚠ Some documents were not read: " + probs.join(" • ").slice(0, 300), true); return; }
     st.files = []; st.kinds = []; dcRender(mode);
     const ta = document.getElementById("dc_text_" + mode); if(ta) ta.value = "";
-    dcMsg(mode, "✓ AUTO-FILL done — " + n + " file(s)" + (text.trim() ? " + text" : "") + (inv.length ? " • invoice → INVOICE tab" : "") + ". Check every field before saving.");
+    dcMsg(mode, "✓ AUTO-FILL done — " + n + " file(s)" + (text.trim() ? " + text" : "") + (inv.length ? (mode === "gc" ? " • invoice → AWB fields + INVOICE tab" : " • invoice → INVOICE tab (DGD shipper / consignee stay from the label)") : "") + ". Check every field before saving.");
   }catch(e){
     dcMsg(mode, "AUTO-FILL stopped: " + e.message, true);
   }finally{
