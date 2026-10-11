@@ -29,7 +29,8 @@ function extendWorkflow(original) {
     parameters: {
       method: 'POST', url: 'https://graph.facebook.com/v21.0/1388023121061452/messages',
       authentication: 'predefinedCredentialType', nodeCredentialType: 'whatsAppApi', sendBody: true, specifyBody: 'json',
-      jsonBody: `={{ (() => { const d=$json; const url=d.download_url; if(d.to!=='${OWNER}' || !d.claim_token || typeof url!=='string' || !/^https:\\/\\/jojtqlfhmkvdegqbwvtj\\.supabase\\.co\\/storage\\/v1\\/object\\/sign\\/dgdocs\\/skyd-awb\\/[0-9a-f-]{36}\\/v[1-9]\\d*-[0-9a-f-]{36}\\.pdf\\?token=[A-Za-z0-9._-]+$/.test(url) || url.split('?')[0]!=='https://jojtqlfhmkvdegqbwvtj.supabase.co/storage/v1/object/sign/dgdocs/'+d.artifact_path) throw new Error('Invalid SKYD delivery'); return JSON.stringify({messaging_product:'whatsapp',to:'${OWNER}',type:'document',document:{link:url,filename:d.filename,caption:'SKYD AWB DRAFT - '+d.job_no+' v'+d.version+'. Review before use.'}}); })() }}`,
+      // Tournament treats an interior adjacent }} as the expression delimiter, even inside a JS object.
+      jsonBody: `={{ (() => { const d=$json; const url=d.download_url; if(d.to!=='${OWNER}' || !d.claim_token || typeof url!=='string' || !/^https:\\/\\/jojtqlfhmkvdegqbwvtj\\.supabase\\.co\\/storage\\/v1\\/object\\/sign\\/dgdocs\\/skyd-awb\\/[0-9a-f-]{36}\\/v[1-9]\\d*-[0-9a-f-]{36}\\.pdf\\?token=[A-Za-z0-9._-]+$/.test(url) || url.split('?')[0]!=='https://jojtqlfhmkvdegqbwvtj.supabase.co/storage/v1/object/sign/dgdocs/'+d.artifact_path) throw new Error('Invalid SKYD delivery'); return JSON.stringify({messaging_product:'whatsapp',to:'${OWNER}',type:'document',document:{link:url,filename:d.filename,caption:'SKYD AWB DRAFT - '+d.job_no+' v'+d.version+'. Review before use.'} }); })() }}`,
       options: { timeout: 30000, redirect: { redirect: { followRedirects: false } } },
     },
     credentials: structuredClone(whatsapp.credentials), retryOnFail: false, onError: 'continueRegularOutput',

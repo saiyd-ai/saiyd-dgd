@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const {Tournament} = require('@n8n/tournament');
 const {extendWorkflow} = require('../scripts/build-skyd-workflow.cjs');
 
 const OWNER = '971562977774';
@@ -39,10 +40,14 @@ function baseline() {
 function evaluate(expression, json, referenced = {}) {
   assert.ok(expression.startsWith('={{') && expression.endsWith('}}'), 'Expression wrapper');
   const code = expression.slice(3, -2).trim();
-  return vm.runInNewContext(code, {
+  const context = {
     $json: json, URL, decodeURIComponent,
     $: name => ({item: {json: referenced[name]}}),
-  }, {timeout: 1000});
+  };
+  const actual = new Tournament(error => {throw error;}).execute(expression.slice(1), {...context, JSON, String, RegExp, Number, Object, Error});
+  const plain = vm.runInNewContext(code, context, {timeout: 1000});
+  assert.equal(actual, plain, 'Full n8n expression parsing must match the JavaScript result');
+  return actual;
 }
 
 function jsonExpression(expression, json, referenced) {
@@ -153,6 +158,18 @@ test('document sending uses only the saved WhatsApp credential, fixed phone ID a
   assert.equal(payload.document.filename, 'AEXP-C00465-AWB-DRAFT-v1.pdf');
   assert.match(payload.document.caption, /DRAFT.*AEXP-C00465 v1.*Review before use/);
   assert.equal(payload.document.signature, undefined);
+});
+
+test('the real n8n expression splitter rejects adjacent nested object closes but parses the corrected complete send expression', () => {
+  const expression = node('Send SKYD draft PDF').parameters.jsonBody;
+  const broken = expression.replace("Review before use.'} });", "Review before use.'}});");
+  assert.notEqual(broken, expression, 'Reconstruct the exact earlier delimiter collision');
+  const evaluator = new Tournament(error => {throw error;});
+  assert.throws(() => evaluator.execute(broken.slice(1), {$json: claim(), JSON, String, RegExp, Number, Object, Error}), /Unexpected end of input/);
+  const corrected = jsonExpression(expression, claim());
+  assert.equal(corrected.document.link, claim().download_url);
+  assert.equal(corrected.to, OWNER);
+  assert.equal((expression.match(/\}\}/g) || []).length, 1, 'Only the final expression delimiter can contain adjacent closing braces');
 });
 
 test('unclaimed, wrong-recipient and cross-domain artifacts never produce a WhatsApp document body', () => {
