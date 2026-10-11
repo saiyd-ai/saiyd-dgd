@@ -17,6 +17,7 @@
     "test:integration": "node --test --test-isolation=none tests/tracking-integration.test.cjs"
   },
   "devDependencies": {
+    "@n8n/tournament": "1.13.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "6.4.299"
   }
