@@ -371,7 +371,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-S</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-T</span></span>
           </div>
         </div>
       </div>
@@ -412,6 +412,7 @@
       <button id="nav-alforms" onclick="showTab('alforms')">&#128745; AIRLINE FORMS</button>
       <button id="nav-awb" onclick="showTab('awb')">&#128459; AWB / MANIFEST</button>
       <button id="nav-inv" onclick="showTab('inv')">&#129534; INVOICE</button>
+      <button id="nav-wainbox" onclick="showTab('wainbox')">&#128242; WHATSAPP INBOX</button>
       <button id="nav-aicost" onclick="showTab('aicost')" style="display:none;">&#128176; AI COST</button>
       <button id="nav-settings" onclick="showTab('settings')">&#9881; SETTINGS</button>
     </div>
@@ -1483,6 +1484,25 @@
         <h3>&#128220; SKYD RUN LOG</h3>
         <table class="dtable" id="skyd_log"></table>
       </div>
+    </div>
+    <div class="tab" id="tab-wainbox">
+      <div class="card" style="border-left:5px solid #25a35a;"><h2 style="background:#e8f6ee; color:#1d6b34;">&#128242; WHATSAPP INBOX &mdash; DG jobs sent on WhatsApp</h2><div class="body">
+        <div class="warnbar" style="margin-top:0;">Staff send <b>DG &lt;job no&gt;</b> (e.g. DG DGS-C00422) and then the MAWB / house AWB PDFs, label photos and packing list to the JFS DG WhatsApp number. <b>OPEN &amp; LOAD</b> starts the job and reads all files automatically. It is a DRAFT &mdash; check everything, then SAVE DRAFT &rarr; CONFIRM &rarr; print, sign and stamp.</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <select id="wai_show" onchange="waiLoad()"><option value="OPEN">Open jobs (NEW / OPENED)</option><option value="ALL">All (last 60)</option></select>
+          <button class="smallbtn sb-blue" onclick="waiLoad()">&#8635; REFRESH</button>
+          <span id="wai_msg" style="font-size:12.5px; font-weight:bold; color:#0f4f8c;"></span>
+        </div>
+        <div style="overflow-x:auto;"><table id="wai_table" style="width:100%; border-collapse:collapse; font-size:13px;"></table></div>
+      </div></div>
+      <div class="card" id="wai_staffcard" style="display:none; border-left:5px solid #12224d;"><h2>&#128273; DG STAFF WHATSAPP NUMBERS &mdash; only these numbers can send DG jobs (owner only)</h2><div class="body">
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+          <input type="text" id="wai_sphone" placeholder="971501234567 (with country code)" style="width:230px;">
+          <input type="text" id="wai_sname" placeholder="Staff name" style="width:200px;">
+          <button class="smallbtn sb-green" onclick="waiStaffAdd()">+ ADD NUMBER</button>
+        </div>
+        <div id="wai_staff" style="font-size:13px;"></div>
+      </div></div>
     </div>
     <div class="tab" id="tab-aicost">
       <div class="card" style="border-left:5px solid #b45309;"><h2 style="background:#fdf3e2; color:#7a4b00;">&#128176; AI COST &mdash; per job (visible only to the owner)</h2><div class="body">
@@ -9224,6 +9244,177 @@ async function aicExcel(){
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "AI COST");
   XLSX.writeFile(wb, "DGDOC_AI_COST_" + new Date().toISOString().slice(0, 10) + ".xlsx");
 }
+/* ================= v25.11-T WHATSAPP INBOX (WhatsApp → n8n → Supabase dg_inbox → DGDOC) ================= */
+/* Staff send "DG <job no>" + AWB PDFs, label photos, packing list to the JFS DG WhatsApp number.
+   n8n stores them in dg_inbox (files in bucket dgdocs/wa-inbox/<id>/). Here DG staff OPEN & LOAD a job:
+   a fresh job starts, AWBs + labels go through the normal AWB reader, packing lists through the normal pallet reader.
+   DRAFT only — staff still check, CONFIRM, sign and stamp. */
+let WAI = {rows: [], timer: null, busy: false};
+const WAI_OWNER = "ms@jfslogistics.com";
+function waiKind(f){
+  const n = (f.name || "").toLowerCase(), m = (f.mime || "").toLowerCase();
+  if(/\.(xlsx|xls|csv)$/.test(n) || /sheet|excel|csv/.test(m)) return "PL";
+  if(/pack|p\.?l\b|plist|packing/.test(n)) return "PL";
+  if(m.startsWith("image/") || /\.(jpe?g|png|heic|webp)$/.test(n)) return "LABEL";
+  return "AWB";
+}
+const WAI_KLBL = {AWB: "AWB", LABEL: "LABEL", PL: "PACKING LIST"};
+function waiAgo(t){
+  const s = Math.max(0, (Date.now() - new Date(t).getTime()) / 1000);
+  return s < 60 ? "just now" : s < 3600 ? Math.floor(s / 60) + " min ago" : s < 86400 ? Math.floor(s / 3600) + " h ago" : new Date(t).toLocaleDateString("en-GB");
+}
+async function waiLoad(silent){
+  if(typeof sb === "undefined" || !sb || !sbUser) return;
+  const show = (document.getElementById("wai_show") || {}).value || "OPEN";
+  let q = sb.from("dg_inbox").select("*").order("created_at", {ascending: false}).limit(60);
+  if(show === "OPEN") q = q.in("status", ["NEW", "OPENED"]);
+  const { data, error } = await q;
+  const msg = document.getElementById("wai_msg");
+  if(error){ if(msg && !silent) msg.textContent = "Inbox error: " + error.message; return; }
+  WAI.rows = data || [];
+  waiBadge(); waiRender();
+}
+function waiBadge(){
+  const b = document.getElementById("nav-wainbox"); if(!b) return;
+  const n = WAI.rows.filter(r => r.status === "NEW" && r.job_no && (r.files || []).length).length;
+  b.innerHTML = "&#128242; WHATSAPP INBOX" + (n ? ` <span style="background:#c8102e; color:#fff; border-radius:9px; padding:0 6px; font-size:11px;">${n}</span>` : "");
+}
+function waiRender(){
+  const t = document.getElementById("wai_table"); if(!t) return;
+  if(!WAI.rows.length){ t.innerHTML = `<tr><td style="padding:14px; color:#5b6b7d;">No WhatsApp jobs yet. Staff send <b>DG &lt;job no&gt;</b> + the documents to the JFS DG WhatsApp number.</td></tr>`; return; }
+  const ST = {NEW: "#c8102e", OPENED: "#b45309", DONE: "#1d6b34", REJECTED: "#5b6b7d"};
+  t.innerHTML = `<tr style="background:#12224d; color:#fff;"><th style="padding:6px 8px; text-align:left;">Received</th><th style="padding:6px 8px; text-align:left;">Job no</th><th style="padding:6px 8px; text-align:left;">From</th><th style="padding:6px 8px; text-align:left;">Files</th><th style="padding:6px 8px; text-align:left;">Status</th><th style="padding:6px 8px;"></th></tr>` +
+    WAI.rows.map(r => {
+      const fs = r.files || [];
+      const cnt = {AWB: 0, LABEL: 0, PL: 0}; fs.forEach(f => cnt[waiKind(f)]++);
+      const files = fs.length ? Object.keys(cnt).filter(k => cnt[k]).map(k => cnt[k] + " " + WAI_KLBL[k]).join(" · ") : '<span style="color:#a40000;">no files yet</span>';
+      const ready = r.job_no && fs.length;
+      return `<tr style="border-bottom:1px solid #e3e8ef;">
+        <td style="padding:6px 8px; font-size:12px; white-space:nowrap;">${esc(waiAgo(r.created_at))}<br><span style="color:#7a8794;">${esc(new Date(r.created_at).toLocaleString("en-GB"))}</span></td>
+        <td style="padding:6px 8px; font-weight:bold;">${r.job_no ? esc(r.job_no) : '<span style="color:#a40000;">no job no.</span>'}</td>
+        <td style="padding:6px 8px; font-size:12px;">${esc(r.sender_name || "")}<br><span style="color:#7a8794;">+${esc(r.sender)}</span></td>
+        <td style="padding:6px 8px; font-size:12px;">${files}${r.message ? `<div style="color:#5b6b7d; margin-top:2px;">"${esc(String(r.message).slice(0, 80))}"</div>` : ""}</td>
+        <td style="padding:6px 8px; font-weight:bold; color:${ST[r.status] || "#333"}; font-size:12px;">${esc(r.status)}${r.opened_by ? `<div style="font-weight:normal; color:#7a8794;">${esc(r.opened_by)}</div>` : ""}</td>
+        <td style="padding:6px 8px; white-space:nowrap;">
+          <button class="smallbtn sb-green" ${ready ? "" : "disabled"} onclick="waiOpen('${r.id}')">&#9654; OPEN &amp; LOAD</button>
+          <button class="smallbtn sb-blue" onclick="waiFiles('${r.id}')">&#128065; files</button>
+          ${r.status !== "DONE" ? `<button class="smallbtn" onclick="waiSet('${r.id}','DONE')">&#10004; done</button>` : ""}
+          ${r.status === "NEW" ? `<button class="smallbtn sb-red" onclick="waiSet('${r.id}','REJECTED')">x</button>` : ""}
+        </td></tr>
+        <tr id="wai_f_${r.id}" style="display:none;"><td colspan="6" style="padding:4px 8px 10px 24px; font-size:12px;"></td></tr>`;
+    }).join("");
+}
+async function waiSet(id, status){
+  const r = WAI.rows.find(x => x.id === id); if(!r) return;
+  if(status === "REJECTED" && !confirm("Reject WhatsApp job " + (r.job_no || "") + "?")) return;
+  const upd = {status, updated_at: new Date().toISOString()};
+  if(status === "OPENED"){ upd.opened_by = (sbUser && sbUser.email) || ""; upd.opened_at = new Date().toISOString(); }
+  const { error } = await sb.from("dg_inbox").update(upd).eq("id", id);
+  if(error){ alert("Could not update: " + error.message); return; }
+  await waiLoad(true);
+}
+async function waiFiles(id){
+  const r = WAI.rows.find(x => x.id === id), tr = document.getElementById("wai_f_" + id); if(!r || !tr) return;
+  if(tr.style.display !== "none"){ tr.style.display = "none"; return; }
+  tr.style.display = "";
+  const td = tr.firstElementChild; td.textContent = "Loading...";
+  const parts = [];
+  for(const f of (r.files || [])){
+    let url = "";
+    try{ const { data } = await sb.storage.from("dgdocs").createSignedUrl(f.path, 3600); url = data && data.signedUrl; }catch(e){}
+    parts.push(`<div style="padding:2px 0;"><b style="color:#12224d;">${WAI_KLBL[waiKind(f)]}</b> &mdash; ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(f.name)}</a>` : esc(f.name)} <span style="color:#7a8794;">(${Math.round((f.size || 0) / 1024)} KB)</span></div>`);
+  }
+  td.innerHTML = parts.join("") || "No files.";
+}
+async function waiFile(f){
+  const { data, error } = await sb.storage.from("dgdocs").download(f.path);
+  if(error) throw new Error(error.message);
+  return new File([data], f.name || "file", {type: f.mime || data.type || ""});
+}
+function waiPut(inputId, files){
+  const el = document.getElementById(inputId); if(!el) return false;
+  const dt = new DataTransfer(); files.forEach(f => dt.items.add(f)); el.files = dt.files;
+  return true;
+}
+async function waiOpen(id){
+  const r = WAI.rows.find(x => x.id === id); if(!r || WAI.busy) return;
+  const msg = document.getElementById("wai_msg");
+  if(!aiKey()){ alert("The AI reads the documents — add the Claude API key in SETTINGS → AI first."); return; }
+  const cur = v("f_job").trim().toUpperCase();
+  if(cur && cur !== r.job_no && !confirm("Job " + cur + " is open now.\n\nStart WhatsApp job " + r.job_no + " (fresh form)? Save the current job first if needed.")) return;
+  WAI.busy = true;
+  try{
+    msg.textContent = "Downloading " + (r.files || []).length + " file(s) for " + r.job_no + " ...";
+    const awb = [], pl = [], fails = [];
+    for(const f of (r.files || [])){
+      try{ const file = await waiFile(f); (waiKind(f) === "PL" ? pl : awb).push(file); }catch(e){ fails.push(f.name); }
+    }
+    // fresh DG job with the WhatsApp job number
+    if(cur !== r.job_no){
+      const jg = document.getElementById("jg_job");
+      if(jg && typeof jobStart === "function"){ jg.value = r.job_no; jobStart("DG"); }
+      else document.getElementById("f_job").value = r.job_no;
+    }
+    await waiSet(id, "OPENED");
+    showTab("dgd");
+    // AWBs (master + houses) and label photos → the normal AWB reader (several files = house AWB reader)
+    if(awb.length){
+      msg.textContent = "🤖 Reading " + awb.length + " AWB / label file(s) ...";
+      waiPut("awbfile", awb);
+      await readAwbPdf();
+    }
+    // packing list(s) → the normal pallet reader
+    if(pl.length){
+      msg.textContent = "🤖 Reading " + pl.length + " packing list(s) ...";
+      waiPut("pt_file", pl);
+      await ptReadPdf();
+    }
+    const note = r.message ? " • message: \"" + String(r.message).slice(0, 60) + "\"" : "";
+    msg.textContent = "✓ " + r.job_no + " loaded from WhatsApp: " + awb.length + " AWB/label + " + pl.length + " packing list" +
+      (fails.length ? " • FAILED: " + fails.join(", ") : "") + note + " — check the DGD tab, then SAVE DRAFT → CONFIRM.";
+    const jm = document.getElementById("jobmsg");
+    if(jm) jm.textContent = "Job " + r.job_no + " — from WhatsApp (" + (r.sender_name || "+" + r.sender) + "). Check everything before CONFIRM.";
+  }catch(e){
+    msg.textContent = "Could not load: " + e.message;
+  }finally{ WAI.busy = false; }
+}
+/* allowed DG staff WhatsApp numbers (owner manages) */
+async function waiStaffLoad(){
+  const box = document.getElementById("wai_staff"); if(!box || !sb) return;
+  const own = sbUser && sbUser.email === WAI_OWNER;
+  document.getElementById("wai_staffcard").style.display = own ? "" : "none";
+  if(!own) return;
+  const { data, error } = await sb.from("dg_staff_numbers").select("*").order("created_at");
+  if(error){ box.textContent = error.message; return; }
+  box.innerHTML = (data || []).map(s => `<div style="display:flex; gap:8px; align-items:center; padding:3px 0;">
+      <b style="min-width:150px;">+${esc(s.phone)}</b><span style="min-width:180px;">${esc(s.name || "")}</span>
+      <span style="color:${s.active ? "#1d6b34" : "#a40000"}; font-weight:bold; font-size:12px;">${s.active ? "ACTIVE" : "OFF"}</span>
+      <button class="smallbtn" onclick="waiStaffToggle('${esc(s.phone)}', ${!s.active})">${s.active ? "turn off" : "turn on"}</button>
+      <button class="smallbtn sb-red" onclick="waiStaffDel('${esc(s.phone)}')">x</button></div>`).join("") || "No numbers yet.";
+}
+async function waiStaffAdd(){
+  const p = (v("wai_sphone") || "").replace(/\D/g, ""), n = (v("wai_sname") || "").trim().toUpperCase();
+  if(p.length < 9){ alert("Enter the full WhatsApp number with country code, e.g. 971501234567"); return; }
+  const { error } = await sb.from("dg_staff_numbers").upsert({phone: p, name: n, active: true});
+  if(error){ alert(error.message); return; }
+  document.getElementById("wai_sphone").value = ""; document.getElementById("wai_sname").value = "";
+  waiStaffLoad();
+}
+async function waiStaffToggle(p, on){ await sb.from("dg_staff_numbers").update({active: on}).eq("phone", p); waiStaffLoad(); }
+async function waiStaffDel(p){ if(!confirm("Remove +" + p + " from the DG WhatsApp list?")) return; await sb.from("dg_staff_numbers").delete().eq("phone", p); waiStaffLoad(); }
+function waiInit(){
+  if(WAI.timer) return;
+  WAI.timer = setInterval(() => { if(sbUser) waiLoad(true); }, 30000);
+  setTimeout(() => { if(sbUser) waiLoad(true); }, 3000);
+}
+const _waiShow0 = showTab;
+showTab = function(name){
+  const r = _waiShow0.apply(this, arguments);
+  if(name === "wainbox"){ waiLoad(); waiStaffLoad(); }
+  return r;
+};
+waiInit();
+
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
