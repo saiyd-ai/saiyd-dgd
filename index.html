@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-D</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-F</span></span>
           </div>
         </div>
       </div>
@@ -1349,6 +1349,7 @@
             </div></div>
           <div style="align-self:end;">
             <button class="btn btn-save" style="background:#0f2b4c;" onclick="mawbRender()">&#8635; GENERATE</button>
+            <button class="btn" style="background:#12224d; color:#fff;" onclick="awvMaster()">&#128065; VIEW AWB</button>
             <button class="btn btn-print" onclick="aw6PrintMaster()">&#128424; PRINT DRAFT AWB</button>
           </div>
         </div>
@@ -1412,6 +1413,7 @@
       <div class="card" style="border-left:5px solid #7a4b00;"><h2>&#128203; CONSOL MANIFEST</h2><div class="body">
         <div class="actions" style="margin:0 0 10px 0;">
           <button class="btn btn-save" style="background:#7a4b00;" onclick="mfRender()">&#8635; GENERATE MANIFEST</button>
+          <button class="btn" style="background:#12224d; color:#fff;" onclick="awvManifest()">&#128065; VIEW MANIFEST</button>
           <button class="btn btn-print" onclick="mfRender(); printAlt('mf_doc');">&#128424; PRINT MANIFEST</button>
         </div>
         <div style="overflow-x:auto;"><div id="mf_doc"></div></div>
@@ -10325,7 +10327,7 @@ function aw6Layout(o){
       <div style="width:50%; white-space:pre-line;">${E(AW6_COND.left)}</div>
       <div style="width:50%; white-space:pre-line;">${E(AW6_COND.right)}</div></div>
   </div>`;
-  return page1 + page2;
+  return o.house ? page1 : page1 + page2;
 }
 async function aw6Barcodes(root){
   const els = [...(root || document).querySelectorAll("svg.aw6bc")]; if(!els.length) return;
@@ -10763,13 +10765,11 @@ function ek7Data(house){
   const fl = flm ? [flm[1], flm[2].trim()] : [String(v("aw_flight") || "").toUpperCase().trim()];
   const pp = (v("aw_pc") || "PREPAID") !== "COLLECT";
   let goods = (house ? house.goods : v("cs_goods") || "").toUpperCase();
-  if(!house && /^CONSOL/.test(goods) && typeof HAWBS !== "undefined" && HAWBS.length){
-    const g = [...new Set(HAWBS.map(h => (h.goods || "").toUpperCase()).filter(Boolean))];
-    if(g.length === 1) goods = g[0];
-  }
+
   const hs = (document.getElementById("aw6_hs") || {}).value || "";
   const natOver = !house && document.getElementById("aw6_nature") ? v("aw6_nature").trim() : "";
-  const nature = natOver || [goods, hs.trim() ? "HS CODE " + hs.trim() : "", (v("aw_dims") || "").toUpperCase()].filter(Boolean).join("\n");
+  const consol = !house && typeof HAWBS !== "undefined" && HAWBS.length > 0;   // master of a consol = CONSOLIDATION CARGO
+  const nature = natOver || (consol ? "CONSOLIDATION CARGO\nAS PER ATTACHED\nHOUSE MANIFEST" : "") || [goods, hs.trim() ? "HS CODE " + hs.trim() : "", (v("aw_dims") || "").toUpperCase()].filter(Boolean).join("\n");
   const d = new Date(), p2 = x => String(x).padStart(2, "0");
   const ev = id => ((document.getElementById(id) || {}).value || "").toUpperCase();
   return {
@@ -10790,7 +10790,7 @@ function ek7Data(house){
     chwt: String((house ? house.wt : (v("aw_chwt") || n.gross)) || ""), rate: house ? "" : v("aw_rate"),
     nature, exec: d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()), place: "DUBAI",
     copy: house ? "Original 3 (for Shipper)" : "Original 1 (for Issuing Carrier)",
-    draft: document.getElementById("aw_draft") ? document.getElementById("aw_draft").checked : false
+    draft: !house && (document.getElementById("aw_draft") ? document.getElementById("aw_draft").checked : false)
   };
 }
 function ek7Layout(o){
@@ -10845,7 +10845,7 @@ function ek7Layout(o){
   h += txt(93.3, 26, 93.5, agree, lab + " font-size:6.2pt; line-height:1.16; text-align:justify;");
   // agent
   h += txt(1, 52.1, 80, "Issuing Carrier's Agent Name and City", lab);
-  h += txt(1.3, 57.0, 89, E(o.agent), V + " line-height:3.37mm; max-height:13.6mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
+  h += txt(1.3, 56.5, 89, E(o.agent), V + " font-size:9.6pt; line-height:3.1mm; max-height:13.6mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
   h += hl(0, 69.4, 91.9);
   h += txt(1, 69.8, 40, "Agent's IATA Code", lab);
   h += vl(45.7, 69.4, 7.7);
@@ -10987,7 +10987,7 @@ function ek7Layout(o){
       <div style="width:50%; white-space:pre-line;">${E(AW6_COND.left)}</div>
       <div style="width:50%; white-space:pre-line;">${E(AW6_COND.right)}</div></div>
   </div>`;
-  return page1 + page2;
+  return o.house ? page1 : page1 + page2;
 }
 async function ek7Barcodes(root){
   const els = [...(root || document).querySelectorAll("svg.ek7bc")]; if(!els.length) return;
@@ -11038,6 +11038,79 @@ aw6StyleChange = (function(r0){
 })(aw6StyleChange);
 document.addEventListener("DOMContentLoaded", () => { try{ const b = document.getElementById("aw6_box"); if(b) b.style.display = ""; }catch(e){} });
 aw6AutoStyle = (function(r0){ return function(){ const r = r0.apply(this, arguments); const b = document.getElementById("aw6_box"); if(b) b.style.display = ""; return r; }; })(aw6AutoStyle);
+
+/* ================= v25.12-E VIEW — open the master AWB / house AWB / manifest big and clear on screen ================= */
+printAlt = (function(r0){ return function(){ if(window._awvNoPrint) return; return r0.apply(this, arguments); }; })(printAlt);
+let _awvZoom = 1, _awvFit = 1, _awvPrint = null;
+function awvClose(){ const m = document.getElementById("awv_modal"); if(m) m.remove(); document.removeEventListener("keydown", awvKey); document.body.style.overflow = ""; }
+function awvKey(e){ if(e.key === "Escape") awvClose(); }
+function awvSetZoom(z){
+  _awvZoom = Math.max(0.3, Math.min(2.5, z));
+  const p = document.getElementById("awv_pages"); if(p) p.style.zoom = _awvZoom;
+  const l = document.getElementById("awv_zl"); if(l) l.textContent = Math.round(_awvZoom * 100) + "%";
+}
+function awvOpen(title, html, printFn){
+  awvClose();
+  _awvPrint = printFn;
+  const m = document.createElement("div"); m.id = "awv_modal";
+  m.setAttribute("style", "position:fixed; inset:0; z-index:99999; background:rgba(20,28,40,.92); display:flex; flex-direction:column;");
+  m.innerHTML = `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 14px; background:#12224d; color:#fff; font-family:Arial, sans-serif;">
+      <b style="font-size:15px; flex:1; min-width:160px;">&#128065; ${esc(title)}</b>
+      <button class="smallbtn" style="background:#fff; color:#12224d;" onclick="awvSetZoom(_awvZoom - 0.1)">&minus;</button>
+      <span id="awv_zl" style="min-width:44px; text-align:center; font-size:13px;"></span>
+      <button class="smallbtn" style="background:#fff; color:#12224d;" onclick="awvSetZoom(_awvZoom + 0.1)">+</button>
+      <button class="smallbtn" style="background:#fff; color:#12224d;" onclick="awvSetZoom(_awvFit)">FIT</button>
+      <button class="smallbtn" style="background:#fff; color:#12224d;" onclick="awvSetZoom(1)">100%</button>
+      <button class="smallbtn sb-green" style="font-weight:bold;" onclick="const f=_awvPrint; awvClose(); if(f) f();">&#128424; PRINT</button>
+      <button class="smallbtn sb-red" style="font-weight:bold;" onclick="awvClose()">&#10005; CLOSE</button></div>
+    <div id="awv_scroll" style="flex:1; overflow:auto; padding:18px 10px 40px;" onclick="if(event.target.id==='awv_scroll') awvClose()">
+      <div id="awv_pages" style="width:210mm; margin:0 auto;"></div></div>`;
+  document.body.appendChild(m);
+  const pages = document.getElementById("awv_pages");
+  pages.innerHTML = html;
+  [...pages.querySelectorAll(".sheet")].forEach(s => { s.style.margin = "0 auto 16px"; s.style.boxShadow = "0 4px 24px rgba(0,0,0,.45)"; s.style.background = "#fff"; });
+  const pxW = pages.getBoundingClientRect().width || 794;
+  _awvFit = Math.min(1.6, Math.max(0.3, (window.innerWidth - 40) / pxW));
+  awvSetZoom(_awvFit);
+  document.body.style.overflow = "hidden";
+  document.addEventListener("keydown", awvKey);
+}
+const _awvWait = ms => new Promise(r => setTimeout(r, ms));
+async function awvMaster(){
+  mawbRender();
+  const out = document.getElementById("aw_doc"); if(!out) return;
+  try{ await Promise.all([aw6Barcodes(out), typeof ek7Barcodes === "function" ? ek7Barcodes(out) : null]); }catch(e){}
+  if(!out.innerHTML.trim()){ alert("Fill the AWB first."); return; }
+  awvOpen("MASTER AWB " + (v("aw_no") || v("f_awb") || ""), out.innerHTML, () => aw6PrintMaster());
+}
+async function awvHouse(i){
+  const x = HAWBS[i]; if(!x) return;
+  window._awvNoPrint = true;
+  try{ hbPrint(i); await _awvWait(700); }finally{ window._awvNoPrint = false; }
+  const out = document.getElementById("hb_doc"); if(!out || !out.innerHTML.trim()) return;
+  awvOpen("HOUSE AWB " + (x.no || "") + "  (MAWB " + (v("aw_no") || v("f_awb") || "") + ")", out.innerHTML, () => hbPrint(i));
+}
+function awvManifest(){
+  mfRender();
+  const out = document.getElementById("mf_doc"); if(!out || !out.innerHTML.trim()) return;
+  awvOpen("CONSOL MANIFEST " + (v("aw_no") || v("f_awb") || ""), out.innerHTML, () => { mfRender(); printAlt("mf_doc"); });
+}
+/* VIEW button on every house row */
+hbRender = (function(r0){
+  return function(){
+    const r = r0.apply(this, arguments);
+    const tb = document.getElementById("hb_table");
+    if(tb) [...tb.querySelectorAll("tr")].slice(1).forEach((tr, i) => {
+      if(!HAWBS[i]) return;
+      const cell = tr.lastElementChild; if(!cell || cell.querySelector(".awv_btn")) return;
+      const b = document.createElement("button"); b.className = "smallbtn awv_btn"; b.innerHTML = "&#128065; View";
+      b.setAttribute("style", "background:#12224d; color:#fff; font-weight:bold;"); b.onclick = () => awvHouse(i);
+      cell.insertBefore(b, cell.firstChild); cell.insertBefore(document.createTextNode(" "), b.nextSibling);
+    });
+    return r;
+  };
+})(hbRender);
+document.addEventListener("DOMContentLoaded", () => { try{ hbRender(); }catch(e){} });
 
 authInit();
 </script>
