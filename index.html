@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-B</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-C</span></span>
           </div>
         </div>
       </div>
@@ -7767,8 +7767,8 @@ function mfRender(){
       <tr style="font-size:9pt; font-weight:bold; border-bottom:1.5px solid #000;">
         <td style="border-bottom:1.5px solid #000; padding-bottom:1mm;">HAWB</td><td style="border-bottom:1.5px solid #000; text-align:center;">Pieces</td>
         <td style="border-bottom:1.5px solid #000; text-align:right;">Weight</td><td style="border-bottom:1.5px solid #000; padding-left:3mm;">Orig/Dest</td>
-        <td style="border-bottom:1.5px solid #000; text-align:center;">PPD/COLL</td><td style="border-bottom:1.5px solid #000;"></td>
-        <td style="border-bottom:1.5px solid #000;">Details</td></tr>
+        <td style="border-bottom:1.5px solid #000; text-align:center;">PPD/COLL</td><td style="border-bottom:1.5px solid #000; padding-left:3mm;">Details</td>
+        <td style="border-bottom:1.5px solid #000;">Commodity</td></tr>
       ${rows || `<tr><td colspan="7" style="${M} color:#888; padding:4mm 0;">No house AWBs added</td></tr>`}
       <tr style="font-weight:bold;">
         <td style="${M} border-top:1.5px solid #000; padding-top:1.5mm;"><b>Total</b></td>
@@ -10681,6 +10681,64 @@ applySnapshot = function(s){
   const sel = document.getElementById("aw_style"); if(sel) sel.dataset.manual = (s && s.awStyleManual) ? "1" : "";
   return _gcbApply0.apply(this, arguments);
 };
+
+/* ================= v25.12-C AWB / HOUSES clean-up: no dash lines, full house view, commodity ================= */
+/* lines made only of ----- / ===== / _____ are separators from e-mails / booking text → removed everywhere */
+function gccNoDash(s){
+  return String(s == null ? "" : s).split("\n").filter(l => !/^[\s\-_=*~.•·|]{3,}$/.test(l) && !/^\s*[-_=*~]{3,}\s*$/.test(l)).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+function gccGoods(h){
+  if(h.goods) return h.goods;
+  const t = ((h.shipper || "") + " " + (h.consignee || "") + " " + (h.goodsHint || "")).toUpperCase();
+  if(/PERFUM|FRAGRANCE|\bOUD\b|ATTAR/.test(t)) return "PERFUMES";
+  if(/COSMETIC/.test(t) && /PERFUM/.test(t)) return "PERFUMES";
+  return "";
+}
+function gccClean(){
+  ["f_shipper", "f_consignee", "gc_shipper", "gc_consignee"].forEach(id => {
+    const e = document.getElementById(id); if(e && /[-_=*~]{3,}/.test(e.value)){ const c = gccNoDash(e.value); if(c !== e.value) e.value = c; }
+  });
+  if(typeof HAWBS === "undefined") return;
+  HAWBS.forEach(h => {
+    h.shipper = gccNoDash(h.shipper); h.consignee = gccNoDash(h.consignee);
+    if(!h.goods){ const g = gccGoods(h); if(g) h.goods = g; }
+  });
+}
+/* text parser: strip the dash lines at the source too; the house block decides the commodity */
+const _gccClean0 = gcbClean;
+gcbClean = function(s){ return _gccClean0(gccNoDash(s)); };
+const _gccMerge0 = gcbMerge;
+gcbMerge = function(tx, pl){
+  const out = _gccMerge0.apply(this, arguments);
+  const all = tx ? JSON.stringify(tx).toUpperCase() : "";
+  out.forEach(h => { if(!h.goods){ h.goodsHint = all; h.goods = gccGoods(h); delete h.goodsHint; } });
+  return out;
+};
+["mawbRender", "hbPrint", "mfRender"].forEach(n => {
+  const f0 = window[n];
+  window[n] = function(){ try{ gccClean(); }catch(e){} return f0.apply(this, arguments); };
+});
+/* AWB / MANIFEST → HOUSE AWBs list: show everything (full shipper / consignee address + commodity) */
+hbRender = (function(r0){
+  return function(){
+    try{ gccClean(); }catch(e){}
+    const r = r0.apply(this, arguments);
+    const tb = document.getElementById("hb_table");
+    if(tb && HAWBS.length){
+      const P = "white-space:pre-line; font-size:12px; line-height:1.35; vertical-align:top;";
+      [...tb.querySelectorAll("tr")].slice(1).forEach((tr, i) => {
+        const x = HAWBS[i], td = tr.children; if(!x || td.length < 8) return;
+        [...td].forEach(c => c.style.verticalAlign = "top");
+        td[3].textContent = x.goods || "";
+        if(!x.goods){ td[3].innerHTML = '<span style="color:#a40000; font-weight:bold;">ADD COMMODITY</span>'; }
+        td[6].setAttribute("style", P); td[6].textContent = x.shipper || "";
+        td[7].setAttribute("style", P); td[7].textContent = x.consignee || "";
+      });
+    }
+    return r;
+  };
+})(hbRender);
+document.addEventListener("DOMContentLoaded", () => { try{ gccClean(); hbRender(); }catch(e){} });
 
 authInit();
 </script>
