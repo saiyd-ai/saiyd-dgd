@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-I</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-J</span></span>
           </div>
         </div>
       </div>
@@ -11299,6 +11299,35 @@ _awNums = (function(r0){
     return r0.apply(this, arguments);
   };
 })(_awNums);
+
+/* ================= v25.12-J NEW JOB = clean CREATE AWB (no old AWB, houses, documents or text) ================= */
+function newJobClean(){
+  try{ if(typeof HAWBS !== "undefined") HAWBS.length = 0; }catch(e){}
+  ["gc_awb", "gc_hawb", "gc_dep", "gc_dest", "gc_pcs", "gc_wt", "gc_goods", "gc_shipper", "gc_consignee", "gc_customer",
+   "dc_text_gc", "dc_text_dg", "aw_handl", "aw_shc", "aw_flight", "aw_to1", "aw_by1", "aw_chwt", "aw_rate", "aw_dims"].forEach(id => { const e = document.getElementById(id); if(e) e.value = ""; });
+  ["gc_air", "gc_msg", "gc_pdfmsg", "dc_msg_gc", "dc_msg_dg", "aw_chnote"].forEach(id => { const e = document.getElementById(id); if(e) e.textContent = ""; });
+  ["aw_doc", "hb_doc", "mf_doc", "gch_list"].forEach(id => { const e = document.getElementById(id); if(e) e.innerHTML = ""; });
+  const c = document.getElementById("gc_consol"); if(c) c.checked = false;
+  try{ ["gc", "dg"].forEach(m => { if(typeof DC !== "undefined" && DC[m]){ DC[m].files = []; DC[m].kinds = []; dcRender(m); } }); }catch(e){}
+  try{ if(typeof shcSet === "function") shcSet([], false); }catch(e){}
+  try{ const sel = document.getElementById("aw_style"); if(sel) sel.dataset.manual = ""; }catch(e){}
+  const b = document.getElementById("dgsend_msg"); if(b) b.remove();
+  window._gcPL = []; window._labelSC = false;
+  try{ gchRender(); }catch(e){}
+  try{ hbRender(); mfRender(); }catch(e){}
+  try{ gcAirline(); }catch(e){}
+}
+jobStart = (function(r0){
+  return function(){
+    const j = (document.getElementById("jg_job") || {}).value || "";
+    if(j.trim()) newJobClean();                 // only when a job really starts
+    const r = r0.apply(this, arguments);
+    try{ if(j.trim()){ const gj = document.getElementById("gc_job"); if(gj && !gj.value) gj.value = j.trim().toUpperCase(); gchRender(); } }catch(e){}
+    return r;
+  };
+})(jobStart);
+/* the house list follows the CONSOL switch — never shows old rows */
+gchRender = (function(r0){ return function(){ const r = r0.apply(this, arguments); try{ if(!gchOn()){ const l = document.getElementById("gch_list"); if(l) l.innerHTML = ""; } }catch(e){} return r; }; })(gchRender);
 
 authInit();
 </script>
