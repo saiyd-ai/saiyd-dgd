@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-F</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-G</span></span>
           </div>
         </div>
       </div>
@@ -10188,7 +10188,7 @@ function aw6Data(house){
     to2: v("aw6_to2").toUpperCase(), by2: v("aw6_by2").toUpperCase(), to3: v("aw6_to3").toUpperCase(), by3: v("aw6_by3").toUpperCase(),
     fl1: (v("aw6_fl1") || v("aw_flight") || "").toUpperCase(), fl2: v("aw6_fl2").toUpperCase(),
     cur: v("aw6_cur") || "AED", pc, dvc: v("aw6_dvc") || "NVD", dvcu: v("aw6_dvcu") || "NCV", ins: v("aw6_ins"),
-    handl: (v("aw_handl") || "").toUpperCase(), sci: v("aw6_sci").toUpperCase(),
+    handl: awHandl(), sci: v("aw6_sci").toUpperCase(),
     pcs, gross, rcls: v("aw6_rcls") || "Q", chwt, rate, wc,
     note: house ? "" : v("aw6_note").toUpperCase(),
     nature: aw6Nature(house), vol: aw6Vol(house),
@@ -10215,7 +10215,7 @@ function aw6Layout(o){
     <table style="width:100%; border-collapse:collapse;"><tr>
       <td style="font-size:10pt; padding:0 0 1mm 0; white-space:nowrap;">
         <span style="display:inline-block; border-right:0.8pt solid #000; padding:3mm 2mm 0 2mm;">${E(o.pfx)}</span><span style="display:inline-block; border-right:0.8pt solid #000; padding:3mm 2mm 0 2mm;">${E(o.orgCode)}</span><span style="display:inline-block; padding:3mm 2mm 0 3mm;">${E(o.ser)}</span>
-        <svg class="aw6bc" data-v="${E(o.pfx + o.ser)}" style="height:7mm; vertical-align:bottom; margin-left:2mm;"></svg></td>
+        ${o.house ? "" : `<svg class="aw6bc" data-v="${E(o.pfx + o.ser)}" style="height:7mm; vertical-align:bottom; margin-left:2mm;"></svg>`}</td>
       <td style="text-align:right; font-size:15pt; padding-right:12mm; vertical-align:bottom;">${E(o.topRight)}</td></tr></table>
     <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
       <colgroup><col style="width:24%"><col style="width:26%"><col style="width:50%"></colgroup>
@@ -10756,6 +10756,12 @@ function ek7Ap(code){
   const n = EK7_APN[c] || String(airportPlace(c) || "").toUpperCase();
   return n && n !== c ? c + "/" + n + " INTL" : c;
 }
+/* handling information: houses always print the SAME text as the master */
+function awHandl(){
+  let t = (v("aw_handl") || "").trim();
+  if(!t){ const k = (document.getElementById("aw_shc") || {}).value; if(k && AWB_SHC[k]) t = AWB_SHC[k]; }
+  return t.toUpperCase();
+}
 function ek7Data(house){
   const n = _awNums();
   const master = v("aw_no") || v("f_awb") || "";
@@ -10785,7 +10791,7 @@ function ek7Data(house){
     ref: house ? "" : ev("aw6_ref"), osi: house ? "" : ev("aw6_osi"),
     flight: fl[0] || "", fdate: fl[1] || "",
     pp, cur: "", dvc: ev("aw6_dvc") || "NVD", dvcu: ev("aw6_dvcu") || "NCV", ins: ev("aw6_ins") || "XXX",
-    handl: (v("aw_handl") || "").toUpperCase(), sci: ev("aw6_sci"),
+    handl: awHandl(), sci: ev("aw6_sci"),
     pcs: String((house ? house.pcs : n.pcs) || ""), gross: String((house ? house.wt : n.gross) || ""),
     chwt: String((house ? house.wt : (v("aw_chwt") || n.gross)) || ""), rate: house ? "" : v("aw_rate"),
     nature, exec: d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()), place: "DUBAI",
@@ -10816,7 +10822,7 @@ function ek7Layout(o){
   h += `<div style="position:absolute; left:${X0 + 1.2}mm; top:5.2mm; font-family:'Courier New',monospace; font-weight:bold; font-size:12.5pt; letter-spacing:0.6pt; white-space:nowrap;">
       <span style="padding-right:1.5mm; border-right:0.75pt solid #000;">${E(o.pfx)}</span><span style="padding:0 1.5mm; border-right:0.75pt solid #000;">${E(o.orgCode)}</span><span style="padding-left:1.5mm;">${E(o.ser)}</span></div>`;
   h += `<div style="position:absolute; right:5.6mm; top:5.2mm; font-family:'Courier New',monospace; font-weight:bold; font-size:12.5pt; letter-spacing:0.6pt;">${E(o.topRight)}</div>`;
-  if(o.pfx && o.ser) h += `<div style="position:absolute; left:1mm; top:34.8mm; width:68.6mm; height:8.6mm; transform-origin:0 0; transform:translateX(8.6mm) rotate(90deg);">
+  if(o.pfx && o.ser && !o.house) h += `<div style="position:absolute; left:1mm; top:34.8mm; width:68.6mm; height:8.6mm; transform-origin:0 0; transform:translateX(8.6mm) rotate(90deg);">
       <svg class="ek7bc" data-v="${E(o.pfx + o.ser)}" style="display:block; width:68.6mm; height:8.6mm;"></svg></div>`;
   /* ---- outer frame + main grid ---- */
   h += box(0, 0, W, 257, "border:0.75pt solid #000; border-bottom:0;");
