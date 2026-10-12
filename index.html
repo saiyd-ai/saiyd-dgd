@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.11-Z</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-B</span></span>
           </div>
         </div>
       </div>
@@ -528,7 +528,7 @@
         <div id="dc_gc" style="margin-bottom:10px;">
           <div id="dc_zone_gc" tabindex="0" style="border:2px dashed #7b2d8b; border-radius:10px; padding:16px; text-align:center; color:#7b2d8b; font-weight:bold; font-size:13.5px; background:#faf5fc; outline:none; cursor:default;">
             &#128206; ADD DOCUMENTS &mdash; drop files here, <a href="#" class="dc_pick" onclick="return false;" style="color:#7b2d8b; text-decoration:underline;">choose files</a>, or click here and press <b>Ctrl+V</b> to paste
-            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; JPG / PNG &middot; screenshots &mdash; AWB, house AWB, label photo, packing list, invoice &mdash; several at once</div>
+            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; JPG / PNG &middot; screenshots &mdash; AWB, house AWBs, label photo, packing list, invoice &mdash; several at once (CONSOL: one house per document)</div>
           </div>
           <input type="file" id="dc_file_gc" accept=".pdf,.xlsx,.xls,.csv,image/*" multiple style="display:none;">
           <div id="dc_list_gc"></div>
@@ -541,6 +541,17 @@
         </div>
         <div style="font-size:12px; margin:2px 0 8px;"><span id="gc_pdfmsg" style="color:#7a4b00;"></span> <span id="gc_msg" style="color:#1d6b34; font-weight:bold;"></span></div>
         <div id="gc_inbox_files" style="font-size:12px; margin:8px 0;"></div>
+        <!-- v25.12-A CONSOL: multiple HOUSE AWBs -->
+        <div id="gch_box" style="border:1px solid #cfe3d5; border-radius:10px; padding:10px 12px; margin:6px 0 12px; background:#f6fbf7;">
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <label style="margin:0; font-size:13.5px; font-weight:bold; color:#1d6b34; cursor:pointer;"><input type="checkbox" id="gc_consol" onchange="gchToggle()" style="width:auto; margin-right:6px;">CONSOL &mdash; multiple HOUSE AWBs</label>
+            <span id="gch_body" style="display:none;">
+              <button class="smallbtn sb-green" onclick="gchAdd()">&#10133; ADD HOUSE</button>
+              <span style="font-size:12px; color:#5b6b7d; margin-left:8px;">Next house no: <b id="gch_destlbl"></b><input type="text" id="gch_next" style="width:60px; font-size:12px; padding:3px 5px;" title="Running number for this destination"></span>
+            </span>
+          </div>
+          <div id="gch_list" style="margin-top:8px; overflow-x:auto;"></div>
+        </div>
         <div id="dc_legacy_gc" style="display:none;">
           <input type="file" id="gc_awbfile" accept=".pdf,image/*" style="font-size:12.5px;">
           <button class="btn btn-save" style="background:#7b2d8b;" onclick="readAwbPdf('gc_awbfile','gc_pdfmsg').then(()=>gcSyncFromMain())">AWB PDF (old)</button>
@@ -10355,6 +10366,321 @@ function aw6PrintMaster(){
   aw6Barcodes(document.getElementById("aw_doc")).then(() => printAlt("aw_doc"));
 }
 document.addEventListener("DOMContentLoaded", () => { try{ aw6StyleChange(); }catch(e){} });
+
+/* ================= v25.12-A CREATE AWB — CONSOL: multiple HOUSE AWBs ================= */
+/* ADD DOCUMENTS type HOUSE (and, with CONSOL on, every INVOICE / LABEL) = one house each.
+   House no. = destination code + running number (MIA-168, MIA-169 ...). Master shipper / consignee are typed by staff.
+   Houses live in HAWBS (same list as AWB / MANIFEST → HOUSE AWBs, CALOGI print, consol manifest). */
+(() => { const o = Object.assign({}, DC_KINDS); Object.keys(DC_KINDS).forEach(k => delete DC_KINDS[k]);
+  Object.assign(DC_KINDS, {AWB: o.AWB, HOUSE: "HOUSE AWB", LABEL: o.LABEL, PL: o.PL, INV: o.INV}); })();
+const _gchKind0 = dcKind;
+dcKind = function(f){
+  const n = (f.name || "").toUpperCase();
+  if(/HAWB|HOUSE/.test(n) || /(^|[^A-Z])[A-Z]{3}-\d{2,5}([^\d]|$)/.test(n.replace(/\.[A-Z]+$/, ""))) return "HOUSE";
+  return _gchKind0(f);
+};
+function gchOn(){ const c = document.getElementById("gc_consol"); return !!(c && c.checked); }
+function gchSeqGet(dest){
+  let c = {}; try{ c = JSON.parse(localStorage.getItem("jfs_hawb_seq") || "{}"); }catch(e){}
+  let n = parseInt(c[dest]) || 0;
+  (typeof HAWBS !== "undefined" ? HAWBS : []).forEach(h => { const m = String(h.no || "").match(new RegExp("^" + dest + "-(\\d+)$")); if(m) n = Math.max(n, parseInt(m[1])); });
+  return n;
+}
+function gchSeqSet(dest, n){
+  let c = {}; try{ c = JSON.parse(localStorage.getItem("jfs_hawb_seq") || "{}"); }catch(e){}
+  c[dest] = Math.max(parseInt(c[dest]) || 0, n);
+  try{ localStorage.setItem("jfs_hawb_seq", JSON.stringify(c)); }catch(e){}
+  if(typeof cloudPushDebounced === "function"){ try{ cloudPushDebounced("jfs_hawb_seq"); }catch(e){} }
+}
+function gchDest(){ return (iata3(v("gc_dest") || v("f_dest")) || v("gc_dest") || "").toUpperCase().slice(0, 3) || "HAWB"; }
+function gchNextNo(dest){
+  dest = (dest || gchDest()).toUpperCase();
+  const typed = parseInt(v("gch_next"));
+  let n = Math.max(gchSeqGet(dest) + 1, typed && document.getElementById("gch_next").dataset.dest === dest ? typed : 0);
+  gchSeqSet(dest, n);
+  const ne = document.getElementById("gch_next"); if(ne && ne.dataset.dest === dest) ne.value = n + 1;
+  return dest + "-" + String(n).padStart(3, "0");
+}
+function gchSave(){ if(typeof autosaveCurrent === "function"){ try{ autosaveCurrent(); }catch(e){} } }
+function gchTotals(){
+  const pcs = HAWBS.reduce((a, h) => a + (parseInt(h.pcs) || 0), 0);
+  const wt = Math.round(HAWBS.reduce((a, h) => a + (parseFloat(h.wt) || 0), 0) * 100) / 100;
+  return {pcs, wt};
+}
+function gchSyncMaster(){
+  if(!gchOn() || !HAWBS.length) return;
+  const t = gchTotals();
+  const set = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
+  if(t.pcs){ set("gc_pcs", t.pcs); if(typeof gcSet === "function") gcSet("f_opcount", String(t.pcs)); }
+  if(t.wt) set("gc_wt", t.wt);
+  set("gc_goods", "CONSOLIDATION"); set("cs_goods", "CONSOLIDATION");
+}
+function gchRender(){
+  const box = document.getElementById("gch_list"); if(!box) return;
+  const on = gchOn();
+  document.getElementById("gch_body").style.display = on ? "" : "none";
+  const ne = document.getElementById("gch_next");
+  if(ne){ const d = gchDest(); if(ne.dataset.dest !== d){ ne.dataset.dest = d; ne.value = gchSeqGet(d) + 1; } document.getElementById("gch_destlbl").textContent = d + "-"; }
+  if(!on) return;
+  const I = (i, k, w, ph) => `<input type="text" value="${esc(HAWBS[i][k] || "")}" placeholder="${ph || ""}" style="width:${w}; font-size:12.5px; padding:4px 6px;" onchange="gchEdit(${i}, '${k}', this.value)">`;
+  const T = (i, k, ph) => `<textarea placeholder="${ph}" style="min-height:58px; font-size:12px; padding:4px 6px; width:100%;" onchange="gchEdit(${i}, '${k}', this.value)">${esc(HAWBS[i][k] || "")}</textarea>`;
+  const t = gchTotals();
+  box.innerHTML = !HAWBS.length ? `<div style="color:#5b6b7d; font-size:12.5px; padding:6px 0;">No houses yet &mdash; add HOUSE / INVOICE documents above and press AUTO-FILL, or press + ADD HOUSE.</div>` :
+    `<table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+      <tr style="background:#12224d; color:#fff;"><th style="padding:5px;">#</th><th style="padding:5px; text-align:left;">HAWB No</th><th style="padding:5px;">Pcs</th><th style="padding:5px;">Kg</th><th style="padding:5px; text-align:left;">Goods</th><th style="padding:5px;">Dest</th><th style="padding:5px; text-align:left;">Shipper</th><th style="padding:5px; text-align:left;">Consignee</th><th></th></tr>` +
+    HAWBS.map((h, i) => `<tr style="vertical-align:top; border-bottom:1px solid #e3e8ef;">
+      <td style="padding:5px; font-weight:bold;">${i + 1}</td>
+      <td style="padding:5px;">${I(i, "no", "105px")}</td>
+      <td style="padding:5px;">${I(i, "pcs", "52px")}</td>
+      <td style="padding:5px;">${I(i, "wt", "70px")}</td>
+      <td style="padding:5px;">${I(i, "goods", "110px", "PERFUMES")}</td>
+      <td style="padding:5px;">${I(i, "dest", "52px")}</td>
+      <td style="padding:5px; width:24%;">${T(i, "shipper", "Shipper name & address")}</td>
+      <td style="padding:5px; width:24%;">${T(i, "consignee", "Consignee name & address")}</td>
+      <td style="padding:5px;"><button class="smallbtn sb-red" onclick="gchDel(${i})">x</button></td></tr>`).join("") +
+    `<tr style="font-weight:bold; background:#eef3f8;"><td style="padding:5px;" colspan="2">TOTAL ${HAWBS.length} HOUSE(S)</td><td style="padding:5px; text-align:center;">${t.pcs}</td><td style="padding:5px; text-align:center;">${t.wt}</td><td colspan="5" style="padding:5px; font-weight:normal; color:#5b6b7d;">Master AWB pieces / weight follow these totals. Print houses + manifest in AWB / MANIFEST.</td></tr></table>`;
+}
+function gchEdit(i, k, val){
+  if(!HAWBS[i]) return;
+  HAWBS[i][k] = (k === "shipper" || k === "consignee") ? val : String(val).toUpperCase();
+  if(typeof hbRender === "function") hbRender(); if(typeof mfRender === "function") mfRender();
+  gchSyncMaster(); gchSave(); if(k !== "shipper" && k !== "consignee") gchRender();
+}
+function gchDel(i){
+  if(!HAWBS[i] || !confirm("Delete house " + (HAWBS[i].no || (i + 1)) + "?")) return;
+  HAWBS.splice(i, 1);
+  if(typeof hbRender === "function") hbRender(); if(typeof mfRender === "function") mfRender();
+  gchSyncMaster(); gchSave(); gchRender();
+}
+function gchAdd(rec){
+  const dest = ((rec && rec.dest) || gchDest()).toUpperCase();
+  const h = Object.assign({no: "", pcs: "", wt: "", goods: "", org: (iata3(v("gc_dep") || v("f_dep")) || "").toUpperCase(), dest, shipper: "", consignee: ""}, rec || {});
+  if(!h.no) h.no = gchNextNo(h.dest || dest);
+  else { const m = String(h.no).match(/^([A-Z]{3})-(\d+)$/); if(m){ gchSeqSet(m[1], parseInt(m[2])); const ne = document.getElementById("gch_next"); if(ne && ne.dataset.dest === m[1]) ne.value = Math.max(parseInt(ne.value) || 0, parseInt(m[2]) + 1); } }
+  const ix = HAWBS.findIndex(x => x.no === h.no);
+  if(ix >= 0){ Object.keys(h).forEach(k => { if(h[k]) HAWBS[ix][k] = h[k]; }); }   // same house again → fill the gaps
+  else HAWBS.push(h);
+  if(typeof hbRender === "function") hbRender(); if(typeof mfRender === "function") mfRender();
+  gchSyncMaster(); gchSave(); gchRender();
+  return h;
+}
+function gchToggle(){
+  gchRender(); gchSyncMaster(); gchSave();
+}
+/* read ONE document into a NEW house — the master fields are put back afterwards */
+const GCH_KEEP = ["f_shipper", "f_consignee", "f_awb", "f_ref", "f_dep", "f_dest", "f_opcount", "cs_goods",
+  "gc_awb", "gc_hawb", "gc_dep", "gc_dest", "gc_pcs", "gc_wt", "gc_goods", "gc_shipper", "gc_consignee"];
+async function gchReadHouse(f){
+  const keep = {}; GCH_KEEP.forEach(id => { const e = document.getElementById(id); if(e) keep[id] = e.value; });
+  ["f_shipper", "f_consignee", "f_ref", "f_opcount", "cs_goods", "gc_pcs", "gc_wt", "gc_goods", "gc_hawb", "f_dest"].forEach(id => { const e = document.getElementById(id); if(e) e.value = ""; });
+  const before = HAWBS.length, lock0 = window._labelSC;
+  window._labelSC = false;                                    // each house reads its own shipper / consignee
+  let rec;
+  try{
+    dcPut("gc_awbfile", [f]);
+    await readAwbPdf("gc_awbfile", "gc_pdfmsg");
+    const g = id => (document.getElementById(id) || {}).value || "";
+    const auto = HAWBS.length > before ? HAWBS.pop() : null;   // the reader already listed a house with its own number
+    rec = {no: (g("f_ref") || (auto && auto.no) || "").toUpperCase(),
+      pcs: g("f_opcount") || g("gc_pcs") || (auto && auto.pcs) || "", wt: g("gc_wt") || (auto && auto.wt) || "",
+      goods: (g("cs_goods") || g("gc_goods") || (auto && auto.goods) || "").toUpperCase(),
+      dest: (iata3(g("f_dest")) || (auto && auto.dest) || keep.gc_dest || keep.f_dest || "").toUpperCase().slice(0, 3),
+      shipper: g("f_shipper") || (auto && auto.shipper) || "", consignee: g("f_consignee") || (auto && auto.consignee) || ""};
+  }finally{
+    window._labelSC = lock0;
+    Object.entries(keep).forEach(([id, val]) => { const e = document.getElementById(id); if(e) e.value = val; });
+  }
+  if(!rec.shipper && !rec.consignee && !rec.pcs && !rec.wt) throw new Error(f.name + ": nothing read");
+  return gchAdd(rec);
+}
+/* AUTO-FILL in CREATE AWB: HOUSE files (always) and, with CONSOL on, INVOICE / LABEL files become houses */
+const _gchRun0 = dcRun;
+dcRun = async function(mode){
+  if(mode !== "gc") return _gchRun0.apply(this, arguments);
+  const st = DC.gc;
+  const isHouse = k => k === "HOUSE" || (gchOn() && (k === "INV" || k === "LABEL"));
+  const idx = st.files.map((f, i) => i).filter(i => isHouse(st.kinds[i]));
+  if(!idx.length) return _gchRun0.apply(this, arguments);
+  if(typeof aiKey === "function" && !aiKey()){ dcMsg(mode, "The AI reads the documents — add the Claude API key in SETTINGS → AI first.", true); return; }
+  const c = document.getElementById("gc_consol"); if(c && !c.checked){ c.checked = true; gchRender(); }
+  const houseFiles = idx.map(i => st.files[i]);
+  const fails = [], made = [];
+  DC.busy = true;
+  const btn = document.getElementById("dc_go_gc"); if(btn) btn.disabled = true;
+  try{
+    for(const f of houseFiles){
+      dcMsg(mode, "Reading house " + (made.length + 1) + " / " + houseFiles.length + ": " + f.name + " ...");
+      try{ const h = await gchReadHouse(f); made.push(h.no); }catch(e){ fails.push(f.name); }
+    }
+  }finally{ DC.busy = false; if(btn) btn.disabled = false; }
+  // the rest (master AWB, packing list, text) goes through the normal AUTO-FILL
+  const restI = st.files.map((f, i) => i).filter(i => !isHouse(st.kinds[i]));
+  st.files = restI.map(i => st.files[i]); st.kinds = restI.map(i => st.kinds[i]);
+  dcRender(mode);
+  const hasText = ((document.getElementById("dc_text_gc") || {}).value || "").trim();
+  if(st.files.length || hasText) await _gchRun0.call(this, mode);
+  gchSyncMaster(); gcSyncFromMain(); gchRender();
+  const msg = "✓ " + made.length + " house(s) added: " + made.join(", ") + (fails.length ? " • NOT READ: " + fails.join(", ") : "") + " — check each house below.";
+  dcMsg(mode, msg, !!fails.length);
+};
+/* consol switch travels with the job */
+const _gchSnap0 = snapshot;
+snapshot = function(){ const s = _gchSnap0(); s.gcConsol = gchOn(); return s; };
+const _gchApply0 = applySnapshot;
+applySnapshot = function(s){
+  const r = _gchApply0.apply(this, arguments);
+  const c = document.getElementById("gc_consol"); if(c) c.checked = !!(s && s.gcConsol);
+  try{ gchRender(); }catch(e){}
+  return r;
+};
+const _gchShow0 = showTab;
+showTab = function(name){ const r = _gchShow0.apply(this, arguments); if(name === "gc"){ try{ gchRender(); }catch(e){} } return r; };
+document.addEventListener("DOMContentLoaded", () => { try{ gchRender(); }catch(e){} });
+
+/* ================= v25.12-B CREATE AWB — booking text + packing list → MAWB + all HOUSES ================= */
+/* 1) Pasted booking text with "MAWB DETAILS" / "1ST HAWB DETAILS" blocks is read WITHOUT the AI: AWB no, route,
+      master shipper / consignee, and one house per HAWB block (pallets, cartons, shipper, consignee).
+   2) A JFS packing-list Excel with a HAWB column gives the house numbers, pallets and weights.
+   3) Pieces = PALLETS when pallets are mentioned (never the cartons).
+   4) AWB style: 176 (Emirates) → EK style automatically, every other airline → CALOGI. OTHER only when chosen by hand. */
+function gcbClean(s){ return String(s || "").replace(/[ \t]+/g, " ").split("\n").map(x => x.trim()).filter(Boolean).join("\n").trim(); }
+function gcbNum(re, s){ const m = String(s || "").match(re); return m ? parseInt(String(m[1]).replace(/,/g, "")) : 0; }
+function gcbParty(block, lab, stops){
+  const re = new RegExp("(?:^|\\n)\\s*" + lab + "\\s*(?:NAME|DETAILS)?\\s*[:\\-]?\\s*", "i");
+  const m = block.match(re); if(!m) return "";
+  let rest = block.slice(m.index + m[0].length);
+  const stop = rest.search(new RegExp("\\n\\s*(?:" + stops + ")", "i"));
+  if(stop >= 0) rest = rest.slice(0, stop);
+  return gcbClean(rest.split("\n").filter(l => !/^\s*(ED\s*&\s*VAT|VAT\s+REQ|ED\s+REQ|REMARKS?\b|NOTE\b|\d+\s*(PALLETS?|PLTS?|CARTONS?|CTNS?))/i.test(l)).join("\n"));
+}
+function gcbParseText(raw){
+  const t = String(raw || "").replace(/\r/g, "").replace(/[–—]/g, "-");
+  const U = t.toUpperCase();
+  const heads = []; const hre = /(?:^|\n)[^\n]*?\b(MAWB|MASTER\s*AWB|H\.?\s*AWB|HOUSE\s*AWB)\s*DETAILS?\b[^\n]*/gi; let m;
+  while((m = hre.exec(t))) heads.push({i: m.index, kind: /^(MAWB|MASTER)/i.test(m[1]) ? "M" : "H", end: m.index + m[0].length});
+  if(!heads.some(h => h.kind === "H")) return null;
+  const top = t.slice(0, heads[0].i).toUpperCase();
+  const out = {awb: "", org: "", dest: "", job: "", master: null, houses: []};
+  const aw = top.match(/AWB[^\d\n]{0,12}(\d{3})[-\s]?(\d{4})\s?(\d{4})\b/) || U.match(/AWB[^\d\n]{0,12}(\d{3})[-\s]?(\d{4})\s?(\d{4})\b/) || U.match(/\b(\d{3})-(\d{4})\s?(\d{4})\b/); if(aw) out.awb = aw[1] + "-" + aw[2] + aw[3];
+  const rt = (top || U).match(/\b([A-Z]{3})\s*(?:-|TO|>|\/)+\s*([A-Z]{3})\b/); if(rt && !/^(AWB|DGS|GEN)$/.test(rt[1])){ out.org = rt[1]; out.dest = rt[2]; }
+  const jb = U.match(/\b([A-Z]{3}-C\d{4,6})\b/); if(jb) out.job = jb[1];
+  const stops = "CONSIGNEE|SHIPPER|NOTIFY|ED\\s*&\\s*VAT|VAT\\s+REQ|REMARK|\\d+\\s*(?:ST|ND|RD|TH)?\\s*H\\.?\\s*AWB|MAWB";
+  heads.forEach((h, k) => {
+    const body = t.slice(h.i, k + 1 < heads.length ? heads[k + 1].i : t.length);
+    const B = body.toUpperCase();
+    const rec = {
+      plts: gcbNum(/(\d[\d,]*)\s*(?:PALLETS?|PLTS?|SKIDS?)\b/, B),
+      ctns: gcbNum(/(\d[\d,]*)\s*(?:CARTONS?|CTNS?|BOXES|PKGS?|PACKAGES)\b/, B),
+      wt: (() => { const w = B.match(/(\d[\d,]*(?:\.\d+)?)\s*(?:KGS?|KILOS?)\b/); return w ? parseFloat(w[1].replace(/,/g, "")) : 0; })(),
+      no: ((B.split("\n").slice(0, 2).join(" ").match(/\b([A-Z]{3}-\d{3,6})\b/) || [])[1]) || "",
+      goods: ((B.match(/(?:NATURE\s*OF\s*GOODS|COMMODITY|GOODS|DESCRIPTION)\s*[:\-]\s*([^\n]+)/) || [])[1] || "").trim(),
+      shipper: gcbParty(body, "SHIPPER", stops),
+      consignee: gcbParty(body, "CONSIGNEE", stops),
+      rm: /ED\s*&\s*VAT|VAT\s+REQ/.test(B) ? "ED & VAT REQUIRED" : ""
+    };
+    if(h.kind === "M") out.master = rec; else out.houses.push(rec);
+  });
+  return out;
+}
+/* JFS packing list (Excel) → houses grouped by the HAWB column */
+async function gcbPlHouses(f){
+  await loadSheetJs();
+  const wb = XLSX.read(await f.arrayBuffer(), {type: "array"});
+  const r = ptParseJfsXlsx(wb);
+  if(!r || !r.rows.length || !r.rows.some(x => x.hawb)) return null;
+  const map = new Map(); let wt = 0, pcs = 0;
+  r.rows.forEach(x => {
+    const plw = /LOOSE|AVERAGE/.test(x.rm || "") && !x.plt ? "L" : "P";
+    const n = plw === "L" ? (x.q || 1) : 1;               // a pallet counts 1 piece; loose boxes count each box
+    const k = x.hawb || "";
+    if(!map.has(k)) map.set(k, {no: k, pcs: 0, wt: 0, ctns: 0});
+    const h = map.get(k); h.pcs += n; h.wt += x.w || 0; h.ctns += x.q || 0; wt += x.w || 0; pcs += n;
+  });
+  // route / AWB / job anywhere in the sheet header
+  const ws = wb.Sheets[wb.SheetNames[0]]; const head = XLSX.utils.sheet_to_csv(ws).split("\n").slice(0, 6).join(" ").toUpperCase();
+  const hdr = Object.assign({}, r.hdr || {});
+  if(!hdr.org){ const rt = head.match(/\b([A-Z]{3})\s*(?:-|TO|>)\s*([A-Z]{3})\b/); if(rt && !/^(DGS|GEN|AWB)$/.test(rt[1])){ hdr.org = rt[1]; hdr.dest = rt[2]; } }
+  if(!hdr.awb){ const a = head.match(/\b(\d{3})[-\s]?(\d{8})\b/); if(a) hdr.awb = a[1] + "-" + a[2]; }
+  return {houses: [...map.values()].map(h => Object.assign(h, {wt: Math.round(h.wt * 100) / 100})), wt: Math.round(wt * 100) / 100, pcs, hdr};
+}
+function gcbMerge(tx, pl){
+  const T = tx ? tx.houses : [], P = pl ? pl.houses.slice() : [], used = new Set(), out = [];
+  const take = fn => { const i = P.findIndex((p, j) => !used.has(j) && fn(p)); if(i >= 0){ used.add(i); return P[i]; } return null; };
+  T.forEach(t => {
+    const p = (t.no && take(p => p.no === t.no)) || (t.plts && t.ctns && take(p => p.pcs === t.plts && p.ctns === t.ctns)) ||
+              (t.plts && take(p => p.pcs === t.plts)) || take(() => true);
+    out.push({no: (t.no || (p && p.no) || "").toUpperCase(), pcs: (p && p.pcs) || t.plts || t.ctns || "", wt: (p && p.wt) || t.wt || "",
+      ctns: t.ctns || (p && p.ctns) || "", goods: (t.goods || "").toUpperCase(), shipper: t.shipper, consignee: t.consignee, rm: t.rm});
+  });
+  P.forEach((p, j) => { if(!used.has(j)) out.push({no: p.no, pcs: p.pcs, wt: p.wt, ctns: p.ctns, goods: "", shipper: "", consignee: ""}); });
+  return out;
+}
+const _gcbRun0 = dcRun;
+dcRun = async function(mode){
+  if(mode !== "gc" || DC.busy) return _gcbRun0.apply(this, arguments);
+  const st = DC.gc, ta = document.getElementById("dc_text_gc");
+  const text = (ta || {}).value || "";
+  const tx = text.trim() ? gcbParseText(text) : null;
+  let pl = null, plIdx = -1;
+  for(let i = 0; i < st.files.length; i++){
+    if(st.kinds[i] === "PL" && /\.(xlsx|xls)$/i.test(st.files[i].name || "")){
+      try{ const r = await gcbPlHouses(st.files[i]); if(r){ pl = r; plIdx = i; break; } }catch(e){}
+    }
+  }
+  const pallets = tx && tx.master ? tx.master.plts : gcbNum(/(\d[\d,]*)\s*(?:PALLETS?|PLTS?)\b/, text.toUpperCase());
+  if(!tx && !pl){
+    await _gcbRun0.apply(this, arguments);
+    if(pallets && !gchOn()){ const e = document.getElementById("gc_pcs"); if(e) e.value = pallets; if(typeof gcSet === "function") gcSet("f_opcount", String(pallets)); }
+    return;
+  }
+  // master fields from the text / packing list
+  const set = (gid, fid, val) => { if(!val) return; const g = document.getElementById(gid); if(g) g.value = val; if(fid && typeof gcSet === "function") gcSet(fid, val); };
+  const H = Object.assign({}, (pl && pl.hdr) || {}, Object.fromEntries(Object.entries(tx || {}).filter(([k, x]) => typeof x === "string" && x)));
+  set("gc_awb", "f_awb", H.awb); set("gc_dep", "f_dep", H.org); set("gc_dest", "f_dest", H.dest);
+  if(tx && tx.master){
+    window._labelSC = true;                                  // master shipper / consignee come from the MAWB block
+    set("gc_shipper", "f_shipper", tx.master.shipper); set("gc_consignee", "f_consignee", tx.master.consignee);
+  }
+  const c = document.getElementById("gc_consol"); if(c && !c.checked) c.checked = true;
+  gchRender();
+  const houses = gcbMerge(tx, pl), made = [];
+  houses.forEach(h => { ["pcs", "wt", "ctns"].forEach(k => h[k] = h[k] === "" || h[k] == null ? "" : String(h[k])); h.dest = (H.dest || gchDest()).toUpperCase(); made.push(gchAdd(h).no); });
+  if(pl && pl.wt){ const w = document.getElementById("gc_wt"); if(w) w.value = pl.wt; }
+  // the text and the packing list are done — the rest (master AWB PDF, other files) goes through the normal AUTO-FILL
+  if(tx && ta) ta.value = "";
+  if(plIdx >= 0){ st.files.splice(plIdx, 1); st.kinds.splice(plIdx, 1); }
+  dcRender(mode);
+  if(st.files.length){
+    const keep = {}; ["gc_shipper", "gc_consignee", "f_shipper", "f_consignee"].forEach(id => keep[id] = v(id));
+    await _gcbRun0.call(this, mode);
+    if(tx && tx.master) Object.entries(keep).forEach(([id, val]) => { if(val){ const e = document.getElementById(id); if(e) e.value = val; } });
+  }
+  gchSyncMaster(); gcSyncFromMain();
+  if(pl && pl.wt){ const w = document.getElementById("gc_wt"); if(w) w.value = pl.wt; }
+  gchRender(); gchSave();
+  const t = gchTotals();
+  const warn = (tx && tx.master && tx.master.plts && tx.master.plts !== t.pcs) ? " • CHECK: MAWB says " + tx.master.plts + " PLT, houses total " + t.pcs : "";
+  dcMsg(mode, "✓ MAWB " + (v("gc_awb") || "") + " • " + made.length + " house(s): " + made.join(", ") + " • " + t.pcs + " PLT / " + (v("gc_wt") || t.wt) + " kg" + warn + " — check each house below.", !!warn);
+};
+/* AWB STYLE automatic: 176 = Emirates → EK style, all other airlines → CALOGI. OTHER only when picked by hand. */
+function aw6AutoStyle(){
+  const sel = document.getElementById("aw_style"); if(!sel || sel.dataset.manual === "1") return;
+  const want = aw6Pfx() === "176" ? "EK" : "CALOGI";
+  if(sel.value === want) return;
+  sel.value = want;
+  const box = document.getElementById("aw6_box"); if(box) box.style.display = want === "EK" ? "none" : "";
+  const h = document.getElementById("aw_title"); if(h) h.innerHTML = "&#128459; MASTER AWB DRAFT &mdash; " + (want === "EK" ? "IATA standard layout (EK style)" : "CALOGI STYLE (IATA 600A laser AWB)");
+}
+const _gcbStyle0 = aw6Style;
+aw6Style = function(){ try{ aw6AutoStyle(); }catch(e){} return _gcbStyle0(); };
+document.addEventListener("change", e => { if(e.target && e.target.id === "aw_style") e.target.dataset.manual = "1"; }, true);   // capture: runs before aw6StyleChange
+const _gcbSnap0 = snapshot;
+snapshot = function(){ const s = _gcbSnap0(); const sel = document.getElementById("aw_style"); s.awStyleManual = !!(sel && sel.dataset.manual === "1"); return s; };
+const _gcbApply0 = applySnapshot;
+applySnapshot = function(s){
+  const sel = document.getElementById("aw_style"); if(sel) sel.dataset.manual = (s && s.awStyleManual) ? "1" : "";
+  return _gcbApply0.apply(this, arguments);
+};
 
 authInit();
 </script>
