@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-D</span></span>
           </div>
         </div>
       </div>
@@ -10739,6 +10739,305 @@ hbRender = (function(r0){
   };
 })(hbRender);
 document.addEventListener("DOMContentLoaded", () => { try{ gccClean(); hbRender(); }catch(e){} });
+
+const EK7_LOGO = "data:image/png;base64,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";
+/* ================= v25.12-D EK STYLE = exact copy of the Emirates AWB (AWBeditor layout) ================= */
+/* Every box is placed in mm on the A4 page, measured from the original EK AWB 176-62853302.
+   Emirates logo on the master. No stamp / signature image — only the typed company name. */
+const EK7_APN = {DXB: "DUBAI", DWC: "AL MAKTOUM", SHJ: "SHARJAH", AUH: "ABU DHABI", SIN: "CHANGI", LHR: "HEATHROW", LGW: "GATWICK",
+  JFK: "JOHN F KENNEDY", ORD: "O'HARE", MIA: "MIAMI", BKK: "SUVARNABHUMI", KUL: "KUALA LUMPUR", CGK: "SOEKARNO-HATTA", CDG: "CHARLES DE GAULLE",
+  FRA: "FRANKFURT", AMS: "SCHIPHOL", HKG: "HONG KONG", BOM: "MUMBAI", DEL: "DELHI", COK: "COCHIN", MAA: "CHENNAI", BLR: "BENGALURU",
+  JED: "JEDDAH", RUH: "RIYADH", DOH: "HAMAD", MNL: "NINOY AQUINO", IST: "ISTANBUL", NBO: "JOMO KENYATTA", JNB: "O.R. TAMBO", SYD: "SYDNEY",
+  MEL: "MELBOURNE", ICN: "INCHEON", NRT: "NARITA", PVG: "PUDONG", CAN: "BAIYUN", LAX: "LOS ANGELES", YYZ: "PEARSON", MXP: "MALPENSA", MAD: "BARAJAS"};
+function ek7Ap(code){
+  const c = (code || "").toUpperCase(); if(!c) return "";
+  const n = EK7_APN[c] || String(airportPlace(c) || "").toUpperCase();
+  return n && n !== c ? c + "/" + n + " INTL" : c;
+}
+function ek7Data(house){
+  const n = _awNums();
+  const master = v("aw_no") || v("f_awb") || "";
+  const dig = master.replace(/\D/g, "");
+  const dep = ((house ? house.org : "") || iata3(v("f_dep")) || "").toUpperCase(), dest = ((house ? house.dest : "") || iata3(v("f_dest")) || "").toUpperCase();
+  const flm = String(v("aw_flight") || "").toUpperCase().trim().match(/^(\S+?)(?:\s*\/\s*|\s+)(.*)$/);
+  const fl = flm ? [flm[1], flm[2].trim()] : [String(v("aw_flight") || "").toUpperCase().trim()];
+  const pp = (v("aw_pc") || "PREPAID") !== "COLLECT";
+  let goods = (house ? house.goods : v("cs_goods") || "").toUpperCase();
+  if(!house && /^CONSOL/.test(goods) && typeof HAWBS !== "undefined" && HAWBS.length){
+    const g = [...new Set(HAWBS.map(h => (h.goods || "").toUpperCase()).filter(Boolean))];
+    if(g.length === 1) goods = g[0];
+  }
+  const hs = (document.getElementById("aw6_hs") || {}).value || "";
+  const natOver = !house && document.getElementById("aw6_nature") ? v("aw6_nature").trim() : "";
+  const nature = natOver || [goods, hs.trim() ? "HS CODE " + hs.trim() : "", (v("aw_dims") || "").toUpperCase()].filter(Boolean).join("\n");
+  const d = new Date(), p2 = x => String(x).padStart(2, "0");
+  const ev = id => ((document.getElementById(id) || {}).value || "").toUpperCase();
+  return {
+    house: !!house, title: house ? "House Air Waybill" : "Air Waybill",
+    pfx: dig.slice(0, 3), ser: dig.slice(3), orgCode: dep,
+    topRight: house ? house.no : (dig ? dig.slice(0, 3) + "-" + dig.slice(3) : master), bottomNo: house ? house.no : (dig ? dig.slice(0, 3) + "-" + dig.slice(3) : master),
+    shipper: house ? house.shipper : v("f_shipper"), consignee: house ? house.consignee : v("f_consignee"),
+    issuer: house ? JFS_AGENT.replace(/\.$/, "") : (CARRIER_HQ[dig.slice(0, 3)] || ((typeof PREFIX_AIRLINES !== "undefined" && PREFIX_AIRLINES[dig.slice(0, 3)]) ? PREFIX_AIRLINES[dig.slice(0, 3)][1] : "")),
+    logo: !house && dig.slice(0, 3) === "176",
+    agent: JFS_AGENT, acc: house ? "" : ev("aw6_acc").replace(/CALOGI POOLED|DCW292-?/g, "").trim(),
+    dep: ek7Ap(dep), destn: ek7Ap(dest), to1: (v("aw_to1") || dest).toUpperCase(), by1: (v("aw_by1") || "").toUpperCase(),
+    to2: ev("aw6_to2"), by2: ev("aw6_by2"), to3: ev("aw6_to3"), by3: ev("aw6_by3"),
+    ref: house ? "" : ev("aw6_ref"), osi: house ? "" : ev("aw6_osi"),
+    flight: fl[0] || "", fdate: fl[1] || "",
+    pp, cur: "", dvc: ev("aw6_dvc") || "NVD", dvcu: ev("aw6_dvcu") || "NCV", ins: ev("aw6_ins") || "XXX",
+    handl: (v("aw_handl") || "").toUpperCase(), sci: ev("aw6_sci"),
+    pcs: String((house ? house.pcs : n.pcs) || ""), gross: String((house ? house.wt : n.gross) || ""),
+    chwt: String((house ? house.wt : (v("aw_chwt") || n.gross)) || ""), rate: house ? "" : v("aw_rate"),
+    nature, exec: d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()), place: "DUBAI",
+    copy: house ? "Original 3 (for Shipper)" : "Original 1 (for Issuing Carrier)",
+    draft: document.getElementById("aw_draft") ? document.getElementById("aw_draft").checked : false
+  };
+}
+function ek7Layout(o){
+  const E = x => esc(String(x == null ? "" : x));
+  const X0 = 16.6, Y0 = 10.6;                                    // frame origin on the page (mm)
+  const box = (x, y, w, h, extra) => `<div style="position:absolute; left:${(X0 + x).toFixed(2)}mm; top:${(Y0 + y).toFixed(2)}mm; width:${w.toFixed(2)}mm; height:${h.toFixed(2)}mm; ${extra || ""}"></div>`;
+  const txt = (x, y, w, html, st) => `<div style="position:absolute; left:${(X0 + x).toFixed(2)}mm; top:${(Y0 + y).toFixed(2)}mm; width:${w.toFixed(2)}mm; ${st || ""}">${html}</div>`;
+  const L = "border:0.75pt solid #000;";
+  const hl = (x, y, w) => box(x, y, w, 0, "border-top:0.75pt solid #000;");
+  const vl = (x, y, h) => box(x, y, 0, h, "border-left:0.75pt solid #000;");
+  const lab = "font-family:Arial, Helvetica, sans-serif; font-size:6.3pt; line-height:1.12;";
+  const V = "font-family:'Courier New', Courier, monospace; font-size:10pt; line-height:3.3mm; white-space:pre-line; ";
+  const Vs = V + " font-size:7.9pt; line-height:2.87mm;";
+  /* trapezoid tab:  \___label___/  */
+  const tab = (x, y, w, h, label, st) => `<div style="position:absolute; left:${(X0 + x).toFixed(2)}mm; top:${(Y0 + y).toFixed(2)}mm; width:${w.toFixed(2)}mm; height:${h.toFixed(2)}mm;">
+      <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible;"><polyline points="0,0 ${(h * 0.9).toFixed(2)},${h} ${(w - h * 0.9).toFixed(2)},${h} ${w},0" fill="#fff" stroke="#000" stroke-width="0.26"/></svg>
+      <div style="position:relative; text-align:center; ${lab} ${st || ""} padding-top:0.2mm;">${label}</div></div>`;
+  const agree = "It is agreed that the goods described herein are accepted in apparent good order and condition (except as noted) for carriage SUBJECT TO THE CONDITIONS OF CONTRACT ON THE REVERSE HEREOF. ALL GOODS MAY BE CARRIED BY ANY OTHER MEANS INCLUDING ROAD OR ANY OTHER CARRIER UNLESS SPECIFIC CONTRARY INSTRUCTIONS ARE GIVEN HEREON BY THE SHIPPER, AND SHIPPER AGREES THAT THE SHIPMENT MAY BE CARRIED VIA INTERMEDIATE STOPPING PLACES WHICH THE CARRIER DEEMS APPROPRIATE. THE SHIPPER'S ATTENTION IS DRAWN TO THE NOTICE CONCERNING CARRIER'S LIMITATION OF LIABILITY. Shipper may increase such limitation of liability by declaring a higher value for carriage and paying a supplemental charge if required.";
+  const grey = x => box(x, 120.7, 2.85, 69.1, "background:#a6a6a6; border-left:0.75pt solid #000; border-right:0.75pt solid #000;");
+  const W = 188;
+  let h = "";
+  /* ---- header number + vertical barcode ---- */
+  h += `<div style="position:absolute; left:${X0 + 1.2}mm; top:5.2mm; font-family:'Courier New',monospace; font-weight:bold; font-size:12.5pt; letter-spacing:0.6pt; white-space:nowrap;">
+      <span style="padding-right:1.5mm; border-right:0.75pt solid #000;">${E(o.pfx)}</span><span style="padding:0 1.5mm; border-right:0.75pt solid #000;">${E(o.orgCode)}</span><span style="padding-left:1.5mm;">${E(o.ser)}</span></div>`;
+  h += `<div style="position:absolute; right:5.6mm; top:5.2mm; font-family:'Courier New',monospace; font-weight:bold; font-size:12.5pt; letter-spacing:0.6pt;">${E(o.topRight)}</div>`;
+  if(o.pfx && o.ser) h += `<div style="position:absolute; left:1mm; top:34.8mm; width:68.6mm; height:8.6mm; transform-origin:0 0; transform:translateX(8.6mm) rotate(90deg);">
+      <svg class="ek7bc" data-v="${E(o.pfx + o.ser)}" style="display:block; width:68.6mm; height:8.6mm;"></svg></div>`;
+  /* ---- outer frame + main grid ---- */
+  h += box(0, 0, W, 257, "border:0.75pt solid #000; border-bottom:0;");
+  h += vl(91.9, 0, 103.7);                                      // left / right split (top part)
+  // shipper
+  h += txt(1, 0.4, 50, "Shipper's Name and Address", lab);
+  h += box(45.7, 0, 46.2, 8.7, L + " border-top:0; border-right:0;");
+  h += txt(45.7, 0.4, 46.2, "Shipper's Account Number", lab + " text-align:center;");
+  h += txt(1.3, 9.6, 89, E(o.shipper), V + " max-height:15.4mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
+  h += hl(0, 25.2, 91.9);
+  // consignee
+  h += txt(1, 25.6, 50, "Consignee's Name and Address", lab);
+  h += box(45.7, 25.2, 46.2, 9.4, L + " border-right:0;");
+  h += txt(45.7, 25.6, 46.2, "Consignee's Account Number", lab + " text-align:center;");
+  h += txt(1.3, 31.3, 89, E(o.consignee), Vs + " max-height:20.3mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
+  h += hl(0, 51.7, W);
+  // right top: Not negotiable / Air Waybill / issued by / logo
+  h += txt(93.3, 0.4, 40, "Not Negotiable", lab);
+  h += txt(93.3, 3.3, 60, E(o.title), "font-family:Arial, Helvetica, sans-serif; font-weight:bold; font-size:13.5pt;");
+  if(o.logo) h += `<img src="${EK7_LOGO}" style="position:absolute; left:${(X0 + 144.9).toFixed(2)}mm; top:${(Y0 + 1).toFixed(2)}mm; width:14.6mm; height:10mm; object-fit:contain;">`;
+  h += txt(93.3, 14.1, 12, "Issued by", lab);
+  h += txt(104.6, 12.0, 82, E(o.issuer), V + " font-size:6.9pt; line-height:2.36mm;");
+  h += hl(91.9, 21.8, W - 91.9);
+  h += txt(93.3, 22.2, 93, "Copies 1, 2 and 3 of this Air Waybill are originals and have the same validity.", lab);
+  h += hl(91.9, 25.2, W - 91.9);
+  h += txt(93.3, 26, 93.5, agree, lab + " font-size:6.2pt; line-height:1.16; text-align:justify;");
+  // agent
+  h += txt(1, 52.1, 80, "Issuing Carrier's Agent Name and City", lab);
+  h += txt(1.3, 57.0, 89, E(o.agent), V + " line-height:3.37mm; max-height:13.6mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
+  h += hl(0, 69.4, 91.9);
+  h += txt(1, 69.8, 40, "Agent's IATA Code", lab);
+  h += vl(45.7, 69.4, 7.7);
+  h += txt(47, 69.8, 40, "Account No.", lab);
+  h += txt(93.3, 52.1, 80, "Accounting Information", lab);
+  h += txt(93.3, 55.6, 92, E(o.acc), V + " font-size:9pt;");
+  h += hl(0, 77.1, W);
+  // departure + reference
+  h += txt(1, 77.5, 90, "Airport of Departure (Addr. of First Carrier) and Requested Routing", lab);
+  h += txt(1.3, 81.6, 89, E(o.dep), V);
+  h += tab(99.6, 77.1, 26.6, 3.4, "Reference Number");
+  h += tab(126.2, 77.1, 37, 3.4, "Optional Shipping Information");
+  h += txt(93.3, 81.4, 30, E(o.ref), V + " font-size:9pt;");
+  h += txt(126.2, 81.4, 37, E(o.osi), V + " font-size:9pt; text-align:center;");
+  h += hl(0, 85.8, W);
+  // routing row
+  h += vl(10.4, 85.8, 9.9); h += vl(53.4, 85.8, 9.9); h += vl(63.6, 85.8, 9.9); h += vl(70.6, 85.8, 9.9); h += vl(80.9, 85.8, 9.9);
+  h += txt(1, 86.2, 9, "To", lab); h += txt(11.2, 86.2, 22, "By First Carrier", lab);
+  h += tab(26.5, 85.8, 26, 3.3, "Routing and Destination");
+  h += txt(53.9, 86.2, 9, "to", lab); h += txt(64.1, 86.2, 6, "by", lab); h += txt(71.1, 86.2, 9, "to", lab); h += txt(81.4, 86.2, 9, "by", lab);
+  h += txt(1.3, 90.6, 9, E(o.to1), V); h += txt(11.2, 90.6, 42, E(o.by1), V);
+  h += txt(53.9, 90.6, 9.5, E(o.to2), V); h += txt(64.1, 90.6, 6.5, E(o.by2), V); h += txt(71.1, 90.6, 9.5, E(o.to3), V); h += txt(81.4, 90.6, 10.5, E(o.by3), V);
+  // currency block (right)
+  const cx = [91.9, 101.6, 105.8, 116.2, 127.1, 157.8, 188];
+  cx.slice(1, 6).forEach(x => { h += vl(x, 85.8, 9.9); });
+  h += txt(92.5, 86.2, 9, "Currency", lab);
+  h += txt(101.7, 85.9, 4, "CHGS<br>Code", lab + " font-size:4.6pt; text-align:center;");
+  h += txt(105.8, 85.9, 10.4, "<b>WT/VAL</b>", lab + " font-size:6pt; text-align:center;");
+  h += txt(116.2, 85.9, 10.9, "<b>Other</b>", lab + " font-size:6pt; text-align:center;");
+  h += hl(105.8, 88.3, 21.3);
+  h += vl(111, 88.3, 2.6); h += vl(121.65, 88.3, 2.6);
+  h += txt(105.8, 88.4, 5.2, "PPD", lab + " font-size:4.6pt; text-align:center;"); h += txt(111, 88.4, 5.2, "COLL", lab + " font-size:4.6pt; text-align:center;");
+  h += txt(116.2, 88.4, 5.45, "PPD", lab + " font-size:4.6pt; text-align:center;"); h += txt(121.65, 88.4, 5.45, "COLL", lab + " font-size:4.6pt; text-align:center;");
+  h += txt(127.1, 86.2, 30.7, "Declared Value for Carriage", lab + " text-align:center;");
+  h += txt(157.8, 86.2, 30.2, "Declared Value for Customs", lab + " text-align:center;");
+  h += txt(92.5, 90.9, 9, E(o.cur), V);
+  h += txt(105.8, 90.9, 5.2, o.pp ? "X" : "", V + " text-align:center;"); h += txt(111, 90.9, 5.2, o.pp ? "" : "X", V + " text-align:center;");
+  h += txt(116.2, 90.9, 5.45, o.pp ? "X" : "", V + " text-align:center;"); h += txt(121.65, 90.9, 5.45, o.pp ? "" : "X", V + " text-align:center;");
+  h += txt(127.1, 90.9, 30.7, E(o.dvc), V + " text-align:center;"); h += txt(157.8, 90.9, 30.2, E(o.dvcu), V + " text-align:center;");
+  h += hl(0, 95.7, W);
+  // destination row
+  h += box(6.5, 95.7, 39.2, 8, "border:1.6pt solid #000; border-top:0;");
+  h += txt(6.5, 95.9, 39.2, "Airport of Destination", lab + " text-align:center;");
+  h += txt(1.3, 99.6, 50, E(o.destn), V);
+  h += tab(58, 95.7, 27.6, 3.3, "Requested Flight/Date");
+  h += txt(50.3, 99.6, 20, E(o.flight), V); h += txt(71.5, 99.6, 20, E(o.fdate), V);
+  h += vl(119.7, 95.7, 8);
+  h += txt(93.3, 96.1, 26, "Amount of Insurance", lab + " text-align:center;");
+  h += txt(93.3, 99.8, 26, E(o.ins), V + " text-align:center;");
+  h += txt(120.5, 96.1, 67, "INSURANCE - If carrier offers insurance, and such insurance is requested in accordance with the conditions thereof, indicate amount to be insured in figures in box marked \"Amount of Insurance\".", lab + " font-size:6.1pt; text-align:justify;");
+  h += hl(0, 103.7, W);
+  // handling
+  h += txt(1, 104.1, 60, "Handling Information", lab);
+  h += txt(1.3, 107.6, 152, E(o.handl), V + " line-height:3.5mm; max-height:12.6mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
+  h += box(157.1, 112.2, 30.9, 8.5, "border-left:0.75pt solid #000; border-top:0.75pt solid #000;");
+  h += txt(157.1, 112.5, 30.9, "SCI", lab + " text-align:center;");
+  h += txt(157.1, 115.4, 30.9, E(o.sci), V + " font-size:8.6pt; text-align:center;");
+  h += hl(0, 120.7, W);
+  /* ---- rate table ---- */
+  [10.4, 28.0, 30.3, 53.4, 56.25, 73.5, 76.35, 96.6, 99.45, 129.6, 132.45].forEach(x => { h += vl(x, 120.7, 69.1); });
+  [30.3, 53.4, 73.5, 96.6, 129.6].forEach(x => { h += grey(x); });
+  h += vl(28.0, 120.7, 69.1);
+  h += hl(0, 129.8, W);
+  h += txt(0, 121, 10.4, "No. of<br>Pieces<br>RCP", lab + " text-align:center;");
+  h += txt(10.4, 122.2, 17.6, "Gross<br>Weight", lab + " text-align:center;");
+  h += txt(28, 121.1, 2.3, "kg<br><br>lb", lab + " font-size:4.6pt; text-align:center;");
+  h += hl(28, 123.6, 2.3);
+  h += txt(33.15, 121, 20.25, "Rate Class", lab + " padding-left:1.4mm;");
+  h += box(40.6, 123.9, 12.8, 5.9, "border-left:0.75pt solid #000; border-top:0.75pt solid #000;");
+  h += txt(40.6, 124.6, 12.8, "Commodity<br>Item No.", lab + " font-size:5.6pt; text-align:center;");
+  h += txt(56.25, 122.2, 17.25, "Chargeable<br>Weight", lab + " text-align:center;");
+  h += `<svg style="position:absolute; left:${(X0 + 76.35 + 3.5).toFixed(2)}mm; top:${(Y0 + 121.6).toFixed(2)}mm; width:14mm; height:5.8mm; overflow:visible;" viewBox="0 0 14 5.8" preserveAspectRatio="none"><line x1="0" y1="5.8" x2="14" y2="0" stroke="#000" stroke-width="0.26"/></svg>`;
+  h += txt(77.6, 121.1, 10, "Rate", lab); h += txt(86, 125.6, 10.4, "Charge", lab);
+  h += txt(99.45, 123.4, 30.15, "Total", lab + " text-align:center;");
+  h += txt(132.45, 122.2, 55.5, "Nature and Quantity of Goods<br>(incl. Dimensions or Volume)", lab + " text-align:center;");
+  // body
+  const B1 = 131.2;
+  h += txt(0, B1, 10.4, E(o.pcs), V + " text-align:center;");
+  h += txt(10.4, B1, 16.4, E(o.gross), V + " text-align:right;");
+  h += txt(28, B1, 2.3, o.gross ? "K" : "", V + " text-align:center;");
+  h += txt(33.15, B1, 6, o.gross ? "K" : "", V + " padding-left:0.4mm;");
+  h += txt(56.25, B1, 16.6, E(o.chwt), V + " text-align:right;");
+  h += txt(76.35, B1, 19.8, E(o.rate), V + " text-align:right;");
+  const tot = (parseFloat(o.chwt) && parseFloat(o.rate)) ? (parseFloat(o.chwt) * parseFloat(o.rate)).toFixed(2) : "";
+  h += txt(99.45, B1, 29.6, E(tot), V + " text-align:right;");
+  h += txt(133.6, B1, 54, E(o.nature), V + " max-height:52mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
+  h += txt(0, 182.1, 10.4, E(o.pcs), V + " text-align:center;");
+  h += txt(10.4, 182.1, 16.4, E(o.gross), V + " text-align:right;");
+  h += txt(28, 182.1, 2.3, o.gross ? "K" : "", V + " text-align:center;");
+  h += txt(99.45, 182.1, 29.6, E(tot), V + " text-align:right;");
+  h += hl(0, 189.8, W);
+  /* ---- charges (left) ---- */
+  const rows = [198.3, 207.0, 215.7, 224.4, 233.1, 241.5, 250.2, 259.0];
+  h += vl(71.1, 189.8, 77.8);
+  rows.forEach(y => { h += hl(0, y, 71.1); });
+  h += box(0, 233.1, 71.1, 8.4, "background:#a6a6a6;");
+  [[189.8, 198.3], [207.0, 215.7], [215.7, 224.4], [224.4, 233.1], [241.5, 250.2], [250.2, 259.0], [198.3, 207.0]].forEach(([a, b]) => { h += vl(35.5, a, b - a); });
+  h += vl(35.5, 233.1, 8.4); h += vl(35.5, 259.0, 8.6);
+  h += tab(7.4, 189.8, 13.5, 3.2, "Prepaid"); h += tab(26.6, 189.8, 17.8, 3.2, "Weight Charge"); h += tab(50.6, 189.8, 13, 3.2, "Collect");
+  h += tab(20.5, 198.3, 30, 3.2, "Valuation Charge");
+  h += tab(28.1, 207.0, 15, 3.2, "Tax");
+  h += tab(9.5, 215.7, 52, 3.2, "Total Other Charges Due Agent");
+  h += tab(9.5, 224.4, 52, 3.2, "Total Other Charges Due Carrier");
+  h += tab(5.2, 241.5, 25, 3.2, "Total Prepaid"); h += tab(40.7, 241.5, 25, 3.2, "Total Collect");
+  h += tab(0.3, 250.2, 34.9, 3.2, "Currency Conversion Rates"); h += tab(35.8, 250.2, 35, 3.2, "CC Charges in Dest. Currency");
+  h += txt(0, 260.3, 35.5, "For Carrier's Use only<br>at Destination", lab + " font-size:6.6pt; text-align:center;");
+  h += tab(36, 259.0, 34.6, 3.2, "Charges at Destination");
+  h += txt(1, 193.2, 34, o.pp ? E(tot) : "", V + " text-align:center;"); h += txt(36.5, 193.2, 34, o.pp ? "" : E(tot), V + " text-align:center;");
+  h += txt(1, 245.0, 34, o.pp ? E(tot) : "", V + " text-align:center;"); h += txt(36.5, 245.0, 34, o.pp ? "" : E(tot), V + " text-align:center;");
+  /* ---- other charges / certification / execution (right) ---- */
+  h += txt(72.4, 190.2, 50, "Other Charges", lab);
+  h += hl(71.1, 215.7, W - 71.1);
+  h += txt(72.4, 217.4, 115, "Shipper certifies that the particulars on the face hereof are correct and that <b>insofar as any part of the consignment contains dangerous goods, such part is properly described by name and is in proper condition for carriage by air according to the applicable Dangerous Goods Regulations.</b>", lab + " font-size:6.4pt; line-height:1.2;");
+  h += txt(80, 233.6, 100, "JFS LOGISTICS FZCO", V + " text-align:center;");
+  h += box(72.4, 237.4, 114.6, 0, "border-top:0.75pt dashed #000;");
+  h += txt(72.4, 237.8, 114.6, "Signature of Shipper or his Agent", lab + " font-size:6.6pt; text-align:center;");
+  h += hl(71.1, 241.5, W - 71.1);
+  h += txt(72.6, 250.7, 40, E(o.exec), V);
+  h += txt(108, 250.7, 30, E(o.place), V + " text-align:center;");
+  h += txt(136, 250.7, 51, "JFS LOGISTICS FZCO", V + " text-align:right;");
+  h += box(72.4, 254.9, 114.6, 0, "border-top:0.75pt dashed #000;");
+  h += txt(72.6, 255.3, 40, "Executed on (date)", lab + " font-size:6.6pt;");
+  h += txt(108, 255.3, 30, "at (place)", lab + " font-size:6.6pt; text-align:center;");
+  h += txt(130, 255.3, 57, "Signature of Issuing Carrier or its Agent", lab + " font-size:6.6pt; text-align:right;");
+  h += hl(71.1, 259.0, 35.9);
+  h += tab(78.4, 259.0, 24.6, 3.2, "Total Collect Charges");
+  h += vl(107, 259.0, 8.6); h += hl(0, 267.6, 107);
+  h += box(0, 257, 0, 10.6, "border-left:0.75pt solid #000;");
+  h += box(W, 189.8, 0, 69.2, "border-left:0.75pt solid #000;");
+  h += txt(140, 261.5, 47, E(o.bottomNo), "font-family:'Courier New',monospace; font-weight:bold; font-size:12.5pt; letter-spacing:0.6pt; text-align:right;");
+  h += txt(40, 270.5, 120, E(o.copy), "font-family:'Courier New',monospace; font-weight:bold; font-size:10.5pt; text-align:center;");
+  const draft = o.draft ? `<div style="position:absolute; top:118mm; left:38mm; font-size:62pt; color:rgba(200,0,0,.12); font-weight:900; transform:rotate(-25deg); letter-spacing:9px; z-index:5;">DRAFT</div>` : "";
+  const page1 = `<div class="sheet ek7" style="width:210mm; height:296mm; min-height:296mm; padding:0; position:relative; overflow:hidden; color:#000; background:#fff; page-break-after:always; box-sizing:border-box;">${draft}${h}</div>`;
+  const page2 = `<div class="sheet" style="min-height:285mm; padding:10mm 10mm 8mm; font-family:Arial, Helvetica, sans-serif; color:#000; page-break-after:always;">
+    <div style="text-align:center; font-weight:bold; font-size:11pt; margin-top:3mm;">NOTICE CONCERNING CARRIER'S LIMITATION OF LIABILITY</div>
+    <div style="font-size:7pt; line-height:1.3; margin-top:2mm;">${E(AW6_COND.notice)}</div>
+    <div style="text-align:center; font-weight:bold; font-size:11pt; margin:6mm 0 3mm;">CONDITIONS OF CONTRACT</div>
+    <div style="display:flex; gap:6mm; font-size:6.6pt; line-height:1.28;">
+      <div style="width:50%; white-space:pre-line;">${E(AW6_COND.left)}</div>
+      <div style="width:50%; white-space:pre-line;">${E(AW6_COND.right)}</div></div>
+  </div>`;
+  return page1 + page2;
+}
+async function ek7Barcodes(root){
+  const els = [...(root || document).querySelectorAll("svg.ek7bc")]; if(!els.length) return;
+  try{ await loadJsBarcode(); }catch(e){ return; }
+  els.forEach(s => {
+    const val = s.getAttribute("data-v"); if(!val || val.length < 4) return;
+    try{
+      JsBarcode(s, val, {format: "CODE128", height: 40, width: 2, displayValue: false, margin: 0});
+      const w = s.getAttribute("width"), hh = s.getAttribute("height");
+      if(w && hh && !s.getAttribute("viewBox")) s.setAttribute("viewBox", "0 0 " + parseFloat(w) + " " + parseFloat(hh));
+      s.setAttribute("preserveAspectRatio", "none"); s.removeAttribute("width"); s.removeAttribute("height");
+    }catch(e){}
+  });
+}
+/* EK STYLE now prints the Emirates layout (master + houses); CALOGI / OTHER unchanged */
+mawbRender = (function(r0){
+  return function(){
+    if(aw6Style() !== "EK") return r0.apply(this, arguments);
+    const out = document.getElementById("aw_doc"); if(!out) return;
+    try{ gccClean(); }catch(e){}
+    out.innerHTML = ek7Layout(ek7Data(null));
+    ek7Barcodes(out);
+  };
+})(mawbRender);
+hbPrint = (function(r0){
+  return function(i){
+    if(aw6Style() !== "EK") return r0.apply(this, arguments);
+    const x = HAWBS[i]; if(!x) return;
+    const out = document.getElementById("hb_doc"); if(!out) return;
+    try{ gccClean(); }catch(e){}
+    out.innerHTML = ek7Layout(ek7Data(x));
+    ek7Barcodes(out).then(() => printAlt("hb_doc"));
+  };
+})(hbPrint);
+aw6PrintMaster = function(){
+  mawbRender();
+  const out = document.getElementById("aw_doc");
+  Promise.all([aw6Barcodes(out), ek7Barcodes(out)]).then(() => printAlt("aw_doc"));
+};
+/* the 600A detail box (HS code, nature, insurance ...) is used by the EK layout too */
+aw6StyleChange = (function(r0){
+  return function(){
+    const r = r0.apply(this, arguments);
+    const box = document.getElementById("aw6_box"); if(box) box.style.display = "";
+    const h = document.getElementById("aw_title"); if(h && aw6Style() === "EK") h.innerHTML = "&#128459; MASTER AWB DRAFT &mdash; EK STYLE (Emirates AWB layout)";
+    return r;
+  };
+})(aw6StyleChange);
+document.addEventListener("DOMContentLoaded", () => { try{ const b = document.getElementById("aw6_box"); if(b) b.style.display = ""; }catch(e){} });
+aw6AutoStyle = (function(r0){ return function(){ const r = r0.apply(this, arguments); const b = document.getElementById("aw6_box"); if(b) b.style.display = ""; return r; }; })(aw6AutoStyle);
 
 authInit();
 </script>
