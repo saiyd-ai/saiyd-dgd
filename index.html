@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-G</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-H</span></span>
           </div>
         </div>
       </div>
@@ -10186,9 +10186,9 @@ function aw6Data(house){
     destn: house ? (dest ? airportPlace(dest) + " International" : "") : v("aw6_destn"),
     to1: (v("aw_to1") || dest).toUpperCase(), by1: (v("aw_by1") || "").toUpperCase(),
     to2: v("aw6_to2").toUpperCase(), by2: v("aw6_by2").toUpperCase(), to3: v("aw6_to3").toUpperCase(), by3: v("aw6_by3").toUpperCase(),
-    fl1: (v("aw6_fl1") || v("aw_flight") || "").toUpperCase(), fl2: v("aw6_fl2").toUpperCase(),
+    fl1: (v("aw6_fl1") || awFlight(house)).toUpperCase(), fl2: v("aw6_fl2").toUpperCase(),
     cur: v("aw6_cur") || "AED", pc, dvc: v("aw6_dvc") || "NVD", dvcu: v("aw6_dvcu") || "NCV", ins: v("aw6_ins"),
-    handl: awHandl(), sci: v("aw6_sci").toUpperCase(),
+    handl: awHandl(house), sci: v("aw6_sci").toUpperCase(),
     pcs, gross, rcls: v("aw6_rcls") || "Q", chwt, rate, wc,
     note: house ? "" : v("aw6_note").toUpperCase(),
     nature: aw6Nature(house), vol: aw6Vol(house),
@@ -10757,18 +10757,31 @@ function ek7Ap(code){
   return n && n !== c ? c + "/" + n + " INTL" : c;
 }
 /* handling information: houses always print the SAME text as the master */
-function awHandl(){
+/* the master's handling text + flight are remembered per MAWB, so every house prints the SAME values */
+function awMemKey(){ return "jfs_awmaster_" + String(v("aw_no") || v("f_awb") || "").replace(/\D/g, ""); }
+function awMemGet(){ try{ return JSON.parse(localStorage.getItem(awMemKey()) || "{}"); }catch(e){ return {}; } }
+function awMemSet(o){ if(awMemKey() === "jfs_awmaster_") return; try{ localStorage.setItem(awMemKey(), JSON.stringify(Object.assign(awMemGet(), o))); }catch(e){} }
+function awHandl(house){
   let t = (v("aw_handl") || "").trim();
   if(!t){ const k = (document.getElementById("aw_shc") || {}).value; if(k && AWB_SHC[k]) t = AWB_SHC[k]; }
+  if(!t) t = (house && house.handl) || awMemGet().handl || "";
+  if(t && !house){ awMemSet({handl: t}); if(typeof HAWBS !== "undefined") HAWBS.forEach(h => { h.handl = t; }); }
   return t.toUpperCase();
+}
+function awFlight(house){
+  let f = String(v("aw_flight") || "").trim();
+  if(!f) f = (house && house.flight) || awMemGet().flight || "";
+  if(f && !house){ awMemSet({flight: f}); if(typeof HAWBS !== "undefined") HAWBS.forEach(h => { h.flight = f; }); }
+  return f.toUpperCase();
 }
 function ek7Data(house){
   const n = _awNums();
   const master = v("aw_no") || v("f_awb") || "";
   const dig = master.replace(/\D/g, "");
   const dep = ((house ? house.org : "") || iata3(v("f_dep")) || "").toUpperCase(), dest = ((house ? house.dest : "") || iata3(v("f_dest")) || "").toUpperCase();
-  const flm = String(v("aw_flight") || "").toUpperCase().trim().match(/^(\S+?)(?:\s*\/\s*|\s+)(.*)$/);
-  const fl = flm ? [flm[1], flm[2].trim()] : [String(v("aw_flight") || "").toUpperCase().trim()];
+  const flAll = awFlight(house);
+  const flm = flAll.match(/^(\S+?)(?:\s*\/\s*|\s+)(.*)$/);
+  const fl = flm ? [flm[1], flm[2].trim()] : [flAll];
   const pp = (v("aw_pc") || "PREPAID") !== "COLLECT";
   let goods = (house ? house.goods : v("cs_goods") || "").toUpperCase();
 
@@ -10791,7 +10804,7 @@ function ek7Data(house){
     ref: house ? "" : ev("aw6_ref"), osi: house ? "" : ev("aw6_osi"),
     flight: fl[0] || "", fdate: fl[1] || "",
     pp, cur: "", dvc: ev("aw6_dvc") || "NVD", dvcu: ev("aw6_dvcu") || "NCV", ins: ev("aw6_ins") || "XXX",
-    handl: awHandl(), sci: ev("aw6_sci"),
+    handl: awHandl(house), sci: ev("aw6_sci"),
     pcs: String((house ? house.pcs : n.pcs) || ""), gross: String((house ? house.wt : n.gross) || ""),
     chwt: String((house ? house.wt : (v("aw_chwt") || n.gross)) || ""), rate: house ? "" : v("aw_rate"),
     nature, exec: d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()), place: "DUBAI",
@@ -10822,7 +10835,7 @@ function ek7Layout(o){
   h += `<div style="position:absolute; left:${X0 + 1.2}mm; top:5.2mm; font-family:'Courier New',monospace; font-weight:bold; font-size:12.5pt; letter-spacing:0.6pt; white-space:nowrap;">
       <span style="padding-right:1.5mm; border-right:0.75pt solid #000;">${E(o.pfx)}</span><span style="padding:0 1.5mm; border-right:0.75pt solid #000;">${E(o.orgCode)}</span><span style="padding-left:1.5mm;">${E(o.ser)}</span></div>`;
   h += `<div style="position:absolute; right:5.6mm; top:5.2mm; font-family:'Courier New',monospace; font-weight:bold; font-size:12.5pt; letter-spacing:0.6pt;">${E(o.topRight)}</div>`;
-  if(o.pfx && o.ser && !o.house) h += `<div style="position:absolute; left:1mm; top:34.8mm; width:68.6mm; height:8.6mm; transform-origin:0 0; transform:translateX(8.6mm) rotate(90deg);">
+  if(false) h += `<div style="position:absolute; left:1mm; top:34.8mm; width:68.6mm; height:8.6mm; transform-origin:0 0; transform:translateX(8.6mm) rotate(90deg);">
       <svg class="ek7bc" data-v="${E(o.pfx + o.ser)}" style="display:block; width:68.6mm; height:8.6mm;"></svg></div>`;
   /* ---- outer frame + main grid ---- */
   h += box(0, 0, W, 257, "border:0.75pt solid #000; border-bottom:0;");
