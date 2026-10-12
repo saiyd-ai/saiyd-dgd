@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-H</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-I</span></span>
           </div>
         </div>
       </div>
@@ -11130,6 +11130,175 @@ hbRender = (function(r0){
   };
 })(hbRender);
 document.addEventListener("DOMContentLoaded", () => { try{ hbRender(); }catch(e){} });
+
+/* ================= v25.12-I SHC multi-select · step bar (BACK) · SEND TO DGD PREPARE ================= */
+/* 1) HANDLING: tick one or more shipment types (RMD + ELI + GCR ...). Codes found in the pasted text / documents tick themselves. */
+const SHC_CODES = ["RMD", "ELM", "ELI", "VEH", "MAG", "GCR"];
+function shcStatement(codes){
+  codes = SHC_CODES.filter(c => codes.includes(c) && AWB_SHC[c]);
+  if(!codes.length) return "";
+  if(codes.length === 1) return AWB_SHC[codes[0]];
+  const pre = [], body = [], seen = new Set();
+  codes.forEach(c => {
+    let s = AWB_SHC[c];
+    const m = s.match(/^((?:SHC-)?(?:[A-Z]{2,4}\/+)+)(?=[A-Z])/);
+    if(m && !/^(GCAA|DANGEROUS|ALL)\b/.test(s)){ m[1].replace(/^SHC-/, "").split("/").filter(Boolean).forEach(t => { if(!pre.includes(t)) pre.push(t); }); s = s.slice(m[1].length); }
+    else if(!pre.includes(c)) pre.push(c);
+    s.replace(/\s+(GCAA-)/g, ". $1").split(/\.\s+|\.$/).map(x => x.trim()).filter(Boolean).forEach(x => {
+      const k = x.replace(/CERT\s*NO/g, "CERT").replace(/[^A-Z0-9]/g, "");
+      if(!seen.has(k)){ seen.add(k); body.push(x.replace(/\.$/, "")); }
+    });
+  });
+  return "SHC-" + pre.join("/") + "/" + body.join(". ") + ".";
+}
+function shcGet(){ return [...document.querySelectorAll("#aw_shc_multi input:checked")].map(i => i.value); }
+function shcSet(codes, write){
+  document.querySelectorAll("#aw_shc_multi input").forEach(i => { i.checked = codes.includes(i.value); i.parentElement.style.background = i.checked ? "#12224d" : "#fff"; i.parentElement.style.color = i.checked ? "#fff" : "#12224d"; });
+  const sel = document.getElementById("aw_shc"); if(sel) sel.value = codes.length === 1 ? codes[0] : "";
+  if(write){ const h = document.getElementById("aw_handl"); if(h) h.value = shcStatement(codes); }
+}
+function shcChange(){
+  shcSet(shcGet(), true);
+  try{ awMemSet({handl: v("aw_handl")}); }catch(e){}
+  mawbRender();
+  if(typeof autosaveCurrent === "function") autosaveCurrent();
+}
+function shcDetect(text){
+  const U = String(text || "").toUpperCase(), out = [];
+  SHC_CODES.forEach(c => { if(new RegExp("(^|[^A-Z])" + c + "([^A-Z]|$)").test(U)) out.push(c); });
+  return out;
+}
+function shcAuto(text){
+  const found = shcDetect(text); if(!found.length) return [];
+  const codes = [...new Set(shcGet().concat(found))];
+  shcSet(codes, true);
+  try{ awMemSet({handl: v("aw_handl")}); }catch(e){}
+  try{ mawbRender(); }catch(e){}
+  return found;
+}
+function shcInit(){
+  const sel = document.getElementById("aw_shc"); if(!sel || document.getElementById("aw_shc_multi")) return;
+  sel.style.display = "none";
+  const box = document.createElement("div"); box.id = "aw_shc_multi";
+  box.setAttribute("style", "display:flex; gap:5px; flex-wrap:wrap; margin-bottom:5px; width:100%;");
+  box.innerHTML = SHC_CODES.map(c => `<label title="${esc(AWB_SHC[c] || "")}" style="display:inline-flex; align-items:center; gap:4px; margin:0; padding:5px 10px; border:1.5px solid #12224d; border-radius:16px; font-size:12.5px; font-weight:bold; cursor:pointer; background:#fff; color:#12224d; text-transform:none;"><input type="checkbox" value="${c}" onchange="shcChange()" style="width:auto; margin:0;">${c}</label>`).join("");
+  const wrap = sel.parentElement; wrap.style.flexWrap = "wrap";
+  wrap.insertBefore(box, sel);
+  const h = document.getElementById("aw_handl"); if(h){ h.style.flex = "1 1 100%"; h.style.width = "100%"; }
+  wrap.parentElement.style.gridColumn = "span 2";
+  const lab = wrap.parentElement.querySelector("label span"); if(lab) lab.textContent = "(tick one or more shipment types → statement fills; codes in the pasted text tick themselves)";
+}
+document.addEventListener("DOMContentLoaded", shcInit);
+const _stpSnap0 = snapshot;
+snapshot = function(){ const s = _stpSnap0(); s.awShc = shcGet(); return s; };
+const _stpApply0 = applySnapshot;
+applySnapshot = function(s){ const r = _stpApply0.apply(this, arguments); try{ shcInit(); shcSet((s && s.awShc) || (s && s.aw && SHC_CODES.filter(c => (s.aw.handl || "").toUpperCase().startsWith(c))) || [], false); }catch(e){} return r; };
+
+/* 2) STEP BAR on AWB / LABELS / AIRLINE DOCS / DNATA — BACK to where you came from, next step one click away.
+      Emirates (176) has no DNATA DOCUMENTS step. */
+const STP_TABS = [["awb", "&#128459; AWB / MANIFEST"], ["stickers", "&#9992; AIRLINE LABELS"], ["alforms", "&#128196; AIRLINE DOCUMENTS"], ["dnata", "&#128203; DNATA DOCUMENTS"]];
+let _stpOrigin = "gc";
+function stpIsEK(){ return String(v("f_awb") || v("gc_awb") || v("aw_no") || "").replace(/\D/g, "").slice(0, 3) === "176"; }
+function stpBack(){ showTab(_stpOrigin || "gc"); window.scrollTo(0, 0); }
+function stpRender(cur){
+  const ek = stpIsEK();
+  STP_TABS.forEach(([t]) => {
+    const tab = document.getElementById("tab-" + t); if(!tab) return;
+    let bar = tab.querySelector(".stpbar");
+    if(!bar){ bar = document.createElement("div"); bar.className = "stpbar"; tab.insertBefore(bar, tab.firstChild); }
+    bar.setAttribute("style", "position:sticky; top:0; z-index:50; display:flex; gap:6px; flex-wrap:wrap; align-items:center; padding:8px 10px; margin-bottom:10px; background:#12224d; border-radius:10px; box-shadow:0 3px 12px rgba(0,0,0,.18);");
+    const backName = {gc: "CREATE AWB", dgd: "CREATE DGD", dash: "DASHBOARD", wainbox: "WHATSAPP INBOX"}[_stpOrigin] || "BACK";
+    bar.innerHTML = `<button class="smallbtn" style="background:#fff; color:#12224d; font-weight:800; font-size:13px; padding:7px 14px;" onclick="stpBack()">&#9664; BACK TO ${backName}</button>
+      <span style="color:#8fa3c8; font-size:12px; margin:0 4px;">|</span>` +
+      STP_TABS.filter(([k]) => !(k === "dnata" && ek)).map(([k, l]) => `<button class="smallbtn" onclick="showTab('${k}')" style="font-size:12.5px; padding:7px 12px; font-weight:bold; ${k === cur ? "background:#f5b700; color:#12224d;" : "background:#24386e; color:#fff;"}">${l}</button>`).join("");
+  });
+  // CREATE AWB step buttons: no DNATA for Emirates
+  document.querySelectorAll('#tab-gc button[onclick="showTab(\'dnata\')"]').forEach(b => b.style.display = ek ? "none" : "");
+}
+showTab = (function(r0){
+  return function(name){
+    const on = document.querySelector(".tab.on"), from = on ? on.id.replace(/^tab-/, "") : "";
+    const isStep = STP_TABS.some(([t]) => t === name), fromStep = STP_TABS.some(([t]) => t === from);
+    if(isStep && from && !fromStep) _stpOrigin = from;
+    const r = r0.apply(this, arguments);
+    try{ if(isStep || name === "gc") stpRender(name); }catch(e){}
+    return r;
+  };
+})(showTab);
+window.addEventListener("afterprint", function stpAfterPrint(){
+  const on = document.querySelector(".tab.on"); if(!on || !STP_TABS.some(([t]) => "tab-" + t === on.id)) return;
+  setTimeout(() => { window.scrollTo(0, 0); const b = on.querySelector(".stpbar"); if(b){ b.style.outline = "3px solid #f5b700"; setTimeout(() => b.style.outline = "", 1600); } }, 300);
+});
+gcAirline = (function(r0){ return function(){ const r = r0.apply(this, arguments); try{ stpRender((document.querySelector(".tab.on") || {id: ""}).id.replace(/^tab-/, "")); }catch(e){} return r; }; })(gcAirline);
+
+/* 3) SEND TO DGD PREPARE — DG shipment made in CREATE AWB goes to CREATE DGD; there only the LABEL is still needed. */
+window._gcPL = window._gcPL || [];
+dcRun = (function(r0){
+  return async function(mode){
+    const st = DC[mode] || {files: [], kinds: []};
+    const text = (document.getElementById("dc_text_" + mode) || {}).value || "";
+    const names = st.files.map(f => f.name || "").join(" ");
+    if(mode === "gc"){ const pl = st.files.filter((f, i) => st.kinds[i] === "PL"); if(pl.length) window._gcPL = pl.slice(); }
+    const r = await r0.apply(this, arguments);
+    try{ const f = shcAuto(text + " " + names); if(f.length){ const m = document.getElementById("dc_msg_" + mode); if(m) m.textContent += " • Handling: " + f.join(" + "); } }catch(e){}
+    return r;
+  };
+})(dcRun);
+async function gcSendToDgd(){
+  if(!v("f_awb") && !v("gc_awb")){ alert("Fill the AWB first (CREATE AWB → AUTO-FILL)."); return; }
+  const pcs0 = v("gc_pcs") || v("f_opcount"), wt0 = v("gc_wt");
+  if(!confirm("Send this shipment to CREATE DGD?\n\nAWB, route, pieces / weight, houses and the packing list go to the DGD.\nAfter that only the LABEL is needed (shipper / consignee come from the label).")) return;
+  try{ gcSyncFromMain(); }catch(e){}
+  ["awb", "dep", "dest"].forEach(k => { const g = v("gc_" + k); if(g && !v("f_" + k)) gcSet("f_" + k, g); });
+  if(typeof setJobType === "function") setJobType("DG");
+  let plMsg = "no packing list";
+  const pl = window._gcPL || [];
+  if(pl.length){
+    const msg = document.getElementById("pt_pdfmsg") || document.createElement("div");
+    try{
+      const xl = pl.filter(f => /\.(xlsx|xls|csv)$/i.test(f.name || ""));
+      let done = false;
+      if(xl.length === 1){
+        await loadSheetJs();
+        const det = ptParseJfsXlsx(XLSX.read(await xl[0].arrayBuffer(), {type: "array"}));
+        if(det && det.rows.length){ _ptApply(det, msg, "Excel", xl[0].name); done = true; plMsg = det.rows.length + " pallet line(s) from " + xl[0].name; }
+      }
+      if(!done){ dcPut("pt_file", pl); await ptReadPdf(); plMsg = (msg.textContent || "packing list sent").slice(0, 120); }
+    }catch(e){ plMsg = "packing list NOT read: " + e.message; }
+  }
+  window._labelSC = false;                      // DGD shipper / consignee must come from the LABEL
+  showTab("dgd"); window.scrollTo(0, 0);
+  let b = document.getElementById("dgsend_msg");
+  if(!b){ b = document.createElement("div"); b.id = "dgsend_msg"; const dc = document.getElementById("dc_dg"); if(dc) dc.parentElement.insertBefore(b, dc); }
+  const hs = (typeof HAWBS !== "undefined" ? HAWBS.length : 0);
+  b.setAttribute("style", "border:2px solid #c00000; background:#fff4f4; border-radius:10px; padding:10px 12px; margin-bottom:10px; font-size:13px; line-height:1.5;");
+  b.innerHTML = `<b style="color:#c00000;">&#9888; FROM CREATE AWB</b> &mdash; AWB <b>${esc(v("f_awb"))}</b> &middot; ${esc(iata3(v("f_dep")) || v("f_dep"))} &rarr; ${esc(iata3(v("f_dest")) || v("f_dest"))} &middot; ${esc(pcs0)} pcs &middot; ${esc(wt0)} kg${hs ? " &middot; " + hs + " house(s)" : ""} &middot; ${esc(plMsg)}.<br>
+    <b>NEXT: add the LABEL (photo / PDF) below and press AUTO-FILL</b> &mdash; shipper &amp; consignee come exactly from the label. Then check and print the DGD.
+    <button class="smallbtn" style="margin-left:8px;" onclick="this.parentElement.remove()">x</button>`;
+  if(typeof autosaveCurrent === "function"){ try{ autosaveCurrent(); }catch(e){} }
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const row = document.querySelector('#tab-gc button[onclick="showTab(\'alforms\')"]');
+  if(row && !document.getElementById("gc_senddgd")){
+    const b = document.createElement("button"); b.id = "gc_senddgd"; b.className = "btn btn-save";
+    b.setAttribute("style", "background:#c00000; font-size:14px; padding:12px 18px; white-space:nowrap; border:2px solid #f5b700;");
+    b.innerHTML = "&#9888; SEND TO DGD PREPARE"; b.title = "DG shipment: send AWB, houses and packing list to CREATE DGD — then only the label is needed";
+    b.onclick = gcSendToDgd; row.parentElement.appendChild(b);
+  }
+  try{ stpRender(""); }catch(e){}
+});
+/* consol DGD (one packing list per house): the MASTER AWB counts ALL houses, not only the house open in the DGD */
+_awNums = (function(r0){
+  return function(){
+    try{
+      if(typeof HOUSES !== "undefined" && HOUSES.list && HOUSES.list.length > 1){
+        const rows = HOUSES.list.reduce((a, h) => a.concat(h.rows || []), []);
+        if(rows.length) return {pcs: rows.length, gross: ptR3(rows.reduce((a, r) => a + (r.w || 0), 0))};
+      }
+    }catch(e){}
+    return r0.apply(this, arguments);
+  };
+})(_awNums);
 
 authInit();
 </script>
