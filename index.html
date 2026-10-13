@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-J</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-K</span></span>
           </div>
         </div>
       </div>
@@ -11328,6 +11328,45 @@ jobStart = (function(r0){
 })(jobStart);
 /* the house list follows the CONSOL switch — never shows old rows */
 gchRender = (function(r0){ return function(){ const r = r0.apply(this, arguments); try{ if(!gchOn()){ const l = document.getElementById("gch_list"); if(l) l.innerHTML = ""; } }catch(e){} return r; }; })(gchRender);
+
+/* ================= v25.12-K NO JOB = NO UPLOAD — documents can be added only after a job is started ================= */
+function jobActive(){ const e = document.getElementById("f_job"); return !!(e && e.value.trim().length >= 3); }
+function jobLockMsg(id, where){
+  let m = document.getElementById(id);
+  if(!m){
+    m = document.createElement("div"); m.id = id;
+    m.setAttribute("style", "border:2px dashed #c00000; background:#fff4f4; color:#a40000; border-radius:10px; padding:16px; text-align:center; font-weight:bold; font-size:14px; margin:6px 0 10px;");
+    m.innerHTML = "&#128274; START A JOB FIRST &mdash; press <u>NEW JOB (auto number)</u> or type the JFS JOB NUMBER above." +
+      "<div style='font-weight:normal; font-size:12px; color:#5b6b7d; margin-top:4px;'>" + where + "</div>";
+  }
+  return m;
+}
+function jobLockUpdate(){
+  const on = jobActive();
+  // CREATE AWB: everything below the job row
+  const gcCard = document.querySelector("#tab-gc .card .body") || (document.getElementById("dc_gc") || {}).parentElement;
+  if(gcCard){
+    const kids = [...gcCard.children], row = kids[0];
+    let msg = document.getElementById("jl_gc");
+    if(!msg){ msg = jobLockMsg("jl_gc", "Upload, paste text, AUTO-FILL, houses and AWB fields open after the job is created."); row.after(msg); }
+    kids.forEach((k, i) => { if(i === 0 || k === msg) return; if(on){ if(k.dataset.jlHid){ k.style.display = k.dataset.jlDisp || ""; delete k.dataset.jlHid; } } else if(!k.dataset.jlHid){ k.dataset.jlDisp = k.style.display; k.dataset.jlHid = "1"; k.style.display = "none"; } });
+    msg.style.display = on ? "none" : "";
+  }
+  // CREATE DGD: the ADD DOCUMENTS box
+  const dg = document.getElementById("dc_dg");
+  if(dg){
+    let msg = document.getElementById("jl_dg");
+    if(!msg){ msg = jobLockMsg("jl_dg", "Upload, paste text and AUTO-FILL open after the job is created."); dg.before(msg); }
+    dg.style.display = on ? "" : "none"; msg.style.display = on ? "none" : "";
+  }
+}
+dcAdd = (function(r0){ return function(mode){ if(!jobActive()){ jobLockUpdate(); alert("Start a job first (NEW JOB) — then add the documents."); return; } return r0.apply(this, arguments); }; })(dcAdd);
+dcRun = (function(r0){ return async function(mode){ if(!jobActive()){ jobLockUpdate(); alert("Start a job first (NEW JOB)."); return; } return r0.apply(this, arguments); }; })(dcRun);
+jobStart = (function(r0){ return function(){ const r = r0.apply(this, arguments); try{ jobLockUpdate(); }catch(e){} return r; }; })(jobStart);
+applySnapshot = (function(r0){ return function(){ const r = r0.apply(this, arguments); try{ jobLockUpdate(); }catch(e){} return r; }; })(applySnapshot);
+showTab = (function(r0){ return function(name){ const r = r0.apply(this, arguments); if(name === "gc" || name === "dgd"){ try{ jobLockUpdate(); }catch(e){} } return r; }; })(showTab);
+document.addEventListener("input", e => { if(e.target && (e.target.id === "gc_job" || e.target.id === "f_job")) setTimeout(jobLockUpdate, 0); }, true);
+document.addEventListener("DOMContentLoaded", () => { try{ jobLockUpdate(); }catch(e){} });
 
 authInit();
 </script>
