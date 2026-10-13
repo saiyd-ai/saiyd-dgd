@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-N</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-O</span></span>
           </div>
         </div>
       </div>
@@ -11428,6 +11428,22 @@ jobStart = (function(r0){
     return r;
   };
 })(jobStart);
+
+/* ================= v25.12-O CREATE AWB step buttons — all 5 in one frame (no side scroll), same size & style ================= */
+(function(){
+  const st = document.createElement("style");
+  st.textContent = "#gc_steprow{display:grid !important; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px !important; overflow:visible !important; flex-wrap:wrap;}" +
+    "#gc_steprow > button{width:100%; min-width:0; white-space:normal !important; font-size:13px !important; padding:12px 8px !important; line-height:1.25; text-align:center; border:2px solid transparent !important; box-sizing:border-box;}" +
+    "#gc_steprow > #gc_senddgd{border-color:#f5b700 !important;}";
+  document.head.appendChild(st);
+  function btn5Fix(){
+    const a = document.querySelector('#tab-gc button[onclick="showTab(\'alforms\')"]'); if(!a) return;
+    const row = a.parentElement; if(!row.id) row.id = "gc_steprow";
+    const s = document.getElementById("gc_senddgd"); if(s && s.parentElement !== row) row.appendChild(s);
+  }
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(btn5Fix, 0)); else btn5Fix();
+  setTimeout(btn5Fix, 1500);
+})();
 
 authInit();
 </script>
