@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="supabase-2.117.2.min.js"></script>
 <script src="undb.js"></script>
 <script src="logo.js"></script>
 <link rel="stylesheet" href="tracking.css">
@@ -347,7 +347,7 @@
     </div>
     <div class="authtabs">
       <button id="at_login" class="on" onclick="authTab('login')">LOG IN</button>
-      <button id="at_signup" onclick="authTab('signup')">CREATE ACCOUNT</button>
+      <button id="at_signup" onclick="authTab('signup')" style="display:none;">CREATE ACCOUNT</button>
     </div>
     <div id="authlogin">
       <label>Email</label><input type="email" id="li_email" autocomplete="username">
@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-O</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-P</span></span>
           </div>
         </div>
       </div>
@@ -526,9 +526,9 @@
         </div>
         <!-- v25.11-W ADD DOCUMENTS + AUTO-FILL -->
         <div id="dc_gc" style="margin-bottom:10px;">
-          <div id="dc_zone_gc" tabindex="0" style="border:2px dashed #7b2d8b; border-radius:10px; padding:16px; text-align:center; color:#7b2d8b; font-weight:bold; font-size:13.5px; background:#faf5fc; outline:none; cursor:default;">
-            &#128206; ADD DOCUMENTS &mdash; drop files here, <a href="#" class="dc_pick" onclick="return false;" style="color:#7b2d8b; text-decoration:underline;">choose files</a>, or click here and press <b>Ctrl+V</b> to paste
-            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; JPG / PNG &middot; screenshots &mdash; AWB, house AWBs, label photo, packing list, invoice &mdash; several at once (CONSOL: one house per document)</div>
+          <div id="dc_zone_gc" tabindex="0" title="AWB, house AWBs, label photo, packing list, invoice. CONSOL: one house per document." style="border:2px dashed #7b2d8b; border-radius:10px; padding:10px 14px; text-align:center; color:#7b2d8b; font-weight:bold; font-size:13.5px; background:#faf5fc; outline:none; cursor:default;">
+            &#128206; ADD DOCUMENTS &mdash; drop, <a href="#" class="dc_pick" onclick="return false;" style="color:#7b2d8b; text-decoration:underline;">choose files</a> or <b>Ctrl+V</b>
+            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; Image (several at once)</div>
           </div>
           <input type="file" id="dc_file_gc" accept=".pdf,.xlsx,.xls,.csv,image/*" multiple style="display:none;">
           <div id="dc_list_gc"></div>
@@ -754,9 +754,9 @@
     <div class="card" style="border-left:5px solid #1d6b34;"><h2 style="background:#e7f0e9; color:#1d6b34;">&#128206; ADD DOCUMENTS &mdash; AWB, house AWBs, labels, packing list, e-mail text</h2><div class="body">
         <!-- v25.11-W ADD DOCUMENTS + AUTO-FILL -->
         <div id="dc_dg" style="margin-bottom:10px;">
-          <div id="dc_zone_dg" tabindex="0" style="border:2px dashed #7b2d8b; border-radius:10px; padding:16px; text-align:center; color:#7b2d8b; font-weight:bold; font-size:13.5px; background:#faf5fc; outline:none; cursor:default;">
-            &#128206; ADD DOCUMENTS &mdash; drop files here, <a href="#" class="dc_pick" onclick="return false;" style="color:#7b2d8b; text-decoration:underline;">choose files</a>, or click here and press <b>Ctrl+V</b> to paste
-            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; JPG / PNG &middot; screenshots &mdash; MASTER + all HOUSE AWBs + label photos + packing list(s) + invoice together</div>
+          <div id="dc_zone_dg" tabindex="0" title="MASTER + all HOUSE AWBs + label photos + packing list(s) + invoice together." style="border:2px dashed #7b2d8b; border-radius:10px; padding:10px 14px; text-align:center; color:#7b2d8b; font-weight:bold; font-size:13.5px; background:#faf5fc; outline:none; cursor:default;">
+            &#128206; ADD DOCUMENTS &mdash; drop, <a href="#" class="dc_pick" onclick="return false;" style="color:#7b2d8b; text-decoration:underline;">choose files</a> or <b>Ctrl+V</b>
+            <div style="font-weight:normal; font-size:11.5px; color:#5b6b7d; margin-top:4px;">PDF &middot; Excel &middot; Image (several at once)</div>
           </div>
           <input type="file" id="dc_file_dg" accept=".pdf,.xlsx,.xls,.csv,image/*" multiple style="display:none;">
           <div id="dc_list_dg"></div>
@@ -1884,7 +1884,7 @@ rebuildUNDB();
 
 let itemCount = 0;
 
-function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 
 /* JFS v25.11-F: quick item selection — default ID8000 */
 const DG_QUICK = [
@@ -8585,7 +8585,7 @@ async function enterApp(user){
     if(prof){
       document.getElementById("uc_plan").textContent = prof.plan || "trial";
       if(prof.active === false){
-        alert("Your DGDOC account is suspended. Contact support.");
+        alert("Your DGDOC account is not active yet. Ask the admin (Muhammed Sayid) to activate it.");
         await doLogout(); return;
       }
     }
