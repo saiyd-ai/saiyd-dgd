@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-L</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-M</span></span>
           </div>
         </div>
       </div>
@@ -11386,6 +11386,31 @@ function hmvMove(){
   try{ jobLockUpdate(); }catch(e){}
 }
 document.addEventListener("DOMContentLoaded", () => setTimeout(hmvMove, 0));
+
+/* ================= v25.12-M HANDLING INFORMATION: compact, next to SHIPPER / CONSIGNEE (fills the empty right side) ================= */
+function hmvPlace(){
+  const box = document.getElementById("gc_handl_box"), ship = document.getElementById("gc_shipper");
+  if(!box || !ship) return;
+  const cellShip = ship.parentElement, grid = cellShip.parentElement;
+  const cellCons = (document.getElementById("gc_consignee") || {}).parentElement;
+  if(!grid || box.parentElement === grid) return;
+  box.setAttribute("style", "grid-column:span 2; border:1px solid #d7dee8; border-radius:10px; padding:6px 10px 8px; margin:0; background:#f8fafc; align-self:start;");
+  (cellCons && cellCons.parentElement === grid ? cellCons : cellShip).after(box);
+  const lab = box.querySelector("label"); if(lab){ lab.style.marginBottom = "3px"; const sp = lab.querySelector("span"); if(sp) sp.textContent = "(tick one or more)"; }
+  box.querySelectorAll("#aw_shc_multi label").forEach(l => { l.style.padding = "3px 8px"; l.style.fontSize = "11.5px"; });
+  const m = document.getElementById("aw_shc_multi"); if(m){ m.style.gap = "4px"; m.style.marginBottom = "4px"; }
+  // statement as a short 2-line box (same id → master + houses still read it)
+  const h = document.getElementById("aw_handl");
+  if(h && h.tagName === "INPUT"){
+    const t = document.createElement("textarea");
+    t.id = "aw_handl"; t.value = h.value; t.placeholder = h.placeholder;
+    t.setAttribute("style", "width:100%; min-height:44px; height:44px; font-size:12px; padding:5px 7px; resize:vertical;");
+    t.addEventListener("input", () => { try{ mawbRender(); }catch(e){} try{ awMemSet({handl: t.value}); }catch(e){} if(typeof autosaveCurrent === "function"){ try{ autosaveCurrent(); }catch(e){} } });
+    h.replaceWith(t);
+  }
+  try{ jobLockUpdate(); }catch(e){}
+}
+document.addEventListener("DOMContentLoaded", () => setTimeout(hmvPlace, 30));
 
 authInit();
 </script>
