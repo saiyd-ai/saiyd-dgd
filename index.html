@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-M</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-N</span></span>
           </div>
         </div>
       </div>
@@ -11411,6 +11411,23 @@ function hmvPlace(){
   try{ jobLockUpdate(); }catch(e){}
 }
 document.addEventListener("DOMContentLoaded", () => setTimeout(hmvPlace, 30));
+
+/* ================= v25.12-N NEW CREATE AWB JOB STARTS EMPTY — no DGD default shipper, no default "1" piece ================= */
+jobStart = (function(r0){
+  return function(type){
+    const isNew = !!((document.getElementById("jg_job") || {}).value || "").trim();
+    const fromRow = (typeof _acceptRow !== "undefined") && !!_acceptRow;   // warehouse accept carries real data — keep it
+    const r = r0.apply(this, arguments);
+    try{
+      if(isNew && !fromRow && typeof JOBTYPE !== "undefined" && JOBTYPE === "GC"){
+        ["f_shipper", "f_opcount", "gc_shipper", "gc_pcs"].forEach(id => { const e = document.getElementById(id); if(e) e.value = ""; });
+        if(typeof refresh === "function") refresh();
+        if(typeof autosaveCurrent === "function") autosaveCurrent();
+      }
+    }catch(e){}
+    return r;
+  };
+})(jobStart);
 
 authInit();
 </script>
