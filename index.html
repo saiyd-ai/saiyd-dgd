@@ -374,7 +374,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-K</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-L</span></span>
           </div>
         </div>
       </div>
@@ -11367,6 +11367,25 @@ applySnapshot = (function(r0){ return function(){ const r = r0.apply(this, argum
 showTab = (function(r0){ return function(name){ const r = r0.apply(this, arguments); if(name === "gc" || name === "dgd"){ try{ jobLockUpdate(); }catch(e){} } return r; }; })(showTab);
 document.addEventListener("input", e => { if(e.target && (e.target.id === "gc_job" || e.target.id === "f_job")) setTimeout(jobLockUpdate, 0); }, true);
 document.addEventListener("DOMContentLoaded", () => { try{ jobLockUpdate(); }catch(e){} });
+
+/* ================= v25.12-L HANDLING INFORMATION lives in CREATE AWB (last, above the step buttons) ================= */
+function hmvMove(){
+  try{ if(typeof shcInit === "function") shcInit(); }catch(e){}
+  const h = document.getElementById("aw_handl"); if(!h) return;
+  const cell = h.closest("div[style*='display:flex']") ? h.closest("div[style*='display:flex']").parentElement : h.parentElement.parentElement;
+  const btnRow = (document.querySelector('#tab-gc button[onclick="showTab(\'awb\')"]') || {}).parentElement;
+  if(!cell || !btnRow || cell.dataset.hmv) return;
+  cell.dataset.hmv = "1";
+  cell.style.gridColumn = "";
+  const wrap = document.createElement("div"); wrap.id = "gc_handl_box";
+  wrap.setAttribute("style", "border:1px solid #d7dee8; border-radius:10px; padding:10px 12px; margin:12px 0 4px; background:#f8fafc;");
+  btnRow.parentElement.insertBefore(wrap, btnRow);
+  wrap.appendChild(cell);
+  // typing the statement by hand updates the AWB too
+  h.addEventListener("input", () => { try{ awMemSet({handl: h.value}); }catch(e){} if(typeof autosaveCurrent === "function"){ try{ autosaveCurrent(); }catch(e){} } });
+  try{ jobLockUpdate(); }catch(e){}
+}
+document.addEventListener("DOMContentLoaded", () => setTimeout(hmvMove, 0));
 
 authInit();
 </script>
