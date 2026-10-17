@@ -13,6 +13,7 @@
 <script src="supabase-2.117.2.min.js"></script>
 <script src="undb.js"></script>
 <script src="logo.js"></script>
+<script src="airports-city.js"></script>
 <link rel="stylesheet" href="tracking.css">
 <script src="tracking.js"></script>
 <link rel="stylesheet" href="tracking-report.css">
@@ -374,7 +375,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-P</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-S</span></span>
           </div>
         </div>
       </div>
@@ -2084,11 +2085,12 @@ const AIRPORT_CITY = {DXB:"DUBAI",DWC:"DUBAI WORLD CENTRAL",AUH:"ABU DHABI",SHJ:
  SVO:"MOSCOW",DME:"MOSCOW",LED:"ST PETERSBURG",TAS:"TASHKENT",ALA:"ALMATY",GYD:"BAKU",TBS:"TBILISI",EVN:"YEREVAN"};
 function airportPlace(s){
   const t = (s || "").trim().toUpperCase();
-  if(AIRPORT_CITY[t]) return AIRPORT_CITY[t];             // bare 3-letter code → place name
+  const AC = c => AIRPORT_CITY[c] || ((window.AP_CITY_ALL || {})[c]) || "";   // JFS list first, then the full world list (v25.12-S)
+  if(AC(t)) return AC(t);                                 // bare 3-letter code → place name
   let m = t.match(/\(([A-Z]{3})\)/);                      // "DUBAI INTERNATIONAL (DXB)" → DUBAI
-  if(m && AIRPORT_CITY[m[1]]) return AIRPORT_CITY[m[1]];
+  if(m && AC(m[1])) return AC(m[1]);
   m = t.match(/\b([A-Z]{3})\b\s*$/);                      // "... ATL" trailing code → place name
-  if(m && AIRPORT_CITY[m[1]]) return AIRPORT_CITY[m[1]];
+  if(m && AC(m[1])) return AC(m[1]);
   return s;                                               // unknown → prints as typed
 }
 /* keep "93 . 5 kg" / "26 . 090 kg G" together — the number and its unit NEVER wrap to the next line */
@@ -11444,6 +11446,25 @@ jobStart = (function(r0){
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(btn5Fix, 0)); else btn5Fix();
   setTimeout(btn5Fix, 1500);
 })();
+
+/* ================= v25.12-S AIRPORT FULL NAME on the DGD — every IATA code prints as its city; unknown codes are flagged ================= */
+function apUnknown(s){ const t = (s || "").trim().toUpperCase(); return /^[A-Z]{3}$/.test(t) && airportPlace(t).toUpperCase() === t; }
+function apHint(id){
+  const inp = document.getElementById(id); if(!inp) return;
+  let h = document.getElementById(id + "_ap");
+  if(!h){ h = document.createElement("div"); h.id = id + "_ap"; h.style.cssText = "font-size:11.5px; margin-top:3px; font-weight:bold;"; inp.parentElement.appendChild(h); }
+  const raw = (inp.value || "").trim();
+  if(!raw){ h.textContent = ""; return; }
+  if(apUnknown(raw)){ h.style.color = "#c00000"; h.innerHTML = "&#9888; " + esc(raw.toUpperCase()) + " is not a known airport code &mdash; type the full name, e.g. BIRMINGHAM (BHX)"; }
+  else { h.style.color = "#1d6b34"; h.innerHTML = "&#10003; Prints on the DGD as: <u>" + esc(airportPlace(raw)) + "</u>"; }
+}
+["f_dep", "f_dest"].forEach(id => { const e = document.getElementById(id); if(e){ e.addEventListener("input", () => apHint(id)); e.addEventListener("change", () => apHint(id)); } });
+setInterval(() => { try{ apHint("f_dep"); apHint("f_dest"); }catch(e){} }, 2000);
+printDGD = (function(r0){ return function(){
+  const bad = ["f_dep", "f_dest"].filter(id => apUnknown(v(id))).map(id => v(id).trim().toUpperCase());
+  if(bad.length && !confirm("⚠ AIRPORT NAME CHECK\n\n" + bad.join(", ") + " is not a known airport code, so the DGD would print only the code.\nType the full name (e.g. BIRMINGHAM) in the Airport field.\n\nPress OK to print anyway, or Cancel to fix it.")) return;
+  return r0.apply(this, arguments);
+}; })(printDGD);
 
 authInit();
 </script>
