@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-B</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-C</span></span>
           </div>
         </div>
       </div>
@@ -11742,16 +11742,18 @@ setInterval(() => { try{ if(document.querySelector(".tab.on .dgx_w")) dgxRefresh
 /* ================= v25.13-A FREIGHTPILOT — new name, new look, menu by mode (COMMON / AIR / SEA / LAND) ================= */
 /* Pure UI layer: no data, job or document changes. DGDOC stays the DG module inside FreightPilot. */
 const NX_THEMES = {
+  light:  {name: "Light",       side1: "#e8ebff", side2: "#dfe5fa", acc: "#4f46e5", acc2: "#06b6d4", top1: "#ffffff", top2: "#eef2ff", bg1: "#f7f8fc", bg2: "#eef1f8", head: "#f8f9fd", th: "#eef1f8", ink: "#1e2a55", light: true},
   royal:  {name: "JFS Royal",   side1: "#07041f", side2: "#1d0074", acc: "#ea2227", acc2: "#ff5a5f", top1: "#0b0533", top2: "#2a0a8f", bg1: "#f5f4fb", bg2: "#e9e7f6", head: "#f3f1fc", th: "#1d0074", ink: "#1d0074"},
   aurora: {name: "Aurora",      side1: "#0b1024", side2: "#3b1d8f", acc: "#22d3ee", acc2: "#a855f7", top1: "#0b1024", top2: "#4c1d95", bg1: "#f4f6ff", bg2: "#ece7fb", head: "#f1f0ff", th: "#312e81", ink: "#312e81"},
   gold:   {name: "Desert Gold", side1: "#0c0b09", side2: "#2b2216", acc: "#d4a24c", acc2: "#f0c674", top1: "#0c0b09", top2: "#3a2d18", bg1: "#faf7f0", bg2: "#efe7d6", head: "#f8f3e7", th: "#2b2216", ink: "#3a2d18"}
 };
-function nxTheme(){ try{ return localStorage.getItem("nx_theme") || "aurora"; }catch(e){ return "aurora"; } }
+function nxTheme(){ try{ const k = localStorage.getItem("nx_theme"); return (k && k !== "aurora") || localStorage.getItem("nx_theme_pick") ? (k || "light") : "light"; }catch(e){ return "light"; } }
 function nxApplyTheme(k){
   const t = NX_THEMES[k] || NX_THEMES.royal;
   const r = document.documentElement.style;
-  Object.keys(t).forEach(p => { if(p !== "name") r.setProperty("--nx-" + p, t[p]); });
-  document.body && document.body.setAttribute("data-nx", k in NX_THEMES ? k : "royal");
+  Object.keys(t).forEach(p => { if(p !== "name" && p !== "light") r.setProperty("--nx-" + p, t[p]); });
+  if(document.body){ document.body.setAttribute("data-nx", k in NX_THEMES ? k : "light"); document.body.classList.toggle("nx-light", !!t.light); }
+  if(typeof renderDash === "function" && document.getElementById("dashkpi")) try{ renderDash(); }catch(e){}
   try{ localStorage.setItem("nx_theme", k); }catch(e){}
 }
 (function nxCss(){
@@ -11813,11 +11815,45 @@ function nxApplyTheme(k){
   .nxthemes{display:flex; gap:8px; flex-wrap:wrap;}
   .nxthemes button{border:2px solid transparent; border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:bold; color:#fff; font-size:12px;}
   .nxthemes button.on{border-color:#111; box-shadow:0 0 0 2px #fff inset;}
+  /* ===== v25.13-C LIGHT theme ===== */
+  body.nx.nx-light{background:radial-gradient(1000px 600px at 0% -10%, #dfe5ff, transparent 60%), radial-gradient(900px 600px at 110% 110%, #d9f3f7, transparent 60%), linear-gradient(160deg,#eef1fb,#e7ebf7) !important;}
+  body.nx.nx-light .nav{background:linear-gradient(175deg,#a7f3d0 0%,#d5f5ea 100%) !important; border:1.5px solid #6ee7b7 !important; box-shadow:0 10px 30px rgba(16,120,90,.12) !important;}
+  body.nx.nx-light .nav button{color:#3b4563 !important;}
+  body.nx.nx-light .nav button:hover{background:rgba(255,255,255,.55) !important; color:#1e2a55 !important;}
+  body.nx.nx-light .nav button.on{background:rgba(255,255,255,.8) !important; color:#1e2a55 !important; border-left-color:var(--acc, #4f46e5) !important; box-shadow:0 2px 8px rgba(30,42,85,.08);}
+  body.nx.nx-light .navlogo, body.nx.nx-light .navstart{border-bottom-color:rgba(16,120,90,.18) !important;}
+  body.nx.nx-light .nxwm .n2{color:#1e2a55 !important;}
+  body.nx.nx-light .nxtag, body.nx.nx-light .navlogo .pwlbl{color:#8a93ad !important;}
+  body.nx.nx-light .navlogo .saiydwm{background:rgba(255,255,255,.7) !important;}
+  body.nx.nx-light .nxgrp{color:#8a93ad !important;}
+  body.nx.nx-light .nxsoon{color:#9aa3bb !important;}
+  body.nx.nx-light .nav .nxmode{box-shadow:none !important;}
+  body.nx.nx-light .nav .nxmode.m-air{background:linear-gradient(120deg,#c7d2fe,#ddd6fe) !important; color:#312e81 !important;}
+  body.nx.nx-light .nav .nxmode.m-sea{background:linear-gradient(120deg,#99f6e4,#ccfbf1) !important; color:#115e59 !important;}
+  body.nx.nx-light .nav .nxmode.m-land{background:linear-gradient(120deg,#fed7aa,#ffedd5) !important; color:#9a3412 !important;}
+  body.nx.nx-light .nav .nxmode small{background:rgba(30,42,85,.08) !important;}
+  body.nx.nx-light .topbar{background:linear-gradient(120deg,#dde3ff 0%,#e4ebfc 55%,#d8f1f5 100%) !important; box-shadow:0 8px 24px rgba(30,42,85,.10) !important; border:1.5px solid #6ee7b7 !important;}
+  body.nx.nx-light .topbar::after{background:radial-gradient(circle, rgba(79,70,229,.10), transparent 70%) !important;}
+  body.nx.nx-light #tb_greet{color:#1e2a55 !important;}
+  body.nx.nx-light .userchip{background:rgba(255,255,255,.7) !important; color:#3b4563 !important;}
+  body.nx.nx-light .card{background:#fbfcff !important; box-shadow:0 6px 20px rgba(30,42,85,.08) !important; border:1.5px solid #6ee7b7 !important;}
+  body.nx.nx-light .card>h2{background:linear-gradient(90deg,#e6eaff,#eef5fd) !important; color:#1e2a55 !important;}
+  body.nx.nx-light .dtable th{background:#dfe5fa !important; color:#2b3766 !important;}
+  body.nx.nx-light #tab-dash table th, body.nx.nx-light #tab-rpt table th, body.nx.nx-light #tab-docs table th, body.nx.nx-light #tab-jobflow table th{background:#dfe5fa !important; color:#2b3766 !important;}
+  body.nx.nx-light .nxkpi-l::after{background:color-mix(in srgb, #ffffff 0%, transparent) !important;}
+  body.nx.nx-light #authgate{background:radial-gradient(800px 500px at 80% 0%, #e0e7ff, transparent 60%), linear-gradient(140deg,#f7f8fc,#eef2ff) !important;}
+  body.nx.nx-light #authgate .authcard{box-shadow:0 20px 50px rgba(30,42,85,.12) !important;}
+  body.nx.nx-light .authbtn{background:linear-gradient(120deg,#4f46e5,#06b6d4) !important;}
+  body.nx.nx-light .authtabs button.on{background:#4f46e5 !important;}
+  @media screen and (max-width:900px){ body.nx.nx-light .nav{background:linear-gradient(175deg,#a7f3d0 0%,#d5f5ea 100%) !important;} body.nx.nx-light .nav button{color:#3b4563 !important;} }
   `;
   const s = document.createElement("style"); s.id = "nx_css"; s.textContent = css; document.head.appendChild(s);
 })();
 /* KPI tiles — vivid gradient cards */
 kpiChip = function(num, label, color, tab){
+  if(document.body && document.body.classList.contains("nx-light")) return `<div class="nxkpi nxkpi-l" onclick="showTab('${tab || "rpt"}')" title="Open ${esc(label)}"
+    style="background:linear-gradient(135deg, color-mix(in srgb, ${color} 22%, #ffffff), color-mix(in srgb, ${color} 8%, #ffffff)); border:1px solid color-mix(in srgb, ${color} 28%, #ffffff); box-shadow:0 6px 18px color-mix(in srgb, ${color} 14%, transparent);">
+    <div class="v" style="color:${color};">${num}</div><div class="l" style="color:#5b6b7d;">${label}</div><span style="position:absolute; left:0; top:12px; bottom:12px; width:4px; border-radius:0 4px 4px 0; background:${color};"></span></div>`;
   return `<div class="nxkpi" onclick="showTab('${tab || "rpt"}')" title="Open ${esc(label)}"
     style="background:linear-gradient(135deg, ${color} 0%, color-mix(in srgb, ${color} 62%, #ffffff) 100%); box-shadow:0 10px 24px color-mix(in srgb, ${color} 35%, transparent);">
     <div class="v">${num}</div><div class="l">${label}</div></div>`;
@@ -11873,11 +11909,11 @@ function nxSettings(){
   const tab = document.getElementById("tab-settings"); if(!tab || document.getElementById("nx_themebox")) return;
   const c = document.createElement("div"); c.className = "card"; c.id = "nx_themebox";
   c.innerHTML = `<h2>&#127912; LOOK &mdash; theme</h2><div class="body"><div class="nxthemes">${Object.keys(NX_THEMES).map(k =>
-    `<button data-k="${k}" style="background:linear-gradient(120deg, ${NX_THEMES[k].side2}, ${NX_THEMES[k].acc});">${esc(NX_THEMES[k].name)}</button>`).join("")}</div>
+    `<button data-k="${k}" style="background:linear-gradient(120deg, ${NX_THEMES[k].light ? "#a5b4fc" : NX_THEMES[k].side2}, ${NX_THEMES[k].acc});">${esc(NX_THEMES[k].name)}</button>`).join("")}</div>
     <div style="font-size:12px; color:#5b6b7d; margin-top:6px;">Saved on this device.</div></div>`;
   tab.insertBefore(c, tab.firstChild);
   const mark = () => c.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.k === nxTheme()));
-  c.querySelectorAll("button").forEach(b => b.onclick = () => { nxApplyTheme(b.dataset.k); mark(); });
+  c.querySelectorAll("button").forEach(b => b.onclick = () => { try{ localStorage.setItem("nx_theme_pick", "1"); }catch(e){} nxApplyTheme(b.dataset.k); mark(); });
   mark();
 }
 function nxInit(){
@@ -12047,7 +12083,7 @@ async function jfBoard(force){
   const sum = document.getElementById("jf_sum"); if(sum) sum.innerHTML = `<b>${open}</b> open &middot; <b style="color:#b45309;">${stuck}</b> need action &middot; <b style="color:#166534;">${closed}</b> closed`;
   tb.innerHTML = `<tr><th>JOB</th><th>TYPE</th><th>CUSTOMER / SHIPPER</th><th>ROUTE</th><th>AWB</th><th>JOB FLOW</th><th>DONE</th><th>NEXT STEP</th></tr>` +
     (list.length ? list.map(r => { const f = r.f, e = r.e; return `<tr style="cursor:pointer;" onclick="jfOpen('${esc(e.job)}')">
-      <td><b>${esc(e.job)}</b></td><td><span style="background:${f.c.type === "DG" ? "#dc2626" : "#2563eb"}; color:#fff; border-radius:8px; padding:1px 7px; font-size:10.5px; font-weight:bold;">AIR ${f.c.type}</span></td>
+      <td><b>${esc(e.job)}</b></td><td><span style="background:${f.c.type === "DG" ? "#dc2626" : "#2563eb"}; color:#fff; border-radius:8px; padding:1px 7px; font-size:10.5px; font-weight:bold; white-space:nowrap; display:inline-block;">AIR ${f.c.type}</span></td>
       <td>${esc(e.customer || e.shipper || "")}</td><td>${esc(e.route || "")}</td><td>${esc(f.c.awb)}</td>
       <td>${jfBar(f)}</td><td><b>${f.done}/${f.total}</b></td>
       <td>${f.closed ? `<b style="color:#166534;">CLOSED</b>` : f.next ? `<b>${esc(f.next.st.n)}</b><div style="font-size:11px; color:#7a8794;">${esc(f.next.why)}</div>` : `<b style="color:#166534;">Ready to close</b>`}</td></tr>`; }).join("")
