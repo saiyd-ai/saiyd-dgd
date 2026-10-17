@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-V</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-A</span></span>
           </div>
         </div>
       </div>
@@ -7394,7 +7394,7 @@ async function docUploadGo(){
     setStore("jfs_documents", list);
     renderDocs();
     const k = _upDoc.kind;
-    alert("✓ Uploaded — " + (k === "signed" ? "signed DGD attached to job " : "AWB copy attached to job ") + (d.job || d.awb || ""));
+    alert("✓ Uploaded — " + (k === "signed" ? "signed DGD attached to job " : k === "accept" ? "terminal acceptance attached to job " : "AWB copy attached to job ") + (d.job || d.awb || ""));
     if(document.getElementById("docviewer").style.display === "block"){ _dv.i = _upDoc.i; dvShow(k); }
   }catch(e){ alert("Upload failed: " + (e.message || e)); }
   document.getElementById("doc_upfile").value = "";
@@ -11739,6 +11739,334 @@ document.addEventListener("DOMContentLoaded", () => { try{ dgxMount(); }catch(e)
 try{ if(document.readyState !== "loading") dgxMount(); }catch(e){}
 showTab = (function(r0){ return function(name){ const r = r0.apply(this, arguments); try{ if(name === "gc" || name === "dgd" || name === "inv"){ dgxMount(); dgxRefresh(); } }catch(e){} return r; }; })(showTab);
 setInterval(() => { try{ if(document.querySelector(".tab.on .dgx_w")) dgxRefresh(); else dgxRender(); }catch(e){} }, 15000);
+/* ================= v25.13-A FREIGHTPILOT — new name, new look, menu by mode (COMMON / AIR / SEA / LAND) ================= */
+/* Pure UI layer: no data, job or document changes. DGDOC stays the DG module inside FreightPilot. */
+const NX_THEMES = {
+  royal:  {name: "JFS Royal",   side1: "#07041f", side2: "#1d0074", acc: "#ea2227", acc2: "#ff5a5f", top1: "#0b0533", top2: "#2a0a8f", bg1: "#f5f4fb", bg2: "#e9e7f6", head: "#f3f1fc", th: "#1d0074", ink: "#1d0074"},
+  aurora: {name: "Aurora",      side1: "#0b1024", side2: "#3b1d8f", acc: "#22d3ee", acc2: "#a855f7", top1: "#0b1024", top2: "#4c1d95", bg1: "#f4f6ff", bg2: "#ece7fb", head: "#f1f0ff", th: "#312e81", ink: "#312e81"},
+  gold:   {name: "Desert Gold", side1: "#0c0b09", side2: "#2b2216", acc: "#d4a24c", acc2: "#f0c674", top1: "#0c0b09", top2: "#3a2d18", bg1: "#faf7f0", bg2: "#efe7d6", head: "#f8f3e7", th: "#2b2216", ink: "#3a2d18"}
+};
+function nxTheme(){ try{ return localStorage.getItem("nx_theme") || "aurora"; }catch(e){ return "aurora"; } }
+function nxApplyTheme(k){
+  const t = NX_THEMES[k] || NX_THEMES.royal;
+  const r = document.documentElement.style;
+  Object.keys(t).forEach(p => { if(p !== "name") r.setProperty("--nx-" + p, t[p]); });
+  document.body && document.body.setAttribute("data-nx", k in NX_THEMES ? k : "royal");
+  try{ localStorage.setItem("nx_theme", k); }catch(e){}
+}
+(function nxCss(){
+  const css = `
+  body.nx{background:radial-gradient(1200px 700px at 10% -10%, color-mix(in srgb, var(--nx-acc2) 14%, transparent), transparent 60%),
+      radial-gradient(900px 600px at 110% 110%, color-mix(in srgb, var(--nx-side2) 16%, transparent), transparent 60%),
+      linear-gradient(160deg, var(--nx-bg1), var(--nx-bg2)) !important; background-attachment:fixed !important;}
+  body.nx .topbar{background:linear-gradient(120deg, var(--nx-top1) 0%, var(--nx-top2) 60%, var(--nx-top1) 100%) !important;
+      box-shadow:0 12px 34px color-mix(in srgb, var(--nx-side2) 35%, transparent) !important; position:relative; overflow:hidden;}
+  body.nx .topbar::after{content:""; position:absolute; right:-60px; top:-80px; width:260px; height:260px; border-radius:50%;
+      background:radial-gradient(circle, color-mix(in srgb, var(--nx-acc) 40%, transparent), transparent 70%); pointer-events:none;}
+  body.nx .card{border:0 !important; border-radius:16px !important; background:rgba(255,255,255,.96) !important;
+      box-shadow:0 10px 30px color-mix(in srgb, var(--nx-side2) 12%, transparent) !important;}
+  body.nx .card>h2{background:linear-gradient(90deg, var(--nx-head), #ffffff) !important; color:var(--nx-ink) !important;
+      border-bottom:1px solid color-mix(in srgb, var(--nx-side2) 10%, #fff) !important; font-family:'Poppins',Arial,sans-serif; letter-spacing:.3px;}
+  body.nx .dtable th{background:var(--nx-th) !important;}
+  body.nx .nav button.on{border-left-color:var(--nx-acc) !important;
+      background:linear-gradient(90deg, color-mix(in srgb, var(--nx-acc) 28%, transparent), rgba(255,255,255,.06)) !important;}
+  body.nx .nxgrp{font-size:9.5px; font-weight:800; letter-spacing:1.8px; color:color-mix(in srgb, var(--nx-acc2) 55%, #9aa6d6);
+      padding:12px 10px 4px; text-transform:uppercase; font-family:'Poppins',Arial,sans-serif;}
+  body.nx .nxmode{display:flex; justify-content:space-between; align-items:center; width:100%; border:0; cursor:pointer; margin-top:8px;
+      padding:9px 12px; border-radius:10px; font-weight:800; font-size:12.5px; color:#fff; letter-spacing:.5px; font-family:'Poppins',Arial,sans-serif;}
+  body.nx .nxmode.m-air{background:linear-gradient(120deg, color-mix(in srgb, var(--nx-acc) 85%, #000), var(--nx-acc2));
+      box-shadow:0 6px 18px color-mix(in srgb, var(--nx-acc) 35%, transparent);}
+  body.nx .nxmode.m-sea{background:linear-gradient(120deg,#0e7c66,#14b8a6); opacity:.9;}
+  body.nx .nxmode.m-land{background:linear-gradient(120deg,#9a4b0b,#f59e0b); opacity:.9;}
+  body.nx .nxmode small{font-size:9px; font-weight:700; background:rgba(255,255,255,.22); border-radius:8px; padding:1px 7px; letter-spacing:1px;}
+  body.nx .nxsub.closed{display:none;}
+  body.nx .nxsoon{font-size:11px; color:#8f9bc4; padding:4px 14px 2px; font-style:italic;}
+  @media screen and (min-width:901px){
+    body.nx .nav{background:linear-gradient(170deg, var(--nx-side1) 0%, var(--nx-side2) 55%, var(--nx-side1) 100%) !important;
+        box-shadow:0 18px 48px color-mix(in srgb, var(--nx-side2) 45%, transparent) !important;}
+    body.nx .navlogo{text-shadow:none !important;}
+  }
+  .nxwm{font-family:'Poppins',Arial,sans-serif; font-weight:800; line-height:1; letter-spacing:.3px; display:inline-flex; align-items:baseline; gap:0;}
+  .nxwm .n1{color:var(--nx-acc,#ea2227);}
+  .nxwm .n2{color:#ffffff;}
+  .nxwm.on-light .n2{color:var(--nx-ink,#1d0074);}
+  .nxwm .nx-x{display:inline-block; background:linear-gradient(120deg, var(--nx-acc,#ea2227), var(--nx-acc2,#ff5a5f)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .nxtag{display:block; font-family:'Poppins',Arial,sans-serif; font-size:8.5px; letter-spacing:3px; color:#9aa6d6; margin-top:6px; font-weight:600;}
+  body.nx #authgate{background:radial-gradient(900px 500px at 80% 0%, color-mix(in srgb, var(--nx-acc) 30%, transparent), transparent 60%),
+      linear-gradient(140deg, var(--nx-side1), var(--nx-side2)) !important;}
+  body.nx .authbtn{background:linear-gradient(120deg, var(--nx-acc), var(--nx-acc2)) !important; color:#fff !important;}
+  body.nx .authtabs button.on{background:var(--nx-side2) !important;}
+  .nxkpi{border-radius:16px; padding:12px 14px 11px; width:162px; box-sizing:border-box; cursor:pointer; color:#fff; position:relative; overflow:hidden;
+      transition:transform .18s ease, box-shadow .18s ease;}
+  .nxkpi:hover{transform:translateY(-4px);}
+  .nxkpi .v{font-size:27px; font-weight:800; line-height:1; font-family:'Poppins',Arial,sans-serif;}
+  .nxkpi .l{font-size:9.5px; letter-spacing:.8px; margin-top:6px; font-weight:700; line-height:1.25; opacity:.95;}
+  .nxkpi::after{content:""; position:absolute; right:-22px; top:-22px; width:76px; height:76px; border-radius:50%; background:rgba(255,255,255,.16);}
+  .nxthemes{display:flex; gap:8px; flex-wrap:wrap;}
+  .nxthemes button{border:2px solid transparent; border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:bold; color:#fff; font-size:12px;}
+  .nxthemes button.on{border-color:#111; box-shadow:0 0 0 2px #fff inset;}
+  `;
+  const s = document.createElement("style"); s.id = "nx_css"; s.textContent = css; document.head.appendChild(s);
+})();
+/* KPI tiles — vivid gradient cards */
+kpiChip = function(num, label, color, tab){
+  return `<div class="nxkpi" onclick="showTab('${tab || "rpt"}')" title="Open ${esc(label)}"
+    style="background:linear-gradient(135deg, ${color} 0%, color-mix(in srgb, ${color} 62%, #ffffff) 100%); box-shadow:0 10px 24px color-mix(in srgb, ${color} 35%, transparent);">
+    <div class="v">${num}</div><div class="l">${label}</div></div>`;
+};
+const NX_BRAND = {a: "Freight", b: "Pilot", full: "FreightPilot"};   /* product name — one place to change */
+function nxWordmark(light){ return `<span class="nxwm${light ? " on-light" : ""}"><span class="n1">${esc(NX_BRAND.a)}</span><span class="n2">${esc(NX_BRAND.b)}</span></span>`; }
+function nxBrand(){
+  document.title = NX_BRAND.full + " — Operations Suite | Powered by sAiyd.ai";
+  const nl = document.querySelector(".navlogo");
+  if(nl && !nl.dataset.nx){ nl.dataset.nx = "1";
+    nl.innerHTML = `<div style="font-size:27px;">${nxWordmark(false)}</div><span class="nxtag">OPERATIONS SUITE</span><span class="navaccent" style="background:linear-gradient(90deg,var(--nx-acc),var(--nx-acc2));"></span>
+      <span class="pwlbl">powered by</span><span class="saiydwm"><i class="s1">s</i><i class="s2">Ai</i><i class="s3">yd</i><i class="s4">.ai</i></span>`; }
+  const ag = document.querySelector("#authgate .dgwm");
+  if(ag && !ag.dataset.nx){ ag.dataset.nx = "1"; ag.outerHTML = `<div style="font-size:40px; text-align:center;" data-nx="1">${nxWordmark(true)}</div>`;
+    const tg = document.querySelector("#authgate .authtag"); if(tg) tg.textContent = "Operations Suite — Air · Sea · Land"; }
+  const tb = document.querySelector("#tb_brand .dgwm");
+  if(tb && !tb.dataset.nx){ tb.dataset.nx = "1"; tb.innerHTML = nxWordmark(false); }
+  const dh = document.querySelector("#tab-dash > .card > h2");
+  if(dh && !dh.dataset.nx){ dh.dataset.nx = "1"; dh.innerHTML = "&#128202; OPERATIONS DASHBOARD &mdash; jobs &amp; documents"; }
+}
+/* menu: DASHBOARD · AIR FREIGHT · SEA FREIGHT (soon) · LAND FREIGHT (soon) · COMMON */
+const NX_COMMON = ["nav-customers", "nav-items", "nav-inv", "nav-pl", "nav-docs", "nav-rpt", "nav-wh", "nav-whrep", "nav-track", "nav-msds", "nav-wainbox", "nav-aicost", "nav-settings"];
+const NX_AIR = ["nav-gc", "nav-dgd", "nav-checklist", "nav-labels", "nav-stickers", "nav-awb", "nav-alforms", "nav-dnata"];
+function nxMenu(){
+  const nav = document.querySelector(".nav"); if(!nav || nav.dataset.nx) return;
+  const dash = document.getElementById("nav-dash"); if(!dash) return;
+  nav.dataset.nx = "1";
+  const el = (tag, cls, html) => { const e = document.createElement(tag); e.className = cls; if(html != null) e.innerHTML = html; return e; };
+  let at = dash;
+  const put = n => { at.insertAdjacentElement("afterend", n); at = n; };
+  const mode = (cls, label, key, soon) => {
+    const b = el("button", "nxmode " + cls, `<span>${label}</span><small>${soon ? "SOON" : "&#9662;"}</small>`);
+    b.type = "button"; b.dataset.nxmode = key; put(b);
+    const box = el("div", "nxsub" + (soon ? " closed" : "")); box.id = "nxsub_" + key; put(box);
+    b.onclick = () => { if(soon){ box.classList.toggle("closed"); return; } box.classList.toggle("closed"); b.querySelector("small").innerHTML = box.classList.contains("closed") ? "&#9656;" : "&#9662;";
+      try{ localStorage.setItem("nx_air_closed", box.classList.contains("closed") ? "1" : ""); }catch(e){} };
+    return box;
+  };
+  const air = mode("m-air", "&#9992; AIR FREIGHT", "air", false);
+  NX_AIR.forEach(id => { const b = document.getElementById(id); if(b) air.appendChild(b); });
+  try{ if(localStorage.getItem("nx_air_closed") === "1"){ air.classList.add("closed"); } }catch(e){}
+  const sea = mode("m-sea", "&#128674; SEA FREIGHT", "sea", true);
+  sea.innerHTML = `<div class="nxsoon">Booking &middot; BL &middot; containers &middot; IMDG &mdash; coming soon</div>`;
+  const land = mode("m-land", "&#128666; LAND FREIGHT", "land", true);
+  land.innerHTML = `<div class="nxsoon">Trucks &middot; CMR &middot; GCC transit &mdash; coming soon</div>`;
+  put(el("div", "nxgrp", "Common"));
+  NX_COMMON.forEach(id => { const b = document.getElementById(id); if(b) put(b); });
+  /* the open tab's mode group stays open */
+  showTab = (function(r0){ return function(name){ const r = r0.apply(this, arguments);
+    try{ const b = document.getElementById("nav-" + name); if(b && air.contains(b) && air.classList.contains("closed")){ air.classList.remove("closed"); } }catch(e){} return r; }; })(showTab);
+}
+function nxSettings(){
+  const tab = document.getElementById("tab-settings"); if(!tab || document.getElementById("nx_themebox")) return;
+  const c = document.createElement("div"); c.className = "card"; c.id = "nx_themebox";
+  c.innerHTML = `<h2>&#127912; LOOK &mdash; theme</h2><div class="body"><div class="nxthemes">${Object.keys(NX_THEMES).map(k =>
+    `<button data-k="${k}" style="background:linear-gradient(120deg, ${NX_THEMES[k].side2}, ${NX_THEMES[k].acc});">${esc(NX_THEMES[k].name)}</button>`).join("")}</div>
+    <div style="font-size:12px; color:#5b6b7d; margin-top:6px;">Saved on this device.</div></div>`;
+  tab.insertBefore(c, tab.firstChild);
+  const mark = () => c.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.k === nxTheme()));
+  c.querySelectorAll("button").forEach(b => b.onclick = () => { nxApplyTheme(b.dataset.k); mark(); });
+  mark();
+}
+function nxInit(){
+  try{ document.body.classList.add("nx"); nxApplyTheme(nxTheme()); nxBrand(); nxMenu(); nxSettings(); if(typeof renderDash === "function") renderDash(); }catch(e){ console.warn("nx", e); }
+}
+if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", nxInit); else nxInit();
+/* ================= v25.13-A JOB FLOW — 13 air export steps per job (JFS Air Cargo Export SOP) ================= */
+/* Each step turns green from the data the job already has; steps with no data (labels, airline forms, terminal,
+   close) are ticked by staff. Ticks are company-wide (shared key jfs_jobflow). Nothing in the job is changed. */
+if(typeof ALL_KEYS !== "undefined" && !ALL_KEYS.includes("jfs_jobflow")) ALL_KEYS.push("jfs_jobflow");
+const JF = {dgx: {}, dgxAt: 0};
+function jfAll(){ try{ const o = JSON.parse(localStorage.getItem("jfs_jobflow") || "{}"); return (o && typeof o === "object" && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; } }
+function jfSave(all){ localStorage.setItem("jfs_jobflow", JSON.stringify(all)); if(typeof cloudPushDebounced === "function") cloudPushDebounced("jfs_jobflow"); }
+const JF_STEPS = [
+  {id: "s1",  n: "Customer & quote",   tab: "dash",     man: true},
+  {id: "s2",  n: "Booking & AWB no.",  tab: "gc"},
+  {id: "s3",  n: "Documents",          tab: "inv",      man: true},
+  {id: "s4",  n: "DG check",           tab: "dgd",      dg: true},
+  {id: "s5",  n: "Cargo receipt",      tab: "wh",       man: true},
+  {id: "s6",  n: "Marks & labels",     tab: "labels",   man: true},
+  {id: "s7",  n: "DGD & checklist",    tab: "dgd",      dg: true, man: true},
+  {id: "s8",  n: "AWB / manifest",     tab: "awb",      man: true},
+  {id: "s9",  n: "Customs declaration",tab: "gc",       man: true},
+  {id: "s10", n: "Airline forms",      tab: "alforms",  man: true},
+  {id: "s11", n: "Terminal delivery",  tab: "dnata",    man: true},
+  {id: "s12", n: "Departure & pre-alert", tab: "track", man: true},
+  {id: "s13", n: "Close job",          tab: "docs",     man: true}
+];
+function jfCtx(job){
+  job = String(job || "").toUpperCase().trim();
+  const e = store("jfs_joblog").find(x => (x.job || "").toUpperCase() === job) || {};
+  const d = store("jfs_documents").find(x => (x.job || "").toUpperCase() === job) || null;
+  let snap = d && d.snap || null;
+  try{ if(typeof dgxJob === "function" && dgxJob() === job) snap = Object.assign({}, snap || {}, snapshot()); }catch(err){}
+  const type = (e.type || (snap && snap.jobtype) || (/^GEN/.test(job) ? "GC" : "DG")) === "GC" ? "GC" : "DG";
+  const awb = String((snap && snap.awb) || (d && d.awb) || e.awb || "").trim();
+  let trk = null;
+  try{ const dg = awb.replace(/\D/g, ""); const all = trackAll(); if(dg.length === 11) trk = Object.keys(all).filter(k => k.replace(/\D/g, "") === dg).map(k => all[k])[0] || null; }catch(err){}
+  return {job, e, d, snap: snap || {}, type, awb, trk, sim: JF.dgx[job] || null, man: jfAll()[job] || {}};
+}
+/* returns "ok" | "part" | "todo" | "na" + a short reason */
+function jfStep(st, c){
+  const s = c.snap, m = c.man[st.id];
+  if(st.dg && c.type === "GC") return ["na", "not DG"];
+  const manual = m ? ["ok", "ticked by " + String(m.by || "").split("@")[0]] : null;
+  const has = v => v != null && String(v).trim() !== "";
+  switch(st.id){
+    case "s1": return (has(s.customer) || has(c.e.customer)) ? ["ok", "customer " + (s.customer || c.e.customer)] : (manual || ["todo", "customer missing"]);
+    case "s2": return c.awb.replace(/\D/g, "").length === 11 ? ["ok", "AWB " + c.awb] : (c.awb ? ["part", "check AWB number"] : ["todo", "no AWB number"]);
+    case "s3": { const n = (s.invitems || []).length; return n ? ["ok", n + " invoice line(s)"] : (manual || ((s.pl && s.pl.name) ? ["part", "packing list only"] : ["todo", "no invoice"])); }
+    case "s4": { const it = (s.items || []).filter(i => has(i.un) || has(i.psn)); if(!it.length) return ["todo", "no DG lines"];
+      const full = it.every(i => has(i.un) && has(i.psn) && has(i.cls) && has(i.pi)); return full ? ["ok", it.length + " DG line(s)"] : ["part", "UN / PSN / class / PI incomplete"]; }
+    case "s5": return ((s.pt || []).length || (s.hawbs || []).length) ? ["ok", (s.pt || []).length + " pallet / overpack line(s)"] : (manual || ["todo", "no pallets"]);
+    case "s6": return manual || ["todo", "tick when labelled"];
+    case "s7": { const st2 = String((c.d && c.d.status) || "").toUpperCase(); if(c.d && c.d.signed) return ["ok", "signed copy uploaded"];
+      if(manual) return manual; if(/CONFIRM|PRINT|FINAL/.test(st2) || (c.e.prints || 0) > 0) return ["part", "printed — upload the signed copy"]; return c.d ? ["part", "DGD " + (st2 || "draft")] : ["todo", "no DGD"]; }
+    case "s8": return (c.d && c.d.awbcopy) ? ["ok", "AWB copy uploaded"] : (manual || ((s.aw && (has(s.aw.flight) || has(s.aw.chwt))) ? ["part", "AWB filled — upload copy"] : ["todo", "AWB not prepared"]));
+    case "s9": { const r = c.sim; if(r && r.status === "declared") return ["ok", "declared " + (r.decl_no || "")]; if(manual) return manual;
+      if(r) return ["part", r.status === "dt_ready" ? "DT file ready" : "sent to SIMSAR"]; return ["todo", "not declared"]; }
+    case "s10": return manual || ["todo", "tick when forms done"];
+    case "s11": return (c.d && c.d.accept) ? ["ok", "acceptance uploaded"] : (manual || ["todo", "not delivered"]);
+    case "s12": { const t = c.trk; const txt = t ? JSON.stringify([t.status, t.lastEvent, (t.manualEvents || []).map(x => x.code)]).toUpperCase() : "";
+      if(/DEP|DEPART|RCF|ARR|DLV|DELIVER|NFD|AWD/.test(txt)) return ["ok", "departed"]; return manual || ["todo", "not departed"]; }
+    case "s13": return manual || ["todo", "open"];
+  }
+  return ["todo", ""];
+}
+function jfCalc(job){
+  const c = jfCtx(job);
+  const rows = JF_STEPS.map(st => { const [k, why] = jfStep(st, c); return {st, k, why}; });
+  const act = rows.filter(r => r.k !== "na");
+  const done = act.filter(r => r.k === "ok").length;
+  const next = act.find(r => r.k !== "ok");
+  return {c, rows, done, total: act.length, next, closed: !!c.man.s13};
+}
+function jfRecent(e){ const t = new Date(e.last || e.first || 0).getTime(); return !t || Date.now() - t < 45 * 864e5; }   /* older jobs are not counted as open */
+const JF_COL = {ok: "#16a34a", part: "#f59e0b", todo: "#cbd2df", na: "#eef1f6"};
+function jfBar(f, big){
+  const w = big ? 26 : 11, h = big ? 12 : 8;
+  return `<div style="display:flex; gap:${big ? 4 : 2}px; align-items:center;">` + f.rows.map((r, i) =>
+    `<span title="${i + 1}. ${esc(r.st.n)} — ${esc(r.k === "na" ? "not needed" : r.why)}" style="display:inline-block; width:${w}px; height:${h}px; border-radius:3px; background:${JF_COL[r.k]};${r.k === "na" ? " border:1px dashed #cfd5e2;" : ""}"></span>`).join("") + `</div>`;
+}
+/* job-page widget (CREATE AWB / CREATE DGD) */
+function jfWidgetHtml(){
+  const job = (typeof dgxJob === "function") ? dgxJob() : "";
+  if(!job) return `<span style="color:#5b6b7d;">JOB FLOW starts when the job has a number.</span>`;
+  const f = jfCalc(job);
+  return `<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <b style="color:var(--nx-ink,#1d0074); font-family:'Poppins',Arial,sans-serif;">&#9989; JOB FLOW ${f.done}/${f.total}</b>
+      <div style="display:flex; gap:4px; flex-wrap:wrap;">${f.rows.map((r, i) => r.k === "na" ? "" :
+        `<button class="smallbtn" onclick="jfClick('${esc(job)}','${r.st.id}')" title="${esc(r.why)}" style="background:${r.k === "ok" ? "#dcfce7" : r.k === "part" ? "#fef3c7" : "#f1f3f8"}; color:${r.k === "ok" ? "#166534" : r.k === "part" ? "#92400e" : "#475569"}; border:1px solid ${JF_COL[r.k]};">${r.k === "ok" ? "&#10003;" : i + 1} ${esc(r.st.n)}</button>`).join("")}</div>
+      ${f.closed ? `<b style="color:#166534;">CLOSED</b>` : f.next ? `<span style="font-size:12px; color:#5b6b7d;">Next: <b>${esc(f.next.st.n)}</b> &mdash; ${esc(f.next.why)}</span>` : ""}</div>`;
+}
+function jfMount(){
+  const mk = () => { const w = document.createElement("div"); w.className = "jf_w";
+    w.setAttribute("style", "border:2px solid color-mix(in srgb, var(--nx-side2,#3b1d8f) 30%, #fff); border-radius:12px; padding:9px 12px; background:#fbfaff; margin:10px 0; font-size:13px;"); return w; };
+  document.querySelectorAll(".dgx_w").forEach(x => {
+    if(x.closest("#tab-inv")) return;
+    if(!(x.nextElementSibling && x.nextElementSibling.classList.contains("jf_w"))) x.insertAdjacentElement("afterend", mk());
+  });
+  jfRenderWidgets();
+}
+function jfRenderWidgets(){ const h = jfWidgetHtml(); document.querySelectorAll(".jf_w").forEach(w => { if(w.innerHTML !== h) w.innerHTML = h; }); }
+function jfTick(job, id, on){
+  const all = jfAll(); all[job] = all[job] || {};
+  if(on) all[job][id] = {by: (sbUser && sbUser.email) || "", at: new Date().toISOString()}; else delete all[job][id];
+  jfSave(all);
+}
+function jfClick(job, id){
+  const st = JF_STEPS.find(s => s.id === id); if(!st) return;
+  const f = jfCalc(job), r = f.rows.find(x => x.st.id === id);
+  const ticked = !!f.c.man[id];
+  const UP = {s7: ["signed", "the SIGNED DGD (stamp + sign scan)"], s8: ["awbcopy", "the AWB copy"], s11: ["accept", "the terminal ACCEPTANCE receipt"]};
+  if(UP[id] && r.k !== "ok" && !ticked){
+    const i = store("jfs_documents").findIndex(d => (d.job || "").toUpperCase() === job);
+    if(i >= 0 && typeof docUpload === "function" && confirm("Upload " + UP[id][1] + " for " + job + "?\n\nOK = upload the file (the step turns green)\nCancel = only tick the step")){ docUpload(i, UP[id][0]); return; }
+  }
+  if(st.man && (r.k !== "ok" || ticked)){
+    if(id === "s13" && !ticked){
+      const open = f.rows.filter(x => x.k !== "ok" && x.k !== "na" && x.st.id !== "s13");
+      if(open.length && !confirm("CLOSE JOB " + job + "?\n\nStill open: " + open.map(x => x.st.n).join(", ") + "\n\nClose anyway?")) return;
+    }
+    const q = ticked ? "Remove the tick from \"" + st.n + "\" for " + job + "?" : "Mark \"" + st.n + "\" as DONE for " + job + "?\n\n(" + r.why + ")";
+    if(confirm(q)){ jfTick(job, id, !ticked); jfRenderWidgets(); jfBoard(); }
+    return;
+  }
+  if(st.tab){ try{ showTab(st.tab); window.scrollTo(0, 0); }catch(e){} }
+}
+async function jfLoadSimsar(jobs){
+  if(typeof dgxCall !== "function" || !sbUser || !jobs.length || Date.now() - JF.dgxAt < 60000) return;
+  JF.dgxAt = Date.now();
+  try{ const j = await dgxCall({action: "status", jobs: jobs.slice(0, 200)}); const m = {}; (j.rows || []).forEach(r => { if(!m[r.job_no]) m[r.job_no] = r; }); JF.dgx = m; }catch(e){}
+}
+/* JOB FLOW board (own tab) */
+function jfTab(){
+  if(document.getElementById("tab-jobflow")) return;
+  const dash = document.getElementById("tab-dash"); if(!dash) return;
+  const t = document.createElement("div"); t.className = "tab"; t.id = "tab-jobflow";
+  t.innerHTML = `<div class="card"><h2>&#9989; JOB FLOW &mdash; every air job, step by step (JFS Air Cargo Export SOP)</h2><div class="body">
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+      <input type="text" id="jf_q" placeholder="Search job / AWB / customer..." style="max-width:280px;" oninput="jfBoard()">
+      <select id="jf_f" style="width:auto;" onchange="jfBoard()"><option value="open">Open jobs</option><option value="stuck">Needs action (orange)</option><option value="closed">Closed</option><option value="old">Older than 45 days (not closed)</option><option value="all">All</option></select>
+      <button class="smallbtn sb-blue" onclick="JF.dgxAt=0; jfBoard(true)">&#8635; Refresh</button>
+      <span id="jf_sum" style="font-size:12.5px; color:#5b6b7d;"></span></div>
+    <div style="font-size:11.5px; color:#5b6b7d; margin-bottom:8px;"><span style="color:#16a34a;">&#9632;</span> done &nbsp; <span style="color:#f59e0b;">&#9632;</span> started / check &nbsp; <span style="color:#94a3b8;">&#9632;</span> to do &nbsp;&middot;&nbsp; Click a job to open it; click a step on the job page to tick it.</div>
+    <div style="overflow-x:auto;"><table class="dtable" id="jf_tbl"></table></div></div></div>`;
+  dash.insertAdjacentElement("afterend", t);
+  const nb = document.createElement("button"); nb.id = "nav-jobflow"; nb.innerHTML = "&#9989; JOB FLOW"; nb.onclick = () => showTab("jobflow");
+  nb.style.setProperty("--acc", "#a855f7");
+  const navDash = document.getElementById("nav-dash"); if(navDash) navDash.insertAdjacentElement("afterend", nb);
+}
+async function jfBoard(force){
+  const tb = document.getElementById("jf_tbl"); if(!tb) return;
+  const log = store("jfs_joblog").filter(e => e.job);
+  if(force || Date.now() - JF.dgxAt > 60000) await jfLoadSimsar(log.slice(0, 200).map(e => e.job));
+  const q = (document.getElementById("jf_q") || {}).value || "", fl = (document.getElementById("jf_f") || {}).value || "open";
+  const ql = q.toLowerCase();
+  let open = 0, stuck = 0, closed = 0;
+  const rows = log.slice(0, 300).map(e => ({e, f: jfCalc(e.job)}));
+  rows.forEach(r => { if(r.f.closed) closed++; else if(jfRecent(r.e)){ open++; if(r.f.rows.some(x => x.k === "part")) stuck++; } });
+  const list = rows.filter(r => {
+    if(fl === "open" && (r.f.closed || !jfRecent(r.e))) return false; if(fl === "closed" && !r.f.closed) return false;
+    if(fl === "old" && (r.f.closed || jfRecent(r.e))) return false;
+    if(fl === "stuck" && (r.f.closed || !jfRecent(r.e) || !r.f.rows.some(x => x.k === "part"))) return false;
+    return !ql || [r.e.job, r.e.awb, r.e.customer, r.e.shipper, r.e.consignee].join(" ").toLowerCase().includes(ql);
+  }).slice(0, 150);
+  const sum = document.getElementById("jf_sum"); if(sum) sum.innerHTML = `<b>${open}</b> open &middot; <b style="color:#b45309;">${stuck}</b> need action &middot; <b style="color:#166534;">${closed}</b> closed`;
+  tb.innerHTML = `<tr><th>JOB</th><th>TYPE</th><th>CUSTOMER / SHIPPER</th><th>ROUTE</th><th>AWB</th><th>JOB FLOW</th><th>DONE</th><th>NEXT STEP</th></tr>` +
+    (list.length ? list.map(r => { const f = r.f, e = r.e; return `<tr style="cursor:pointer;" onclick="jfOpen('${esc(e.job)}')">
+      <td><b>${esc(e.job)}</b></td><td><span style="background:${f.c.type === "DG" ? "#dc2626" : "#2563eb"}; color:#fff; border-radius:8px; padding:1px 7px; font-size:10.5px; font-weight:bold;">AIR ${f.c.type}</span></td>
+      <td>${esc(e.customer || e.shipper || "")}</td><td>${esc(e.route || "")}</td><td>${esc(f.c.awb)}</td>
+      <td>${jfBar(f)}</td><td><b>${f.done}/${f.total}</b></td>
+      <td>${f.closed ? `<b style="color:#166534;">CLOSED</b>` : f.next ? `<b>${esc(f.next.st.n)}</b><div style="font-size:11px; color:#7a8794;">${esc(f.next.why)}</div>` : `<b style="color:#166534;">Ready to close</b>`}</td></tr>`; }).join("")
+    : `<tr><td colspan="8" style="color:#7a8794;">No jobs.</td></tr>`);
+}
+function jfOpen(job){
+  const list = store("jfs_documents"); const i = list.findIndex(d => (d.job || "").toUpperCase() === String(job).toUpperCase());
+  if(i < 0){ alert("No saved document for " + job + " yet — open the job from DOCUMENTS or CREATE AWB / CREATE DGD."); return; }
+  const gc = (list[i].snap && list[i].snap.jobtype) === "GC";
+  try{ if(typeof setJobType === "function") setJobType(gc ? "GC" : "DG"); }catch(e){}
+  docOpenTab(i, gc ? "gc" : "dgd"); window.scrollTo(0, 0);
+}
+/* dashboard: job flow summary tiles */
+renderDash = (function(r0){ return function(){ const r = r0.apply(this, arguments);
+  try{
+    const box = document.getElementById("dashkpi"); if(!box) return r;
+    const log = store("jfs_joblog").filter(e => e.job).slice(0, 300);
+    let open = 0, stuck = 0, ready = 0;
+    log.forEach(e => { if(!jfRecent(e)) return; const f = jfCalc(e.job); if(f.closed) return; open++; if(f.rows.some(x => x.k === "part")) stuck++; if(!f.next || f.next.st.id === "s13") ready++; });
+    box.insertAdjacentHTML("beforeend", kpiChip(open, "OPEN JOBS (JOB FLOW)", "#7c3aed", "jobflow") + kpiChip(stuck, "NEED ACTION", "#d97706", "jobflow") + kpiChip(ready, "READY TO CLOSE", "#059669", "jobflow"));
+  }catch(e){}
+  return r; }; })(renderDash);
+showTab = (function(r0){ return function(name){ const r = r0.apply(this, arguments);
+  try{ if(name === "jobflow") jfBoard(); if(name === "gc" || name === "dgd"){ jfMount(); } }catch(e){} return r; }; })(showTab);
+setInterval(() => { try{ if(document.querySelector(".tab.on .jf_w")) jfRenderWidgets(); }catch(e){} }, 4000);
+document.addEventListener("DOMContentLoaded", () => { try{ jfTab(); jfMount(); }catch(e){} });
+try{ if(document.readyState !== "loading"){ jfTab(); jfMount(); } }catch(e){}
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
