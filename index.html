@@ -354,6 +354,20 @@
       <label>Email</label><input type="email" id="li_email" autocomplete="username">
       <label>Password</label><input type="password" id="li_pass" autocomplete="current-password">
       <button class="authbtn" onclick="doLogin()">LOG IN</button>
+      <div style="text-align:center; margin-top:10px;"><a href="#" style="font-size:12.5px; color:#2d2d6e;" onclick="pwForgotShow(); return false;">Forgot password?</a></div>
+    </div>
+    <div id="authforgot" style="display:none;">
+      <div style="font-size:13px; color:#333; margin-bottom:8px;">Type your email &mdash; a link to set a new password will be sent to it.</div>
+      <label>Email</label><input type="email" id="fp_email" autocomplete="username">
+      <button class="authbtn" onclick="pwForgotSend()">SEND RESET LINK</button>
+      <div style="text-align:center; margin-top:10px;"><a href="#" style="font-size:12.5px; color:#2d2d6e;" onclick="authTab('login'); return false;">&larr; Back to log in</a></div>
+    </div>
+    <div id="authsetpw" style="display:none;">
+      <div style="font-size:14px; font-weight:bold; color:#1c1c4e; margin-bottom:4px;">SET YOUR PASSWORD</div>
+      <div style="font-size:12.5px; color:#333; margin-bottom:8px;" id="sp_who"></div>
+      <label>New password (min 8)</label><input type="password" id="sp_pass1" autocomplete="new-password">
+      <label>Repeat new password</label><input type="password" id="sp_pass2" autocomplete="new-password">
+      <button class="authbtn" onclick="pwSetSave()">SAVE PASSWORD</button>
     </div>
     <div id="authsignup" style="display:none;">
       <label>Full name</label><input type="text" id="su_name">
@@ -375,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-S</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-T</span></span>
           </div>
         </div>
       </div>
@@ -8506,6 +8520,9 @@ function importAll(){
 const SB_URL = "https://jojtqlfhmkvdegqbwvtj.supabase.co";
 const SB_KEY = "sb_publishable_RUGh1s5HM7CrT9XDoafmoA_hEa1tBen";
 let sb = null, sbUser = null, syncTimers = {};
+/* v25.12-T: read the invite / reset link type BEFORE supabase-js consumes the URL */
+const DG_AUTH_LINK = (function(){ try{ const h = new URLSearchParams((location.hash || "").replace(/^#/, "")), q = new URLSearchParams(location.search || "");
+  return {type: h.get("type") || q.get("type") || "", error: h.get("error_description") || q.get("error_description") || ""}; }catch(e){ return {type: "", error: ""}; } })();
 try{ sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY) : null; }catch(e){ sb = null; }
 
 function authMsg(t, ok){ const el = document.getElementById("authmsg"); el.textContent = t; el.style.color = ok ? "#1d6b34" : "#c00000"; }
@@ -11465,6 +11482,60 @@ printDGD = (function(r0){ return function(){
   if(bad.length && !confirm("⚠ AIRPORT NAME CHECK\n\n" + bad.join(", ") + " is not a known airport code, so the DGD would print only the code.\nType the full name (e.g. BIRMINGHAM) in the Airport field.\n\nPress OK to print anyway, or Cancel to fix it.")) return;
   return r0.apply(this, arguments);
 }; })(printDGD);
+
+/* ================= v25.12-T SET PASSWORD (invite / reset link) + FORGOT PASSWORD ================= */
+function authPanels(which){
+  ["authlogin", "authsignup", "authforgot", "authsetpw"].forEach(id => { const e = document.getElementById(id); if(e) e.style.display = id === which ? "" : "none"; });
+}
+authTab = (function(r0){ return function(which){ const r = r0.apply(this, arguments); ["authforgot", "authsetpw"].forEach(id => { const e = document.getElementById(id); if(e) e.style.display = "none"; }); return r; }; })(authTab);
+function pwForgotShow(){ authPanels("authforgot"); const e = document.getElementById("fp_email"); if(e){ e.value = v("li_email"); e.focus(); } authMsg("", true); }
+async function pwForgotSend(){
+  const email = (v("fp_email") || "").trim();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ authMsg("Type a valid email.", false); return; }
+  if(!sb){ authMsg("No internet / cloud unreachable — try again.", false); return; }
+  authMsg("Sending...", true);
+  const { error } = await sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin + "/"});
+  if(error){ authMsg(error.message, false); return; }
+  authMsg("If this email has a DGDOC account, a reset link was sent. Open it on this computer.", true);
+}
+let _spUser = null;
+function pwSetShow(user, why){
+  _spUser = user;
+  document.getElementById("authgate").style.display = "flex";
+  authPanels("authsetpw");
+  const w = document.getElementById("sp_who");
+  if(w) w.innerHTML = (why === "invite" ? "Welcome to DGDOC. " : "") + "Account: <b>" + esc(user && user.email || "") + "</b>";
+  authMsg("", true);
+  setTimeout(() => { const e = document.getElementById("sp_pass1"); if(e) e.focus(); }, 100);
+}
+async function pwSetSave(){
+  const a = v("sp_pass1"), b = v("sp_pass2");
+  if(a.length < 8){ authMsg("Password must be at least 8 characters.", false); return; }
+  if(a !== b){ authMsg("The two passwords are not the same.", false); return; }
+  authMsg("Saving...", true);
+  const { data, error } = await sb.auth.updateUser({password: a});
+  if(error){ authMsg(error.message, false); return; }
+  document.getElementById("sp_pass1").value = ""; document.getElementById("sp_pass2").value = "";
+  try{ history.replaceState(null, "", location.pathname); }catch(e){}
+  authMsg("Password saved.", true);
+  authTab("login");
+  await enterApp((data && data.user) || _spUser);
+}
+authInit = (function(r0){ return async function(){
+  const t = DG_AUTH_LINK.type;
+  if(DG_AUTH_LINK.error && sb){
+    authMsg("This link has expired or was already used. Press \"Forgot password?\" to get a new link.", false);
+    try{ history.replaceState(null, "", location.pathname); }catch(e){}
+    return;
+  }
+  if((t === "invite" || t === "recovery") && sb){
+    let session = null;
+    for(let i = 0; i < 20 && !session; i++){ const r = await sb.auth.getSession(); session = r.data && r.data.session; if(!session) await new Promise(z => setTimeout(z, 250)); }
+    if(session){ pwSetShow(session.user, t); return; }
+  }
+  return r0.apply(this, arguments);
+}; })(authInit);
+try{ if(sb) sb.auth.onAuthStateChange((ev, session) => { if(ev === "PASSWORD_RECOVERY" && session) pwSetShow(session.user, "recovery"); }); }catch(e){}
 
 authInit();
 </script>
