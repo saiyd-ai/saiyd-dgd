@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-T</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.12-U</span></span>
           </div>
         </div>
       </div>
@@ -11537,6 +11537,208 @@ authInit = (function(r0){ return async function(){
 }; })(authInit);
 try{ if(sb) sb.auth.onAuthStateChange((ev, session) => { if(ev === "PASSWORD_RECOVERY" && session) pwSetShow(session.user, "recovery"); }); }catch(e){}
 
+/* ================= v25.12-U CUSTOMS DECLARATION → SIMSAR (TradeGate BOE Passing → Mirsal 2 DT file) ================= */
+/* The export job (job, AWB, parties, pcs / kg, INVOICE tab lines, documents) goes to TradeGate (SIMSAR broker scope →
+   BOE Passing → FROM DGDOC). TradeGate reads it, finds the HS codes and makes the proven Dubai Trade DT file. The status,
+   the DT file and the declaration number come back here. Only active DGDOC staff can send (checked on the server). */
+const DGX_FN = "https://skbvtfgkuiumpeufleef.supabase.co/functions/v1/dgdoc-handoff";
+const DGX_TYPES = ["FZ Transit Out", "Export from Local to ROW", "Export from CW to ROW", "Re-Export to ROW (after Import for Re-Export)", "Temporary Export from Local to ROW", "Return to ROW after Temporary Admission"];
+const DGX = {row: null, job: "", at: 0, busy: false, extra: []};
+function dgxV(id){ const e = document.getElementById(id); return e ? String(e.value || "") : ""; }
+function dgxJob(){ return (dgxV("f_job") || dgxV("gc_job")).toUpperCase().trim(); }
+function dgxFirst(t){ return (String(t || "").split(/\r?\n/).map(s => s.trim()).filter(Boolean)[0] || ""); }
+function dgxGuessType(shipper){
+  return /FREE\s*ZONE|\bFZ[-\s]?(E|CO|LLC)\b|\bFZE\b|\bFZCO\b|DAFZA|JAFZA|\bDMCC\b|KIZAD|\bSAIF\b|HAMRIYAH|RAKEZ|\bDSO\b|SILICON OASIS|DUBAI SOUTH|AIRPORT FREE/i.test(String(shipper || "")) ? "FZ Transit Out" : "Export from Local to ROW";
+}
+async function dgxCall(body){
+  if(!sb || !sbUser) throw new Error("Login to DGDOC first.");
+  const { data } = await sb.auth.getSession();
+  const tok = data && data.session && data.session.access_token;
+  if(!tok) throw new Error("Login to DGDOC first.");
+  let r;
+  try{ r = await fetch(DGX_FN, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok}, body: JSON.stringify(body)}); }
+  catch(e){ throw new Error("TradeGate is not reachable (" + (e.message || e) + ")."); }
+  let j = {}; try{ j = await r.json(); }catch(e){}
+  if(!r.ok){ const err = new Error(j.message || j.error || ("TradeGate error " + r.status)); err.code = j.error || ""; err.status = r.status; err.info = j; throw err; }
+  return j;
+}
+function dgxLines(){
+  const L = (typeof INVITEMS !== "undefined" && Array.isArray(INVITEMS)) ? INVITEMS : [];
+  return L.filter(x => String(x.desc || "").trim() && (parseFloat(x.qty) || 0) > 0).map(x => {
+    const q = parseFloat(x.qty) || 0, p = parseFloat(x.price) || 0;
+    return {desc: String(x.desc || "").trim(), hs: String(x.hs || "").trim(), coo: String(x.origin || "").trim(), qty: q, unit: String(x.unit || "").trim(),
+      price: p, val: +(q * p).toFixed(2), ctns: parseFloat(x.ctns) || 0, net: parseFloat(x.net) || 0, gross: parseFloat(x.gross) || 0};
+  });
+}
+function dgxPack(){
+  let kg = parseFloat(dgxV("gc_wt")) || 0;
+  if(!kg){ try{ kg = (_awNums() || {}).gross || 0; }catch(e){} }
+  const place = c => { try{ const p = airportPlace(c); return p ? (iata3(c) || c) + " " + p : c; }catch(e){ return c; } };
+  return {
+    job: dgxJob(), awb: dgxV("f_awb") || dgxV("gc_awb"), hawb: dgxV("f_ref") || dgxV("gc_hawb"), customer: dgxV("f_customer") || dgxV("gc_customer"),
+    shipper: dgxV("f_shipper") || dgxV("gc_shipper"), consignee: dgxV("f_consignee") || dgxV("gc_consignee"),
+    dep: place(dgxV("f_dep") || dgxV("gc_dep")), dest: place(dgxV("f_dest") || dgxV("gc_dest")),
+    pcs: parseFloat(dgxV("gc_pcs") || dgxV("f_opcount")) || 0, kg, goods: dgxV("gc_goods"),
+    jobtype: (typeof JOBTYPE !== "undefined" ? JOBTYPE : ""),
+    inv: {no: dgxV("inv_no"), date: dgxV("inv_date"), cur: dgxV("inv_cur"), terms: dgxV("inv_terms"), cons: dgxV("inv_cons")},
+    lines: dgxLines()
+  };
+}
+function dgxFiles(){
+  const out = [];
+  ["gc", "dg"].forEach(m => { try{ (DC[m].files || []).forEach((f, i) => { if(!out.some(o => o.file && o.file.name === f.name && o.file.size === f.size)) out.push({file: f, kind: DC[m].kinds[i] || "AWB", on: (DC[m].kinds[i] || "") !== "LABEL"}); }); }catch(e){} });
+  (DGX.extra || []).forEach(f => out.push({file: f, kind: /invoice|inv/i.test(f.name || "") ? "INV" : "DOC", on: true}));
+  try{
+    const d = store("jfs_documents").find(x => (x.job || "").toUpperCase() === dgxJob());
+    if(d && d.awbcopy) out.push({path: d.awbcopy, name: "AWB_copy_" + (d.awb || d.job || "") + "." + (String(d.awbcopy).split(".").pop() || "pdf"), kind: "AWB", on: true});
+  }catch(e){}
+  return out;
+}
+function dgxStatusHtml(r){
+  const t = s => { if(!s) return ""; try{ return new Date(s).toLocaleString("en-GB", {day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"}); }catch(e){ return String(s).slice(0, 16).replace("T", " "); } };
+  const who = s => esc(String(s || "").split("@")[0]);
+  if(!r) return `<span style="color:#5b6b7d;">Not sent to SIMSAR yet</span>`;
+  if(r.status === "new") return `<b style="color:#8a5200;">&#128228; SENT to SIMSAR</b> <span style="color:#5b6b7d;">${t(r.sent_at)} by ${who(r.sent_by)} &mdash; waiting for TradeGate</span>`;
+  if(r.status === "opened") return `<b style="color:#1a5fb4;">&#128260; SIMSAR is working on it</b> <span style="color:#5b6b7d;">(${who(r.opened_by)}, ${t(r.opened_at)})</span>`;
+  if(r.status === "dt_ready") return `<b style="color:#1d6b34;">&#9989; DT FILE READY</b> <span style="color:#5b6b7d;">(${who(r.dt_by)}, ${t(r.dt_at)}) &mdash; upload it on Mirsal 2</span>`;
+  if(r.status === "declared") return `<b style="color:#0e7c66;">&#127937; DECLARED &middot; ${esc(r.decl_no || "")}</b> <span style="color:#5b6b7d;">(${who(r.declared_by)}, ${t(r.declared_at)})</span>`;
+  return esc(r.status || "");
+}
+function dgxRender(){
+  const r = (DGX.job === dgxJob()) ? DGX.row : null;
+  document.querySelectorAll(".dgx_w").forEach(w => {
+    const st = w.querySelector(".dgx_st"); if(st) st.innerHTML = dgxStatusHtml(r);
+    const dt = w.querySelector(".dgx_dt"); if(dt) dt.style.display = r && (r.status === "dt_ready" || r.status === "declared") ? "" : "none";
+    const dc = w.querySelector(".dgx_dc"); if(dc) dc.style.display = r && r.status === "dt_ready" ? "" : "none";
+  });
+}
+async function dgxRefresh(force){
+  const job = dgxJob();
+  if(!job || !sbUser){ DGX.row = null; DGX.job = job; dgxRender(); return; }
+  if(!force && DGX.job === job && Date.now() - DGX.at < 45000){ dgxRender(); return; }
+  DGX.job = job; DGX.at = Date.now();
+  try{ const j = await dgxCall({action: "status", jobs: [job]}); if(DGX.job === job) DGX.row = (j.rows || [])[0] || null; }
+  catch(e){ /* TradeGate not reachable — keep the last status */ }
+  dgxRender();
+}
+function dgxMount(){
+  const mk = () => {
+    const w = document.createElement("div"); w.className = "dgx_w";
+    w.setAttribute("style", "border:2px solid #0e7c66; border-radius:10px; padding:8px 12px; background:#effaf6; display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0; font-size:13px;");
+    w.innerHTML = `<button class="btn btn-save" style="background:#0e7c66; white-space:nowrap;" onclick="dgxOpen()" title="Send this export job to SIMSAR (TradeGate) for the Mirsal 2 DT file">&#129534; CUSTOMS DECLARATION &rarr; SIMSAR</button>
+      <span class="dgx_st" style="flex:1 1 220px;"></span>
+      <button class="smallbtn dgx_dt" style="display:none; background:#1d6b34; color:#fff;" onclick="dgxDt()">&#11015; DT FILE</button>
+      <button class="smallbtn dgx_dc" style="display:none;" onclick="dgxDeclare()">&#9998; DECLARATION NO.</button>
+      <button class="smallbtn" onclick="dgxRefresh(true)" title="Refresh status">&#8635;</button>`;
+    return w;
+  };
+  const gc = document.querySelector("#tab-gc .card .body");
+  if(gc && !gc.querySelector(".dgx_w")) gc.appendChild(mk());
+  const fj = document.getElementById("f_job"), dgc = fj && fj.closest(".card");
+  if(dgc && !(dgc.nextElementSibling && dgc.nextElementSibling.classList.contains("dgx_w"))) dgc.insertAdjacentElement("afterend", mk());
+  const inv = document.getElementById("tab-inv");
+  if(inv && !inv.querySelector(".dgx_w")) inv.insertBefore(mk(), inv.firstChild);
+  dgxRender();
+}
+function dgxClose(){ const o = document.getElementById("dgx_ov"); if(o) o.remove(); }
+function dgxOpen(){
+  if(!sbUser){ alert("Login to DGDOC first."); return; }
+  const p = dgxPack();
+  if(!p.job){ alert("Fill the JFS JOB NUMBER first."); return; }
+  DGX.extra = [];
+  dgxClose();
+  const files = dgxFiles();
+  const lines = p.lines, noHs = lines.filter(l => String(l.hs).replace(/\D/g, "").length < 8).length;
+  const tot = lines.reduce((a, l) => a + (l.val || 0), 0);
+  const IN = "width:100%; box-sizing:border-box; border:1.5px solid #c9d4e2; border-radius:7px; padding:6px 8px; font-size:12.5px;";
+  const ov = document.createElement("div"); ov.id = "dgx_ov";
+  ov.setAttribute("style", "position:fixed; inset:0; z-index:10050; background:rgba(15,20,45,.55); display:flex; align-items:flex-start; justify-content:center; overflow:auto; padding:22px 12px;");
+  ov.innerHTML = `<div style="background:#fff; border-radius:14px; max-width:760px; width:100%; box-shadow:0 24px 70px rgba(0,0,0,.35); overflow:hidden;">
+    <div style="background:#0e7c66; color:#fff; padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
+      <b>&#129534; CUSTOMS DECLARATION &rarr; SIMSAR &mdash; ${esc(p.job)}</b><button onclick="dgxClose()" style="background:none; border:0; color:#fff; font-size:22px; cursor:pointer;">&times;</button></div>
+    <div style="padding:14px 16px; font-size:13px; line-height:1.5;">
+      <div style="background:#f1fbf8; border:1px solid #bfe6da; border-radius:8px; padding:8px 11px; margin-bottom:10px;">
+        AWB <b>${esc(p.awb || "—")}</b>${p.hawb ? " &middot; HAWB " + esc(p.hawb) : ""} &middot; ${esc(p.dep || "—")} &rarr; ${esc(p.dest || "—")} &middot; <b>${esc(p.pcs || "—")}</b> pcs &middot; <b>${esc(p.kg || "—")}</b> kg${p.goods ? " &middot; " + esc(p.goods) : ""}</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div><label style="font-weight:bold;">Shipper / exporter</label><textarea id="dgx_sh" style="${IN} min-height:70px;">${esc(p.shipper)}</textarea></div>
+        <div><label style="font-weight:bold;">Consignee</label><textarea id="dgx_cn" style="${IN} min-height:70px;">${esc(p.consignee)}</textarea></div>
+      </div>
+      <div style="margin-top:10px;"><label style="font-weight:bold;">Declaration type</label>
+        <select id="dgx_type" style="${IN}">${DGX_TYPES.map(t => `<option${t === dgxGuessType(p.shipper) ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>
+        <div style="font-size:11.5px; color:#5b6b7d;">Suggested from the shipper address (free zone &rarr; FZ Transit Out, mainland &rarr; Export from Local to ROW). SIMSAR can change it.</div></div>
+      <div style="margin-top:10px; border:1px solid ${lines.length ? "#bfe6da" : "#f0c27a"}; background:${lines.length ? "#f6fcfa" : "#fff8e6"}; border-radius:8px; padding:8px 11px;">
+        ${lines.length ? `&#128203; <b>Export invoice</b> ${esc(p.inv.no || "")}: <b>${lines.length}</b> line(s), total <b>${esc(p.inv.cur || "")} ${tot.toFixed(2)}</b> (from the INVOICE tab).` +
+          (noHs ? ` <span style="color:#a40000;"><b>${noHs}</b> line(s) without an 8-digit HS code &mdash; SIMSAR finds them (AI suggestion, confirmed by staff).</span>` : ` All lines have an HS code.`)
+          : `&#9888; <b>No invoice lines in the INVOICE tab.</b> Attach the export invoice (PDF / Excel) below &mdash; SIMSAR's AI reads it.`}</div>
+      <div style="margin-top:10px;"><label style="font-weight:bold;">Documents to send</label>
+        <div id="dgx_fl">${files.length ? files.map((f, i) => `<label style="display:flex; gap:8px; align-items:center; font-weight:normal; padding:3px 0;"><input type="checkbox" class="dgx_fc" data-i="${i}"${f.on ? " checked" : ""} style="width:auto;"> <span style="background:#eef1f6; border-radius:5px; padding:0 6px; font-size:11px;">${esc(f.kind)}</span> ${esc(f.file ? f.file.name : f.name)}</label>`).join("") : `<div style="color:#5b6b7d;">No documents in ADD DOCUMENTS.</div>`}</div>
+        <div style="margin-top:4px;"><input type="file" id="dgx_add" multiple accept=".pdf,.xlsx,.xls,.csv,image/*" style="font-size:12px;"> <span style="font-size:11.5px; color:#5b6b7d;">+ add the export invoice / packing list / other</span></div></div>
+      <div style="margin-top:10px;"><label style="font-weight:bold;">Note for SIMSAR</label><textarea id="dgx_note" style="${IN} min-height:44px;" placeholder="optional"></textarea></div>
+      <div id="dgx_err" style="color:#a40000; font-weight:bold; margin-top:8px;"></div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+        <button class="btn" style="background:#e9ebf5; color:#1c1c4e;" onclick="dgxClose()">Cancel</button>
+        <button class="btn btn-save" id="dgx_go" style="background:#0e7c66;" onclick="dgxSend()">&#128228; SEND TO SIMSAR</button></div>
+    </div></div>`;
+  document.body.appendChild(ov);
+  DGX.files = files;
+  document.getElementById("dgx_add").onchange = e => { DGX.extra = [...e.target.files]; };
+}
+async function dgxSend(){
+  if(DGX.busy) return;
+  const err = m => { const e = document.getElementById("dgx_err"); if(e) e.textContent = m || ""; };
+  const p = dgxPack();
+  p.shipper = dgxV("dgx_sh").trim(); p.consignee = dgxV("dgx_cn").trim(); p.dtype = dgxV("dgx_type"); p.note = dgxV("dgx_note").trim();
+  if(!p.shipper){ err("Shipper / exporter is required."); return; }
+  if(!p.consignee){ err("Consignee is required."); return; }
+  const pick = [...document.querySelectorAll(".dgx_fc")].filter(c => c.checked).map(c => DGX.files[+c.dataset.i]).filter(Boolean)
+    .concat((DGX.extra || []).map(f => ({file: f, kind: /invoice|inv/i.test(f.name || "") ? "INV" : "DOC"})));
+  if(!p.lines.length && !pick.length){ err("No invoice lines and no documents — add the export invoice first."); return; }
+  const big = pick.find(f => f.file && f.file.size > 15 * 1024 * 1024); if(big){ err(big.file.name + " is larger than 15 MB."); return; }
+  const btn = document.getElementById("dgx_go"); DGX.busy = true; if(btn){ btn.disabled = true; btn.textContent = "Sending..."; }
+  try{
+    const safe = s => String(s || "").replace(/[^A-Za-z0-9_.\-]/g, "_").slice(0, 100) || "file";
+    const folder = p.job.replace(/[^A-Za-z0-9_-]/g, "_");
+    const files = [];
+    for(let i = 0; i < pick.length; i++){
+      const f = pick[i];
+      if(f.path){ files.push({path: f.path, name: f.name, kind: f.kind}); continue; }
+      const path = folder + "/simsar_" + Date.now() + "_" + i + "_" + safe(f.file.name);
+      const { error } = await sb.storage.from("dgdocs").upload(path, f.file, {upsert: true});
+      if(error) throw new Error("Upload failed (" + f.file.name + "): " + error.message);
+      files.push({path, name: f.file.name, kind: f.kind});
+    }
+    let j;
+    try{ j = await dgxCall({action: "send", pack: p, files}); }
+    catch(e){
+      if(e.code !== "already") throw e;
+      if(!confirm("This job was already processed by SIMSAR (" + (e.info.status === "declared" ? "DECLARED" : "DT FILE READY") + ").\n\nSend it AGAIN as a new declaration job?")) throw new Error("Not sent.");
+      j = await dgxCall({action: "send", pack: p, files, again: true});
+    }
+    DGX.row = j.row || null; DGX.job = p.job; DGX.at = Date.now();
+    dgxClose(); dgxRender();
+    alert("✓ Sent to SIMSAR — " + p.job + "\n\n" + (p.lines.length ? p.lines.length + " invoice line(s)" : "no invoice lines") + " · " + files.length + " document(s).\nIn TradeGate (SIMSAR): BOE Passing → FROM DGDOC.");
+  }catch(e){ err(e.message || String(e)); }
+  finally{ DGX.busy = false; if(btn){ btn.disabled = false; btn.innerHTML = "&#128228; SEND TO SIMSAR"; } }
+}
+async function dgxDt(){
+  const r = DGX.row; if(!r) return;
+  try{
+    const j = await dgxCall({action: "dt", id: r.id});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([j.txt], {type: "text/plain"})); a.download = j.fn || ("DT_" + r.job_no + ".txt");
+    document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ alert("DT file: " + (e.message || e)); }
+}
+async function dgxDeclare(){
+  const r = DGX.row; if(!r) return;
+  const n = prompt("Declaration number from Mirsal 2 (Dubai Trade) for job " + r.job_no + ":", r.decl_no || "");
+  if(n == null || !n.trim()) return;
+  try{ const j = await dgxCall({action: "declare", id: r.id, decl_no: n.trim()}); DGX.row = j.row || DGX.row; dgxRender(); }
+  catch(e){ alert("Declaration no.: " + (e.message || e)); }
+}
+document.addEventListener("DOMContentLoaded", () => { try{ dgxMount(); }catch(e){} });
+try{ if(document.readyState !== "loading") dgxMount(); }catch(e){}
+showTab = (function(r0){ return function(name){ const r = r0.apply(this, arguments); try{ if(name === "gc" || name === "dgd" || name === "inv"){ dgxMount(); dgxRefresh(); } }catch(e){} return r; }; })(showTab);
+setInterval(() => { try{ if(document.querySelector(".tab.on .dgx_w")) dgxRefresh(); else dgxRender(); }catch(e){} }, 15000);
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
