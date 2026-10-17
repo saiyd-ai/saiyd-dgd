@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-D</span></span>
           </div>
         </div>
       </div>
@@ -11742,16 +11742,20 @@ setInterval(() => { try{ if(document.querySelector(".tab.on .dgx_w")) dgxRefresh
 /* ================= v25.13-A FREIGHTPILOT — new name, new look, menu by mode (COMMON / AIR / SEA / LAND) ================= */
 /* Pure UI layer: no data, job or document changes. DGDOC stays the DG module inside FreightPilot. */
 const NX_THEMES = {
-  light:  {name: "Light",       side1: "#e8ebff", side2: "#dfe5fa", acc: "#4f46e5", acc2: "#06b6d4", top1: "#ffffff", top2: "#eef2ff", bg1: "#f7f8fc", bg2: "#eef1f8", head: "#f8f9fd", th: "#eef1f8", ink: "#1e2a55", light: true},
+  light:  {name: "Mint Fresh",  light: true, acc: "#0d9488", acc2: "#14b8a6", ink: "#134e4a", lt: {side1: "#ccf5e6", side2: "#e6faf3", bd: "#99e2c9", top1: "#e3f8f0", top2: "#f2fcf8", bg1: "#f3fbf8", bg2: "#e9f6f1", head1: "#e0f6ee", head2: "#f4fcf9", th: "#d3f0e5", on: "#ffffff", air1: "#a7f3d0", air2: "#ccfbf1", airt: "#115e59"}},
+  ocean:  {name: "Ocean Blue",  light: true, acc: "#2563eb", acc2: "#0ea5e9", ink: "#1e3a8a", lt: {side1: "#d6e8fd", side2: "#ebf4ff", bd: "#a9cdf7", top1: "#e2eefd", top2: "#f3f8ff", bg1: "#f4f8fe", bg2: "#e9f1fb", head1: "#e1edfd", head2: "#f4f9ff", th: "#d8e6fa", on: "#ffffff", air1: "#bfdbfe", air2: "#dbeafe", airt: "#1e3a8a"}},
+  lavender: {name: "Soft Lavender", light: true, acc: "#7c3aed", acc2: "#a855f7", ink: "#3b2a6b", lt: {side1: "#e6defd", side2: "#f3efff", bd: "#cdbdf6", top1: "#ece6fd", top2: "#f8f5ff", bg1: "#f8f6fe", bg2: "#efebfb", head1: "#ebe5fd", head2: "#f9f7ff", th: "#e3dbfa", on: "#ffffff", air1: "#ddd6fe", air2: "#ede9fe", airt: "#4c1d95"}},
+  sand:   {name: "Warm Sand",   light: true, acc: "#b7791f", acc2: "#d69e2e", ink: "#4a3417", lt: {side1: "#f5e9d4", side2: "#fbf5ea", bd: "#e6cfa6", top1: "#f8eedd", top2: "#fdf9f2", bg1: "#fcf9f3", bg2: "#f5efe3", head1: "#f6ecd9", head2: "#fdf9f1", th: "#efe2c8", on: "#ffffff", air1: "#f6dfb4", air2: "#faecd0", airt: "#744210"}},
   royal:  {name: "JFS Royal",   side1: "#07041f", side2: "#1d0074", acc: "#ea2227", acc2: "#ff5a5f", top1: "#0b0533", top2: "#2a0a8f", bg1: "#f5f4fb", bg2: "#e9e7f6", head: "#f3f1fc", th: "#1d0074", ink: "#1d0074"},
   aurora: {name: "Aurora",      side1: "#0b1024", side2: "#3b1d8f", acc: "#22d3ee", acc2: "#a855f7", top1: "#0b1024", top2: "#4c1d95", bg1: "#f4f6ff", bg2: "#ece7fb", head: "#f1f0ff", th: "#312e81", ink: "#312e81"},
   gold:   {name: "Desert Gold", side1: "#0c0b09", side2: "#2b2216", acc: "#d4a24c", acc2: "#f0c674", top1: "#0c0b09", top2: "#3a2d18", bg1: "#faf7f0", bg2: "#efe7d6", head: "#f8f3e7", th: "#2b2216", ink: "#3a2d18"}
 };
-function nxTheme(){ try{ const k = localStorage.getItem("nx_theme"); return (k && k !== "aurora") || localStorage.getItem("nx_theme_pick") ? (k || "light") : "light"; }catch(e){ return "light"; } }
+function nxTheme(){ try{ const k = localStorage.getItem("nx_theme"); return (localStorage.getItem("nx_theme_pick") && k && NX_THEMES[k]) ? k : "ocean"; }catch(e){ return "ocean"; } }   /* default: Ocean Blue; a theme picked in SETTINGS stays */
 function nxApplyTheme(k){
   const t = NX_THEMES[k] || NX_THEMES.royal;
   const r = document.documentElement.style;
-  Object.keys(t).forEach(p => { if(p !== "name" && p !== "light") r.setProperty("--nx-" + p, t[p]); });
+  Object.keys(t).forEach(p => { if(p !== "name" && p !== "light" && p !== "lt") r.setProperty("--nx-" + p, t[p]); });
+  if(t.lt){ Object.keys(t.lt).forEach(p => r.setProperty("--lt-" + p, t.lt[p])); r.setProperty("--nx-side2", t.lt.side1); }
   if(document.body){ document.body.setAttribute("data-nx", k in NX_THEMES ? k : "light"); document.body.classList.toggle("nx-light", !!t.light); }
   if(typeof renderDash === "function" && document.getElementById("dashkpi")) try{ renderDash(); }catch(e){}
   try{ localStorage.setItem("nx_theme", k); }catch(e){}
@@ -11846,6 +11850,31 @@ function nxApplyTheme(k){
   body.nx.nx-light .authbtn{background:linear-gradient(120deg,#4f46e5,#06b6d4) !important;}
   body.nx.nx-light .authtabs button.on{background:#4f46e5 !important;}
   @media screen and (max-width:900px){ body.nx.nx-light .nav{background:linear-gradient(175deg,#a7f3d0 0%,#d5f5ea 100%) !important;} body.nx.nx-light .nav button{color:#3b4563 !important;} }
+  /* v25.13-D: ONE colour family per palette (sidebar, top bar, borders, headers, tables, menu) */
+  body.nx.nx-light{background:radial-gradient(1000px 600px at 0% -10%, var(--lt-top1), transparent 60%), linear-gradient(160deg, var(--lt-bg1), var(--lt-bg2)) !important;}
+  body.nx.nx-light .nav{background:linear-gradient(175deg, var(--lt-side1) 0%, var(--lt-side2) 100%) !important; border:1.5px solid var(--lt-bd) !important; box-shadow:0 10px 28px color-mix(in srgb, var(--lt-bd) 35%, transparent) !important;}
+  body.nx.nx-light .nav button{color:color-mix(in srgb, var(--nx-ink) 85%, #fff) !important;}
+  body.nx.nx-light .nav button.on{background:var(--lt-on) !important; color:var(--nx-ink) !important; border-left-color:var(--nx-acc) !important;}
+  body.nx.nx-light .nav button:hover{background:rgba(255,255,255,.6) !important;}
+  body.nx.nx-light .navlogo, body.nx.nx-light .navstart{border-bottom-color:var(--lt-bd) !important;}
+  body.nx.nx-light .nxwm .n1{color:var(--nx-acc) !important;} body.nx.nx-light .nxwm .n2{color:var(--nx-ink) !important;}
+  body.nx.nx-light .navlogo .navaccent{background:linear-gradient(90deg, var(--nx-acc), var(--nx-acc2)) !important; box-shadow:none !important;}
+  body.nx.nx-light .nxgrp{color:color-mix(in srgb, var(--nx-ink) 55%, #fff) !important;}
+  body.nx.nx-light .nav .nxmode.m-air{background:linear-gradient(120deg, var(--lt-air1), var(--lt-air2)) !important; color:var(--lt-airt) !important;}
+  body.nx.nx-light .nav .nxmode.m-sea, body.nx.nx-light .nav .nxmode.m-land{background:rgba(255,255,255,.55) !important; color:color-mix(in srgb, var(--nx-ink) 70%, #fff) !important;}
+  body.nx.nx-light .topbar{background:linear-gradient(120deg, var(--lt-top1) 0%, var(--lt-top2) 100%) !important; border:1.5px solid var(--lt-bd) !important; box-shadow:0 8px 22px color-mix(in srgb, var(--lt-bd) 30%, transparent) !important;}
+  body.nx.nx-light .topbar::after{background:radial-gradient(circle, color-mix(in srgb, var(--nx-acc) 12%, transparent), transparent 70%) !important;}
+  body.nx.nx-light #tb_greet{color:var(--nx-ink) !important;}
+  body.nx.nx-light .card{background:#ffffff !important; border:1.5px solid var(--lt-bd) !important; box-shadow:0 6px 18px color-mix(in srgb, var(--lt-bd) 22%, transparent) !important;}
+  body.nx.nx-light .card>h2{background:linear-gradient(90deg, var(--lt-head1), var(--lt-head2)) !important; color:var(--nx-ink) !important; border-bottom:1px solid var(--lt-bd) !important;}
+  body.nx.nx-light .dtable th, body.nx.nx-light #tab-dash table th, body.nx.nx-light #tab-rpt table th, body.nx.nx-light #tab-docs table th, body.nx.nx-light #tab-jobflow table th{background:var(--lt-th) !important; color:var(--nx-ink) !important;}
+  body.nx.nx-light #authgate{background:radial-gradient(800px 500px at 80% 0%, var(--lt-side1), transparent 60%), linear-gradient(140deg, var(--lt-bg1), var(--lt-bg2)) !important;}
+  body.nx.nx-light .authbtn{background:linear-gradient(120deg, var(--nx-acc), var(--nx-acc2)) !important;}
+  body.nx.nx-light .authtabs button.on{background:var(--nx-acc) !important;}
+  @media screen and (max-width:900px){ body.nx.nx-light .nav{background:linear-gradient(175deg, var(--lt-side1) 0%, var(--lt-side2) 100%) !important;} }
+  /* menu text fits: SEA / LAND FREIGHT never cut */
+  body.nx .nav .nxmode{font-size:11.5px !important; padding:0 10px !important;}
+  body.nx .nav .nxmode small{min-width:38px !important; font-size:8.5px !important; padding:1px 5px !important;}
   `;
   const s = document.createElement("style"); s.id = "nx_css"; s.textContent = css; document.head.appendChild(s);
 })();
@@ -11909,7 +11938,7 @@ function nxSettings(){
   const tab = document.getElementById("tab-settings"); if(!tab || document.getElementById("nx_themebox")) return;
   const c = document.createElement("div"); c.className = "card"; c.id = "nx_themebox";
   c.innerHTML = `<h2>&#127912; LOOK &mdash; theme</h2><div class="body"><div class="nxthemes">${Object.keys(NX_THEMES).map(k =>
-    `<button data-k="${k}" style="background:linear-gradient(120deg, ${NX_THEMES[k].light ? "#a5b4fc" : NX_THEMES[k].side2}, ${NX_THEMES[k].acc});">${esc(NX_THEMES[k].name)}</button>`).join("")}</div>
+    `<button data-k="${k}" style="background:linear-gradient(120deg, ${NX_THEMES[k].lt ? NX_THEMES[k].lt.bd : NX_THEMES[k].side2}, ${NX_THEMES[k].acc});${NX_THEMES[k].lt ? " color:#1b2333;" : ""}">${esc(NX_THEMES[k].name)}</button>`).join("")}</div>
     <div style="font-size:12px; color:#5b6b7d; margin-top:6px;">Saved on this device.</div></div>`;
   tab.insertBefore(c, tab.firstChild);
   const mark = () => c.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.k === nxTheme()));
