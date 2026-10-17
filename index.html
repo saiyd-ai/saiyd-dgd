@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-A</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-B</span></span>
           </div>
         </div>
       </div>
@@ -11778,7 +11778,15 @@ function nxApplyTheme(k){
       box-shadow:0 6px 18px color-mix(in srgb, var(--nx-acc) 35%, transparent);}
   body.nx .nxmode.m-sea{background:linear-gradient(120deg,#0e7c66,#14b8a6); opacity:.9;}
   body.nx .nxmode.m-land{background:linear-gradient(120deg,#9a4b0b,#f59e0b); opacity:.9;}
-  body.nx .nxmode small{font-size:9px; font-weight:700; background:rgba(255,255,255,.22); border-radius:8px; padding:1px 7px; letter-spacing:1px;}
+  body.nx .nxmode small{font-size:9px; font-weight:700; background:rgba(255,255,255,.22); border-radius:8px; padding:1px 7px; letter-spacing:1px;
+      flex:0 0 auto; min-width:44px; text-align:center; box-sizing:border-box;}
+  /* v25.13-B: AIR / SEA / LAND buttons — always the same size (one line, same height, same font) */
+  body.nx .nav .nxmode{height:44px !important; min-height:44px !important; padding:0 12px !important; font-size:12.5px !important;
+      line-height:1 !important; white-space:nowrap !important; gap:8px; box-sizing:border-box;}
+  body.nx .nav .nxmode > span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;}
+  body.nx .nav .nxmode.m-air{background:linear-gradient(120deg, color-mix(in srgb, var(--nx-acc) 85%, #000), var(--nx-acc2)) !important; color:#fff !important;}
+  body.nx .nav .nxmode.m-sea{background:linear-gradient(120deg,#0e7c66,#14b8a6) !important; color:#fff !important;}
+  body.nx .nav .nxmode.m-land{background:linear-gradient(120deg,#9a4b0b,#f59e0b) !important; color:#fff !important;}
   body.nx .nxsub.closed{display:none;}
   body.nx .nxsoon{font-size:11px; color:#8f9bc4; padding:4px 14px 2px; font-style:italic;}
   @media screen and (min-width:901px){
