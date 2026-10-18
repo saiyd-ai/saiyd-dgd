@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-E</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-F</span></span>
           </div>
         </div>
       </div>
@@ -12213,6 +12213,268 @@ showTab = (function(r0){ return function(name){ const r = r0.apply(this, argumen
 setInterval(() => { try{ if(document.querySelector(".tab.on .jf_w")) jfRenderWidgets(); }catch(e){} }, 4000);
 document.addEventListener("DOMContentLoaded", () => { try{ jfTab(); jfMount(); }catch(e){} });
 try{ if(document.readyState !== "loading"){ jfTab(); jfMount(); } }catch(e){}
+/* ================= v25.12-R EK forms: handover-person signatures (TSA / IDG / ELI / RFC), shipper stamp per shipper,
+   ELI Section II confirmation + RFC AWBs handover sheet ================= */
+/* --- handover (tendering) person signature --- */
+function tpCur(){
+  const n = (v("ekg_tender") || v("ek_tender") || "").trim().toUpperCase(); if(!n) return null;
+  const all = tpAll();
+  return all.find(p => p.name === n) || all.find(p => p.name && (p.name.includes(n) || n.includes(p.name))) || null;
+}
+function tenderSignTag(h){
+  const p = tpCur();
+  return (p && p.sign) ? `<img src="${p.sign}" style="height:${h || 12}mm; object-fit:contain; vertical-align:bottom; margin-right:4mm;">` : "";
+}
+/* TSA + IDG: the signature is the HANDOVER person's (not the office staff) */
+const _ekrStaffSign0 = staffSignTag; let _ekrTender = 0;
+staffSignTag = function(l, h){ return _ekrTender > 0 ? tenderSignTag(h) : _ekrStaffSign0(l, h); };
+function _ekrWithTender(fn){ return async function(){ _ekrTender++; try{ return await fn.apply(this, arguments); } finally{ _ekrTender--; } }; }
+ekIdgRender = _ekrWithTender(ekIdgRender);
+ekgcTsaRender = _ekrWithTender(ekgcTsaRender);
+
+/* person picker + signature upload in both EK cards */
+let _tpSignNew = "";
+(function(){
+  const t = document.getElementById("ekg_tender");
+  if(t && !document.getElementById("ekg_sign")){
+    const d = document.createElement("div"); d.style.marginTop = "4px";
+    d.innerHTML = `<label style="font-size:11px;">Signature of this person (image)</label>
+      <input type="file" id="ekg_sign" accept="image/*" style="font-size:11.5px;" onchange="tpSignPick(this)">
+      <div id="ekg_signprev" style="min-height:10mm; font-size:11px; color:#a40000;"></div>`;
+    t.parentElement.appendChild(d);
+  }
+  const et = document.getElementById("ek_tender");
+  if(et && !document.getElementById("ek_person")){
+    const s = document.createElement("select"); s.id = "ek_person"; s.style.marginBottom = "4px";
+    s.onchange = function(){ tpApply(this.value); };
+    et.parentElement.insertBefore(s, et);
+  }
+})();
+async function tpSignPick(inp){
+  const f = inp.files[0]; if(!f) return;
+  _tpSignNew = "data:image/png;base64," + await imgFileToB64(f, 420);
+  tpSignPrev();
+  const pv = document.getElementById("ekg_signprev"); if(pv) pv.insertAdjacentHTML("beforeend", "<div style='color:#1d6b34; font-weight:bold;'>New signature — press SAVE PERSON to keep it.</div>");
+}
+function tpSignPrev(){
+  const pv = document.getElementById("ekg_signprev"); if(!pv) return;
+  const p = tpCur(), sg = _tpSignNew || (p && p.sign) || "";
+  pv.innerHTML = sg ? `<img src="${sg}" style="height:12mm; object-fit:contain; background:#fff; border:1px dashed #ccc;">`
+    : ((v("ekg_tender") || "").trim() ? "&#9888; No signature saved for this person — add the signature image." : "");
+}
+tpFill = (function(r0){ return function(){
+  const r = r0.apply(this, arguments);
+  const sel = document.getElementById("ek_person");
+  if(sel){ const cur = (v("ek_tender") || "").toUpperCase();
+    sel.innerHTML = `<option value="">— select person —</option>` + tpAll().map(p => `<option${p.name === cur ? " selected" : ""}>${esc(p.name)}</option>`).join(""); }
+  tpSignPrev(); return r; }; })(tpFill);
+tpApply = (function(r0){ return function(name){
+  _tpSignNew = ""; const r = r0.apply(this, arguments);
+  ["ekg_person", "ek_person"].forEach(id => { const s = document.getElementById(id); if(s) s.value = name; });
+  tpSignPrev(); try{ ekEkrAll(); }catch(e){} return r; }; })(tpApply);
+tpSave = (function(r0){ return async function(){
+  const name = (v("ekg_tender") || "").trim().toUpperCase(), newSign = _tpSignNew;
+  await r0.apply(this, arguments);
+  if(!name) return;
+  const list = tpAll(), p = list.find(x => x.name === name);
+  if(p){ const old = list.find(x => x.name === name); if(newSign) p.sign = newSign; else if(old && old.sign) p.sign = old.sign; }
+  await tpStore(list); _tpSignNew = ""; tpFill(); tpSignPrev();
+}; })(tpSave);
+/* keep an existing signature when the original save rewrites the person record */
+tpStore = (function(r0){ return async function(list){
+  try{ const prev = tpAll(); (list || []).forEach(p => { if(!p.sign){ const o = prev.find(x => x.name === p.name); if(o && o.sign) p.sign = o.sign; } }); }catch(e){}
+  return r0.apply(this, arguments); }; })(tpStore);
+document.addEventListener("input", e => { if(e.target && (e.target.id === "ekg_tender" || e.target.id === "ek_tender")) tpSignPrev(); });
+
+/* --- shipper stamp saved per shipper (company_settings key "ss:<SHIPPER>") --- */
+let _ssCache = {}, _ekgStampFor = "";
+function ssName(){ return (v("f_shipper") || "").split("\n")[0].trim().toUpperCase().replace(/\s+/g, " ").slice(0, 120); }
+async function ssLoad(name){
+  if(!name || !sb || !sbUser) return "";
+  if(name in _ssCache) return _ssCache[name];
+  try{ const { data } = await sb.from("company_settings").select("value").eq("key", "ss:" + name).maybeSingle();
+    _ssCache[name] = (data && data.value && data.value.img) || ""; }catch(e){ _ssCache[name] = ""; }
+  return _ssCache[name];
+}
+async function ssStore(name, img){
+  _ssCache[name] = img;
+  if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key: "ss:" + name, value: img ? {img, name} : {}, updated_by: sbUser.email}); }catch(e){} }
+}
+ekgcStampPick = (function(r0){ return async function(){
+  await r0.apply(this, arguments);
+  const name = ssName(), m = document.getElementById("ekg_stampmsg");
+  if(_ekgStamp && name){ await ssStore(name, _ekgStamp); _ekgStampFor = name;
+    if(m) m.innerHTML = "&#10003; Stamp saved for <b>" + esc(name) + "</b> &mdash; it comes automatically on the next jobs. <a href='#' onclick='ssRemove(); return false;' style='color:#a40000;'>remove</a>"; }
+}; })(ekgcStampPick);
+async function ssRemove(){
+  const name = ssName(); if(!name || !confirm("Remove the saved stamp of " + name + "?")) return;
+  await ssStore(name, ""); _ekgStamp = ""; _ekgStampFor = "";
+  const m = document.getElementById("ekg_stampmsg"); if(m) m.textContent = "Saved stamp removed.";
+  const f = document.getElementById("ekg_stamp"); if(f) f.value = "";
+  ekgcUndRender();
+}
+ekgcUndRender = (function(r0){ return function(){
+  const name = ssName();
+  if(_ekgStampFor !== name){ _ekgStamp = ""; _ekgStampFor = name;
+    const m = document.getElementById("ekg_stampmsg"); if(m) m.textContent = "";
+    if(name) ssLoad(name).then(img => { if(img && ssName() === name && !_ekgStamp){ _ekgStamp = img;
+      const m2 = document.getElementById("ekg_stampmsg");
+      if(m2) m2.innerHTML = "&#10003; Saved stamp of <b>" + esc(name) + "</b> used. <a href='#' onclick='ssRemove(); return false;' style='color:#a40000;'>remove</a>";
+      r0(); } }); }
+  return r0.apply(this, arguments);
+}; })(ekgcUndRender);
+
+/* --- extra EK card: RFC handover sheet (always) + ELI Section II confirmation (when ELI / ELM) --- */
+(function(){
+  const ref = document.getElementById("alc_ekgc");
+  if(ref && !document.getElementById("alc_ek2")){
+    const c = document.createElement("div"); c.className = "card"; c.id = "alc_ek2"; c.style.cssText = "display:none; border-left:5px solid #c8102e;";
+    c.innerHTML = `<h2>&#128203; EMIRATES (176) &mdash; RFC AWBs HANDOVER SHEET + LITHIUM (ELI / ELM) CONFIRMATION</h2><div class="body">
+      <div class="warnbar" style="margin-top:0;">RFC handover sheet fills for every Emirates job (handover person, sign, AWB, SHC, flight). The lithium confirmation is needed when ELI / ELM is ticked in HANDLING &mdash; signed by the handover person with the JFS stamp.</div>
+      <div class="grid g4">
+        <div><label>Flight time (RFC)</label><input type="text" id="ek_ftime" placeholder="e.g. 09.35AM" oninput="ekRfcRender()"></div>
+        <div><label>Lithium content (ELI form)</label><select id="ek_eli_type" onchange="ekEliRender()">
+          <option value="966">UN3481 Li-ion PACKED WITH equipment (PI 966)</option>
+          <option value="967">UN3481 Li-ion CONTAINED IN equipment (PI 967)</option>
+          <option value="969">UN3091 Li-metal PACKED WITH equipment (PI 969)</option>
+          <option value="970">UN3091 Li-metal CONTAINED IN equipment (PI 970)</option></select>
+          <div id="ek_eli_msg" style="font-size:11px; color:#5b6b7d; margin-top:2px;"></div></div>
+        <div style="align-self:end;">
+          <button class="btn btn-save" style="background:#c8102e;" onclick="ekEkrAll()">&#8635; GENERATE</button>
+          <button class="btn btn-print" onclick="ekRfcRender().then(()=>printAlt('ek_rfc_doc'))">&#128424; RFC SHEET</button>
+          <button class="btn btn-print" onclick="ekEliRender().then(()=>printAlt('ek_eli_doc'))">&#128424; ELI FORM</button></div>
+      </div>
+      <div style="margin-top:14px; overflow-x:auto;"><div id="ek_rfc_doc"></div></div>
+      <div style="margin-top:14px; overflow-x:auto;"><div id="ek_eli_doc"></div></div></div>`;
+    ref.parentElement.insertBefore(c, ref.nextSibling);
+  }
+  if(!document.getElementById("ekr_style")){
+    const st = document.createElement("style"); st.id = "ekr_style";
+    st.textContent = "@page eliland{ size:A4 landscape; margin:0; } .eli-sheet{ page:eliland; }";
+    document.head.appendChild(st);
+  }
+})();
+function ekLithCodes(){ try{ return (typeof shcGet === "function" ? shcGet() : []).filter(c => c === "ELI" || c === "ELM"); }catch(e){ return []; } }
+function ekNowHM(){ const d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+function ekFlightDate(){
+  const raw = (v("aw_flight") || "").trim(); if(!raw) return "";
+  const m = raw.match(/^(\S+?)(?:\s*\/\s*|\s+)(.*)$/); const fl = m ? m[1] : raw, dt = m ? m[2].trim() : "";
+  const MON = {JAN:"01",FEB:"02",MAR:"03",APR:"04",MAY:"05",JUN:"06",JUL:"07",AUG:"08",SEP:"09",OCT:"10",NOV:"11",DEC:"12"};
+  let dd = "", mm = "";
+  let x = dt.match(/^(\d{1,2})[-\s\/]?([A-Za-z]{3})/); if(x){ dd = x[1].padStart(2, "0"); mm = MON[x[2].toUpperCase()] || ""; }
+  else { x = dt.match(/^(\d{1,2})[\/.-](\d{1,2})/); if(x){ dd = x[1].padStart(2, "0"); mm = x[2].padStart(2, "0"); } }
+  return (fl + (dd && mm ? "/" + dd + "/" + mm : (dt ? "/" + dt : ""))).toUpperCase();
+}
+async function ekRfcRender(){
+  const out = document.getElementById("ek_rfc_doc"); if(!out) return;
+  const e = ekVals(), logo = (typeof EK7_LOGO !== "undefined" && EK7_LOGO) || await ekLogo(), p = tpCur();
+  const who = (v("ekg_tender") || v("ek_tender") || "").toUpperCase(), mob = v("ekg_mob") || v("ek_mob") || (p && p.mob) || "";
+  const shc = ekShcText();
+  const TD = "border:1px solid #000; padding:1.4mm 2mm; font-size:10pt; height:6.2mm;";
+  const YN = on => `<td style="${TD} text-align:center; width:9%;">${on ? "<span style='border:1.4px solid #000; border-radius:50%; padding:0.3mm 1.6mm; font-weight:bold;'>YES</span>" : "YES"}</td><td style="${TD} text-align:center; width:7%;">NO</td>`;
+  let rows = "";
+  for(let i = 0; i < 14; i++){
+    const f = i === 0 && e.awb;
+    rows += `<tr><td style="${TD} text-align:center; width:6%;">${i + 1}</td><td style="${TD} width:21%; font-weight:bold;">${f ? esc(e.awb) : ""}</td>
+      <td style="${TD} text-align:center; width:9%;">${f ? esc(shc) : ""}</td>${YN(f)}
+      <td style="${TD} text-align:center; width:12%;">${f ? esc(e.dest) : ""}</td><td style="${TD} text-align:center; width:18%;">${f ? esc(ekFlightDate()) : ""}</td>
+      <td style="${TD} text-align:center;">${f ? esc(v("ek_ftime")) : ""}</td></tr>`;
+  }
+  out.innerHTML = `<div class="sheet" id="ek_rfc_sheet" style="min-height:285mm; padding:14mm 16mm; font-family:Cambria, Georgia, serif; color:#000;">
+    <div style="display:flex; justify-content:flex-end;"><div style="border:1px solid #000; padding:2mm 4mm;"><img src="${logo}" style="height:18mm; object-fit:contain;" onerror="this.style.display='none'"></div></div>
+    <div style="text-align:center; font-size:12pt; font-weight:bold; margin:5mm 0 3mm;">RFC AWBs HANDOVER SHEET</div>
+    <table style="border-collapse:collapse; width:100%; font-size:10.5pt;">
+      <tr><td style="border:1px solid #000; padding:2mm; width:52%;">Company: <b>JFS LOGISTICS</b></td><td style="border:1px solid #000; padding:2mm;" colspan="2">Handover by: &nbsp;<b>${esc(who)}</b></td></tr>
+      <tr><td style="border:1px solid #000; padding:2mm;">Date: <b>${esc(e.date)}</b> &nbsp;&nbsp;&nbsp; Time: <b>${ekNowHM()}</b></td>
+          <td style="border:1px solid #000; padding:1mm 2mm; width:22%;">Sign: ${tenderSignTag(9) || ""}</td><td style="border:1px solid #000; padding:2mm;">Contact No: <b>${esc(mob)}</b></td></tr>
+    </table>
+    <table style="border-collapse:collapse; width:100%; margin-top:5mm;">
+      <tr style="background:#eee; font-weight:bold; text-align:center;"><td style="${TD}">S/<br>No</td><td style="${TD}">AWB NO.</td><td style="${TD}">PRO/<br>SHC</td>
+        <td style="${TD}" colspan="2">DOCS<br>ATTACHED</td><td style="${TD}">Destination</td><td style="${TD}">Flight/Date</td><td style="${TD}">Flight Time</td></tr>
+      ${rows}
+    </table>
+    <table style="border-collapse:collapse; width:100%; margin-top:9mm; font-size:10.5pt;">
+      <tr><td style="border:1px solid #000; padding:2mm; background:#eee; font-weight:bold;" colspan="4">EK STAFF</td></tr>
+      <tr><td style="border:1px solid #000; padding:2mm; width:40%;">Received By :</td><td style="border:1px solid #000; padding:2mm;">Date:</td><td style="border:1px solid #000; padding:2mm;">Time:</td><td style="border:1px solid #000; padding:2mm;">Sign:</td></tr>
+      <tr><td style="border:1px solid #000; padding:2mm; height:16mm; vertical-align:top;" colspan="4">Remarks:</td></tr>
+    </table>
+  </div>`;
+}
+function ekShcText(){
+  let c = []; try{ c = typeof shcGet === "function" ? shcGet() : []; }catch(e){}
+  if(!c.length) c = [typeof JOBTYPE !== "undefined" && JOBTYPE === "GC" ? "GCR" : "DGR"];
+  return c.join("/");
+}
+async function ekEliRender(){
+  const out = document.getElementById("ek_eli_doc"); if(!out) return;
+  const sel = document.getElementById("ek_eli_type"), lc = ekLithCodes();
+  if(sel && !sel.dataset.manual){ sel.value = lc.includes("ELM") && !lc.includes("ELI") ? "970" : "967"; }
+  const msg = document.getElementById("ek_eli_msg");
+  if(msg) msg.textContent = lc.length ? "HANDLING has " + lc.join(" + ") + " — this form is needed." : "No ELI / ELM ticked in HANDLING — print only if the shipment has lithium batteries.";
+  const pick = sel ? sel.value : "967", e = ekVals();
+  const CB = on => `<span style="display:inline-block; width:3.6mm; height:3.6mm; border:1px solid #000; text-align:center; line-height:3.4mm; font-size:9pt; vertical-align:middle; margin-right:2mm;">${on ? "&#10003;" : ""}</span>`;
+  const L = [["", "UN3480, Lithium Ion Batteries in compliance with Section II of PI 965 - <b>EMBARGO</b>"],
+    ["", "UN3090, Lithium Metal Batteries (Including Lithium Alloy Batteries) - <b>EMBARGO</b>"],
+    ["", "Models of the Samsung Galaxy Note 7, including the new replacement devices - <b>EMBARGO</b>"],
+    ["966", "UN3481, Lithium Ion Batteries Packed with Equipment in compliance with Section II of PI 966"],
+    ["967", "UN3481, Lithium Ion Batteries Contained in Equipment in compliance with Section II of PI 967"],
+    ["969", "UN3091, Lithium Metal Batteries Packed with Equipment in compliance with Section II of PI 969"],
+    ["970", "UN3091, Lithium Metal Batteries Contained in Equipment in compliance with Section II of PI 970"]];
+  const items = L.map(([k, t]) => `<div style="margin:1.6mm 0;">${CB(k && k === pick)}${t}</div>`).join("");
+  const B = "border:1px solid #000;";
+  out.innerHTML = `<div class="sheet eli-sheet" id="ek_eli_sheet" style="width:297mm; min-height:209mm; padding:9mm 12mm; box-sizing:border-box; font-family:'Times New Roman', serif; color:#000;">
+    <div style="${B} padding:0;">
+      <div style="text-align:center; padding:2.5mm 2mm 1mm; font-size:15pt; font-weight:bold;">SHIPPERS CONFIRMATION FOR EXCEPTED LITHIUM BATTERIES IN SECTION II</div>
+      <div style="text-align:center; font-size:9pt; text-decoration:underline; padding-bottom:1.5mm;">( IATA DGR EDITION 57-effective 01 January 2016)</div>
+      <div style="border-top:1px solid #000; padding:1.5mm 3mm; font-size:9pt;">Do not load or transport this shipment if the package is damaged
+        <ul style="margin:0.5mm 0 0 6mm; padding:0;"><li>This package must be handled with care</li><li>A flammability hazard exist if the package is damaged</li>
+        <li>Special procedures must be followed in the event the package is damaged <u>including inspection</u> and repacking if necessary</li></ul></div>
+      <table style="border-collapse:collapse; width:100%; font-size:9.5pt;">
+        <tr><td style="border-top:1px solid #000; border-right:1px solid #000; width:23%; text-align:center; padding:1mm;">Transport By</td><td style="border-top:1px solid #000; text-align:center; padding:1mm;">Content Information</td></tr>
+        <tr><td style="border-top:1px solid #000; border-right:1px solid #000; vertical-align:middle; padding:2mm 3mm;">Air</td>
+            <td style="border-top:1px solid #000; padding:1.5mm 4mm 1.5mm 22mm;">${items}<div style="font-weight:bold; margin:1.5mm 0 0 6mm;">Tick the relevant Content above</div></td></tr>
+      </table>
+      <div style="border-top:1px solid #000; padding:3mm; font-size:10pt;">I hereby confirm that the shipment tendered under Airwaybill
+        <span style="display:inline-block; min-width:70mm; border-bottom:1px solid #000; text-align:center; font-weight:bold; font-size:11.5pt;">${esc(e.awb)}</span>
+        containing the above mentioned Lithium Batteries fully complies with the requirement of the relevant IATA DGR packing Instructions</div>
+      <div style="border-top:1px solid #000; padding:3mm; font-size:10pt; position:relative; min-height:38mm;">
+        <div>Shippers Name /Signature: <span style="display:inline-block; border-bottom:1px solid #000; min-width:150mm; font-weight:bold;">JFS LOGISTICS FZCO, BLOCK F | OFFICE 18, DUBAI AIRPORT FREE ZONE DUBAI, UAE</span></div>
+        <div style="margin-top:3mm;">Date: <b>${esc(e.date)}</b></div>
+        <div style="margin-top:3mm;">Shippers Telephone Number : <span style="display:inline-block; border-bottom:1px solid #000; min-width:90mm;">+971501383146</span><br><span style="font-size:7.5pt;">(Country /Area code/Number)</span></div>
+        <div style="position:absolute; right:10mm; top:9mm; display:flex; align-items:center; gap:4mm;">${tenderSignTag(13)}${e.stamp ? `<img src="${e.stamp}" style="height:30mm; object-fit:contain;">` : ""}</div>
+      </div>
+    </div>
+    <div style="font-size:8pt; font-weight:bold; margin-top:3mm;">Updated: 15 October 2016</div>
+  </div>`;
+}
+document.addEventListener("change", e => { if(e.target && e.target.id === "ek_eli_type") e.target.dataset.manual = "1"; }, true);
+function ekEkrAll(){ return Promise.all([ekRfcRender(), ekEliRender()]); }
+airlineFormRender = (function(r0){ return async function(){
+  const r = await r0.apply(this, arguments);
+  try{
+    const pfx = (v("al_awb") || v("f_awb") || "").replace(/\D/g, "").slice(0, 3), c = document.getElementById("alc_ek2");
+    if(c){ c.style.display = pfx === "176" ? "" : "none"; if(pfx === "176") await ekEkrAll(); }
+    tpFill();
+  }catch(e){}
+  return r;
+}; })(airlineFormRender);
+/* GC EK one-click pack: + RFC sheet, + ELI form when ELI / ELM is ticked */
+ekgcPrintAll = async function(){
+  ekgcStmtRender(); await ekgcTsaRender(); await ekIdgRender("ekg3_doc"); ekgcUndRender(); await ekEkrAll();
+  await new Promise(r => setTimeout(r, 350));
+  const ids = ["ekg1_doc", "ekg2_doc", "ekg3_doc", "ekg4_doc", "ek_rfc_doc"].concat(ekLithCodes().length ? ["ek_eli_doc"] : []);
+  let h = "";
+  ids.forEach((id, i) => {
+    const el = document.getElementById(id) && document.getElementById(id).firstElementChild; if(!el) return;
+    const c = el.cloneNode(true); c.removeAttribute("id"); c.style.minHeight = "";
+    c.style.height = id === "ek_eli_doc" ? "209mm" : "294mm"; c.style.overflow = "hidden";
+    if(i < ids.length - 1) c.style.pageBreakAfter = "always";
+    h += c.outerHTML;
+  });
+  document.getElementById("dv_stash").innerHTML = h;
+  printAlt("dv_stash");
+};
+(function(){ const b = document.querySelector('#alc_ekgc button[onclick="ekgcPrintAll()"]'); if(b) b.innerHTML = "&#128424; PRINT ALL (one click)"; })();
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
