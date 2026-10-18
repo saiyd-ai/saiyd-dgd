@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-F</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-G</span></span>
           </div>
         </div>
       </div>
@@ -8609,6 +8609,7 @@ async function enterApp(user){
       }
     }
   }catch(e){}
+  if(typeof dgDeviceGate === "function" && !(await dgDeviceGate(user))) return;   // v25.12-Q device lock
   const cloudLoaded = await cloudPullAll(false);
   if(cloudLoaded && !document.hidden && window.DgTracking && ["track","rpt","dash"].some(name => document.getElementById("tab-"+name)?.classList.contains("on"))) DgTracking.refresh();
   // staff profiles may have arrived with the pull — refresh the display name
@@ -12213,6 +12214,152 @@ showTab = (function(r0){ return function(name){ const r = r0.apply(this, argumen
 setInterval(() => { try{ if(document.querySelector(".tab.on .jf_w")) jfRenderWidgets(); }catch(e){} }, 4000);
 document.addEventListener("DOMContentLoaded", () => { try{ jfTab(); jfMount(); }catch(e){} });
 try{ if(document.readyState !== "loading"){ jfTab(); jfMount(); } }catch(e){}
+/* ================= v25.12-Q DEVICE LOCK — every computer / phone must be approved by the owner ================= */
+function dgDeviceId(){
+  try{
+    let id = localStorage.getItem("jfs_device_id");
+    if(!id || !/^[0-9a-f-]{36}$/.test(id)){
+      id = (crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); }));
+      localStorage.setItem("jfs_device_id", id);
+    }
+    return id;
+  }catch(e){ return window._dgDevTmp || (window._dgDevTmp = crypto.randomUUID()); }
+}
+function dgDeviceInfo(){
+  const ua = navigator.userAgent || "";
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "iPad" :
+    /Android/.test(ua) ? "Android" : /Windows/.test(ua) ? "Windows" : /Mac OS X|Macintosh/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "Device";
+  const br = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
+  return {label: os + " · " + br + " · " + (screen.width || 0) + "x" + (screen.height || 0), kind: mobile ? "mobile" : "desktop"};
+}
+function devLockShow(res){
+  let o = document.getElementById("devlock");
+  if(!o){ o = document.createElement("div"); o.id = "devlock"; document.body.appendChild(o); }
+  o.setAttribute("style", "position:fixed; inset:0; z-index:99999; background:linear-gradient(135deg,#1c1c4e,#2d2d6e); display:flex; align-items:center; justify-content:center; padding:16px;");
+  const info = dgDeviceInfo();
+  let title = "&#128274; THIS DEVICE IS WAITING FOR APPROVAL", body = "The admin must approve this computer / phone before DGDOC opens here.";
+  if(res && res.blocked){ title = "&#9940; THIS DEVICE IS BLOCKED"; body = "DGDOC cannot be used on this device. Contact the admin."; }
+  else if(res && res.kind === "mobile" && !res.mobile_ok){ title = "&#128241; MOBILE NOT ALLOWED"; body = "Your account can be used only on an approved computer. Ask the admin to allow mobile."; }
+  else if(res && res.error){ title = "&#9888; COULD NOT CHECK THIS DEVICE"; body = "Check the internet connection and press CHECK AGAIN."; }
+  o.innerHTML = `<div style="background:#fff; border-radius:14px; max-width:460px; width:100%; padding:24px; text-align:center; font-family:Poppins,Arial,sans-serif;">
+    <div style="font-size:18px; font-weight:800; color:#a40000; margin-bottom:10px;">${title}</div>
+    <div style="font-size:14px; color:#333; margin-bottom:14px;">${body}</div>
+    <div style="font-size:12.5px; background:#f4f6fa; border-radius:8px; padding:10px; text-align:left; margin-bottom:16px;">
+      <b>User:</b> ${esc(sbUser && sbUser.email || "")}<br><b>Device:</b> ${esc(info.label)}<br><b>Device code:</b> ${esc(dgDeviceId().slice(0, 8).toUpperCase())}</div>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button class="btn btn-save" style="background:#1d6b34;" onclick="location.reload()">&#8635; CHECK AGAIN</button>
+      <button class="btn btn-save" style="background:#5b6b7d;" onclick="devLockLogout()">LOG OUT</button></div></div>`;
+}
+async function devLockLogout(){ try{ await doLogout(); }catch(e){} const o = document.getElementById("devlock"); if(o) o.remove(); }
+let _devLast = null;
+async function dgDeviceGate(user){
+  if(!sb) return true;
+  const info = dgDeviceInfo();
+  let res;
+  try{
+    const r = await sb.rpc("dg_device_register", {p_device_id: dgDeviceId(), p_label: info.label, p_kind: info.kind});
+    if(r.error) res = {error: r.error.message}; else res = r.data;
+  }catch(e){ res = {error: e.message}; }
+  _devLast = res;
+  if(res && res.ok){ const o = document.getElementById("devlock"); if(o) o.remove(); devNav(); return true; }
+  devLockShow(res);
+  return false;
+}
+/* re-check every 5 minutes: a blocked device closes while it is open */
+setInterval(async () => {
+  try{ if(typeof sbUser !== "undefined" && sbUser && _devLast && _devLast.ok) await dgDeviceGate(sbUser); }catch(e){}
+}, 300000);
+
+/* ---------- owner screen: USERS & DEVICES ---------- */
+(function(){
+  const ref = document.getElementById("nav-aicost");
+  if(ref && !document.getElementById("nav-users")){
+    const b = document.createElement("button"); b.id = "nav-users"; b.style.display = "none";
+    b.innerHTML = "&#128272; USERS &amp; DEVICES <span id=\"dev_badge\" style=\"display:none; background:#c00000; color:#fff; border-radius:10px; padding:0 7px; font-size:11px; margin-left:4px;\"></span>";
+    b.onclick = () => showTab("users");
+    ref.parentElement.insertBefore(b, ref.nextSibling);
+  }
+  const tref = document.getElementById("tab-aicost");
+  if(tref && !document.getElementById("tab-users")){
+    const t = document.createElement("div"); t.className = "tab"; t.id = "tab-users";
+    t.innerHTML = `<div class="card" style="border-left:5px solid #1c1c4e;"><h2 style="background:#e9ebf5; color:#1c1c4e;">&#128272; USERS &amp; DEVICES &mdash; only approved devices can open DGDOC (owner only)</h2><div class="body">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+        <button class="smallbtn sb-green" onclick="devRender()">&#8635; REFRESH</button>
+        <span id="dev_msg" style="font-size:12.5px; color:#5b6b7d;"></span></div>
+      <div id="dev_list"></div></div></div>`;
+    tref.parentElement.insertBefore(t, tref.nextSibling);
+  }
+})();
+function devIsOwner(){ try{ return typeof isAdmin === "function" && isAdmin() && !!sbUser; }catch(e){ return false; } }
+async function devNav(){
+  const b = document.getElementById("nav-users"); if(!b) return;
+  b.style.display = devIsOwner() ? "" : "none";
+  if(!devIsOwner()){ const t = document.getElementById("tab-users"); if(t && t.classList.contains("on")) showTab("dash"); return; }
+  try{
+    const { count } = await sb.from("dg_devices").select("id", {count: "exact", head: true}).eq("approved", false).eq("blocked", false);
+    const bd = document.getElementById("dev_badge"); if(bd){ bd.textContent = count || ""; bd.style.display = count ? "" : "none"; }
+    devBanner(count || 0);
+  }catch(e){}
+}
+function devBanner(n){
+  const dash = document.getElementById("tab-dash"); if(!dash) return;
+  let el = document.getElementById("dev_banner");
+  if(!n){ if(el) el.remove(); return; }
+  if(!el){ el = document.createElement("div"); el.id = "dev_banner"; dash.insertBefore(el, dash.firstChild); }
+  el.setAttribute("style", "background:#fff4f4; border:2px solid #c00000; color:#a40000; border-radius:10px; padding:10px 14px; margin-bottom:12px; font-weight:bold; cursor:pointer;");
+  el.innerHTML = "&#9888; " + n + " device" + (n > 1 ? "s are" : " is") + " waiting for your approval &mdash; <u>OPEN USERS &amp; DEVICES</u>";
+  el.onclick = () => showTab("users");
+}
+function devWhen(t){ if(!t) return "—"; const d = new Date(t); return d.toLocaleDateString("en-GB", {day: "2-digit", month: "short"}) + " " + d.toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit"}); }
+async function devRender(){
+  const box = document.getElementById("dev_list"), msg = document.getElementById("dev_msg"); if(!box) return;
+  if(!devIsOwner()){ box.innerHTML = "<b style='color:#a40000;'>Owner only.</b>"; return; }
+  msg.textContent = "Loading...";
+  const [p, d] = await Promise.all([
+    sb.from("profiles").select("user_id,email,full_name,active,allow_mobile,created_at").order("created_at"),
+    sb.from("dg_devices").select("*").order("last_seen", {ascending: false})]);
+  if(p.error || d.error){ msg.textContent = "Could not load: " + ((p.error || d.error).message); return; }
+  msg.textContent = p.data.length + " users · " + d.data.length + " devices · " + d.data.filter(x => !x.approved && !x.blocked).length + " waiting";
+  const me = String(sbUser.email || "").toLowerCase();
+  box.innerHTML = p.data.map(u => {
+    const own = String(u.email || "").toLowerCase() === me;
+    const devs = d.data.filter(x => x.user_id === u.user_id);
+    const rows = devs.map(x => {
+      const st = x.blocked ? "<b style='color:#a40000;'>BLOCKED</b>" : x.approved ? "<b style='color:#1d6b34;'>APPROVED</b>" : "<b style='color:#b45309;'>WAITING</b>";
+      const mobNote = x.kind === "mobile" && !u.allow_mobile && !own ? " <span style='color:#a40000; font-size:11px;'>(mobile off)</span>" : "";
+      const act = own ? "" : (x.blocked ? `<button class="smallbtn sb-green" onclick="devSet('${esc(x.id)}', true)">UNBLOCK + APPROVE</button>`
+        : x.approved ? `<button class="smallbtn" style="background:#a40000; color:#fff;" onclick="devSet('${esc(x.id)}', false)">BLOCK</button>`
+        : `<button class="smallbtn sb-green" onclick="devSet('${esc(x.id)}', true)">APPROVE</button> <button class="smallbtn" style="background:#a40000; color:#fff;" onclick="devSet('${esc(x.id)}', false)">BLOCK</button>`);
+      return `<tr style="${!x.approved && !x.blocked ? "background:#fff8ec;" : ""}"><td>${x.kind === "mobile" ? "&#128241;" : "&#128187;"} ${esc(x.label || "")}${mobNote}<div style="font-size:10.5px; color:#8a96a3;">code ${esc(String(x.device_id).slice(0, 8).toUpperCase())}</div></td>
+        <td>${esc(x.ip || "—")}</td><td>${devWhen(x.first_seen)}</td><td>${devWhen(x.last_seen)}</td><td>${st}</td><td style="white-space:nowrap;">${act}</td></tr>`;
+    }).join("") || `<tr><td colspan="6" style="color:#8a96a3;">No device has logged in yet (devices appear after the next login).</td></tr>`;
+    const tog = own ? "<span style='font-size:12px; color:#5b6b7d;'>OWNER &mdash; all your devices are approved automatically</span>" :
+      `<button class="smallbtn" style="background:${u.active ? "#1d6b34" : "#a40000"}; color:#fff;" onclick="devUser('${esc(u.user_id)}', 'active', ${!u.active})">${u.active ? "&#10004; ACTIVE" : "&#10006; OFF"}</button>
+       <button class="smallbtn" style="background:${u.allow_mobile ? "#1a5fb4" : "#5b6b7d"}; color:#fff;" onclick="devUser('${esc(u.user_id)}', 'allow_mobile', ${!u.allow_mobile})">&#128241; MOBILE ${u.allow_mobile ? "ALLOWED" : "OFF"}</button>`;
+    return `<div style="border:1px solid #d8dde6; border-radius:10px; padding:10px 12px; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+        <div><b style="font-size:14px;">${esc(userDisplayName(u.email))}</b> <span style="color:#5b6b7d; font-size:12px;">${esc(u.email || "")}</span></div><div>${tog}</div></div>
+      <div style="overflow-x:auto;"><table style="width:100%; font-size:12.5px; border-collapse:collapse;">
+        <tr style="background:#f4f6fa; text-align:left;"><th>Device</th><th>IP</th><th>First login</th><th>Last used</th><th>Status</th><th></th></tr>${rows}</table></div></div>`;
+  }).join("");
+  devNav();
+}
+async function devSet(id, approve){
+  const patch = approve ? {approved: true, blocked: false, approved_by: sbUser.email, approved_at: new Date().toISOString()} : {blocked: true, approved: false};
+  const { error } = await sb.from("dg_devices").update(patch).eq("id", id);
+  if(error){ alert("Could not save: " + error.message); return; }
+  devRender();
+}
+async function devUser(uid, field, val){
+  if(field === "active" && !val && !confirm("Turn OFF this user? They will not be able to use DGDOC on any device.")) return;
+  const patch = {}; patch[field] = val;
+  const { error } = await sb.from("profiles").update(patch).eq("user_id", uid);
+  if(error){ alert("Could not save: " + error.message); return; }
+  devRender();
+}
+showTab = (function(r0){ return function(name){ const r = r0.apply(this, arguments); if(name === "users"){ try{ devRender(); }catch(e){} } return r; }; })(showTab);
+
 /* ================= v25.12-R EK forms: handover-person signatures (TSA / IDG / ELI / RFC), shipper stamp per shipper,
    ELI Section II confirmation + RFC AWBs handover sheet ================= */
 /* --- handover (tendering) person signature --- */
