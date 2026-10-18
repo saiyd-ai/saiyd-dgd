@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="supabase-2.117.2.min.js"></script>
 <script src="undb.js"></script>
 <script src="logo.js"></script>
@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-D</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-E</span></span>
           </div>
         </div>
       </div>
@@ -11743,6 +11743,7 @@ setInterval(() => { try{ if(document.querySelector(".tab.on .dgx_w")) dgxRefresh
 /* Pure UI layer: no data, job or document changes. DGDOC stays the DG module inside FreightPilot. */
 const NX_THEMES = {
   light:  {name: "Mint Fresh",  light: true, acc: "#0d9488", acc2: "#14b8a6", ink: "#134e4a", lt: {side1: "#ccf5e6", side2: "#e6faf3", bd: "#99e2c9", top1: "#e3f8f0", top2: "#f2fcf8", bg1: "#f3fbf8", bg2: "#e9f6f1", head1: "#e0f6ee", head2: "#f4fcf9", th: "#d3f0e5", on: "#ffffff", air1: "#a7f3d0", air2: "#ccfbf1", airt: "#115e59"}},
+  pro:    {name: "PRO (modern)", light: true, pro: true, acc: "#2563eb", acc2: "#0ea5e9", ink: "#0f172a", lt: {side1: "#ffffff", side2: "#ffffff", bd: "#e6e9f0", top1: "#ffffff", top2: "#ffffff", bg1: "#f4f6fa", bg2: "#f4f6fa", head1: "#ffffff", head2: "#ffffff", th: "#f8fafc", on: "#eff6ff", air1: "#ffffff", air2: "#ffffff", airt: "#1d4ed8"}},
   ocean:  {name: "Ocean Blue",  light: true, acc: "#2563eb", acc2: "#0ea5e9", ink: "#1e3a8a", lt: {side1: "#d6e8fd", side2: "#ebf4ff", bd: "#a9cdf7", top1: "#e2eefd", top2: "#f3f8ff", bg1: "#f4f8fe", bg2: "#e9f1fb", head1: "#e1edfd", head2: "#f4f9ff", th: "#d8e6fa", on: "#ffffff", air1: "#bfdbfe", air2: "#dbeafe", airt: "#1e3a8a"}},
   lavender: {name: "Soft Lavender", light: true, acc: "#7c3aed", acc2: "#a855f7", ink: "#3b2a6b", lt: {side1: "#e6defd", side2: "#f3efff", bd: "#cdbdf6", top1: "#ece6fd", top2: "#f8f5ff", bg1: "#f8f6fe", bg2: "#efebfb", head1: "#ebe5fd", head2: "#f9f7ff", th: "#e3dbfa", on: "#ffffff", air1: "#ddd6fe", air2: "#ede9fe", airt: "#4c1d95"}},
   sand:   {name: "Warm Sand",   light: true, acc: "#b7791f", acc2: "#d69e2e", ink: "#4a3417", lt: {side1: "#f5e9d4", side2: "#fbf5ea", bd: "#e6cfa6", top1: "#f8eedd", top2: "#fdf9f2", bg1: "#fcf9f3", bg2: "#f5efe3", head1: "#f6ecd9", head2: "#fdf9f1", th: "#efe2c8", on: "#ffffff", air1: "#f6dfb4", air2: "#faecd0", airt: "#744210"}},
@@ -11750,13 +11751,13 @@ const NX_THEMES = {
   aurora: {name: "Aurora",      side1: "#0b1024", side2: "#3b1d8f", acc: "#22d3ee", acc2: "#a855f7", top1: "#0b1024", top2: "#4c1d95", bg1: "#f4f6ff", bg2: "#ece7fb", head: "#f1f0ff", th: "#312e81", ink: "#312e81"},
   gold:   {name: "Desert Gold", side1: "#0c0b09", side2: "#2b2216", acc: "#d4a24c", acc2: "#f0c674", top1: "#0c0b09", top2: "#3a2d18", bg1: "#faf7f0", bg2: "#efe7d6", head: "#f8f3e7", th: "#2b2216", ink: "#3a2d18"}
 };
-function nxTheme(){ try{ const k = localStorage.getItem("nx_theme"); return (localStorage.getItem("nx_theme_pick") && k && NX_THEMES[k]) ? k : "ocean"; }catch(e){ return "ocean"; } }   /* default: Ocean Blue; a theme picked in SETTINGS stays */
+function nxTheme(){ try{ const k = localStorage.getItem("nx_theme"); return (localStorage.getItem("nx_theme_pick") && k && NX_THEMES[k]) ? k : "pro"; }catch(e){ return "pro"; } }   /* default: PRO; a theme picked in SETTINGS stays */
 function nxApplyTheme(k){
   const t = NX_THEMES[k] || NX_THEMES.royal;
   const r = document.documentElement.style;
   Object.keys(t).forEach(p => { if(p !== "name" && p !== "light" && p !== "lt") r.setProperty("--nx-" + p, t[p]); });
   if(t.lt){ Object.keys(t.lt).forEach(p => r.setProperty("--lt-" + p, t.lt[p])); r.setProperty("--nx-side2", t.lt.side1); }
-  if(document.body){ document.body.setAttribute("data-nx", k in NX_THEMES ? k : "light"); document.body.classList.toggle("nx-light", !!t.light); }
+  if(document.body){ document.body.setAttribute("data-nx", k in NX_THEMES ? k : "light"); document.body.classList.toggle("nx-light", !!t.light); document.body.classList.toggle("nx-pro", !!t.pro); }
   if(typeof renderDash === "function" && document.getElementById("dashkpi")) try{ renderDash(); }catch(e){}
   try{ localStorage.setItem("nx_theme", k); }catch(e){}
 }
@@ -11875,6 +11876,78 @@ function nxApplyTheme(k){
   /* menu text fits: SEA / LAND FREIGHT never cut */
   body.nx .nav .nxmode{font-size:11.5px !important; padding:0 10px !important;}
   body.nx .nav .nxmode small{min-width:38px !important; font-size:8.5px !important; padding:1px 5px !important;}
+  /* v25.13-E PRO full style (screen only — prints unchanged) */
+  @media screen{
+/* ===== FreightPilot PRO style — full restyle layer (font, spacing, sidebar, top bar, cards, inputs, tables, tiles) ===== */
+body.nx.nx-pro{font-family:'Inter','Poppins',Arial,sans-serif !important; color:#1f2937; background:#f4f6fa !important; font-size:13.5px;}
+body.nx.nx-pro *{font-family:inherit;}
+body.nx.nx-pro .sheet, body.nx.nx-pro .sheet *, body.nx.nx-pro #printzone *, body.nx.nx-pro .previewwrap *{font-family:Arial, Helvetica, sans-serif;}
+/* sidebar */
+}
+  @media screen and (min-width:901px){
+
+  body.nx.nx-pro .app{padding:14px 22px 24px 252px !important;}
+  body.nx.nx-pro .nav{left:0 !important; top:0 !important; bottom:0 !important; width:232px !important; border-radius:0 !important; padding:18px 12px !important;
+    background:#ffffff !important; border:0 !important; border-right:1px solid #e6e9f0 !important; box-shadow:none !important;}
+}
+body.nx.nx-pro .navlogo{padding:2px 8px 14px !important; text-align:left !important; border-bottom:1px solid #eef0f4 !important; margin-bottom:10px !important;}
+body.nx.nx-pro .navlogo > div{font-size:22px !important;}
+body.nx.nx-pro .nxwm .n1{color:#2563eb !important;} body.nx.nx-pro .nxwm .n2{color:#0f172a !important;}
+body.nx.nx-pro .nxtag{letter-spacing:2px !important; color:#94a3b8 !important; font-size:8px !important;}
+body.nx.nx-pro .navlogo .navaccent{display:none !important;}
+body.nx.nx-pro .navlogo .pwlbl{display:inline !important; margin:8px 6px 0 0 !important; color:#94a3b8 !important;}
+body.nx.nx-pro .navlogo .saiydwm{background:transparent !important; border:0 !important; padding:0 !important; box-shadow:none !important; font-size:12px !important;}
+body.nx.nx-pro .nav button{color:#475569 !important; font-weight:600 !important; font-size:12px !important; letter-spacing:.2px; padding:8px 10px !important;
+  border-radius:8px !important; border-left:0 !important; margin:1px 0 !important; background:transparent !important;}
+body.nx.nx-pro .nav button:hover{background:#f1f5f9 !important; color:#0f172a !important;}
+body.nx.nx-pro .nav button.on{background:#eff6ff !important; color:#1d4ed8 !important; box-shadow:inset 3px 0 0 #2563eb !important;}
+body.nx.nx-pro .nxgrp{color:#94a3b8 !important; font-size:10px !important; letter-spacing:1.4px !important; padding:14px 10px 4px !important;}
+body.nx.nx-pro .nav .nxmode{height:34px !important; min-height:34px !important; background:transparent !important; color:#0f172a !important; box-shadow:none !important;
+  font-size:10.5px !important; letter-spacing:1.4px !important; padding:0 10px !important; margin-top:12px !important; border-radius:8px !important; opacity:1 !important;}
+body.nx.nx-pro .nav .nxmode:hover{background:#f1f5f9 !important;}
+body.nx.nx-pro .nav .nxmode.m-air{color:#1d4ed8 !important;}
+body.nx.nx-pro .nav .nxmode.m-sea, body.nx.nx-pro .nav .nxmode.m-land{color:#94a3b8 !important;}
+body.nx.nx-pro .nav .nxmode small{background:#f1f5f9 !important; color:#64748b !important;}
+body.nx.nx-pro .nxsub button{padding-left:22px !important;}
+@media screen{
+/* top bar */
+body.nx.nx-pro .topbar{background:#ffffff !important; border:1px solid #e6e9f0 !important; border-radius:12px !important; box-shadow:0 1px 2px rgba(15,23,42,.04) !important; padding:10px 18px !important; min-height:0;}
+body.nx.nx-pro .topbar::after{display:none !important;}
+body.nx.nx-pro #tb_greet{color:#0f172a !important; font-size:15px !important; font-weight:600 !important;}
+body.nx.nx-pro .skydbtn{padding:7px 14px !important; font-size:12.5px !important; box-shadow:none !important;}
+body.nx.nx-pro .userchip{background:#f1f5f9 !important;}
+body.nx.nx-pro .badge{font-size:11px !important; padding:5px 10px !important;}
+/* cards */
+body.nx.nx-pro .card{background:#ffffff !important; border:1px solid #e6e9f0 !important; border-left-width:1px !important; border-radius:12px !important; box-shadow:0 1px 2px rgba(15,23,42,.04) !important; margin:14px 0 !important;}
+body.nx.nx-pro .card>h2{background:#ffffff !important; color:#0f172a !important; font-size:14px !important; font-weight:700 !important; letter-spacing:0 !important;
+  padding:14px 18px !important; border-bottom:1px solid #eef0f4 !important;}
+body.nx.nx-pro .card .body{padding:16px 18px !important;}
+/* forms */
+body.nx.nx-pro label{color:#64748b !important; font-size:11px !important; font-weight:600 !important; letter-spacing:.4px !important;}
+body.nx.nx-pro input[type=text], body.nx.nx-pro input[type=number], body.nx.nx-pro input[type=email], body.nx.nx-pro input[type=password], body.nx.nx-pro textarea, body.nx.nx-pro select{
+  border:1px solid #d6dbe4 !important; border-radius:8px !important; padding:8px 11px !important; font-size:13px !important; background:#fff !important; box-shadow:none !important;}
+body.nx.nx-pro input:focus, body.nx.nx-pro textarea:focus, body.nx.nx-pro select:focus{outline:none !important; border-color:#2563eb !important; box-shadow:0 0 0 3px rgba(37,99,235,.15) !important;}
+body.nx.nx-pro .btn{border-radius:8px !important; font-weight:600 !important; font-size:13px !important; padding:9px 16px !important; box-shadow:none !important; letter-spacing:.2px;}
+body.nx.nx-pro .smallbtn{border-radius:7px !important; font-weight:600 !important; font-size:11.5px !important;}
+/* tables */
+body.nx.nx-pro .dtable th, body.nx.nx-pro #tab-dash table th, body.nx.nx-pro #tab-jobflow table th, body.nx.nx-pro #tab-rpt table th, body.nx.nx-pro #tab-docs table th, body.nx.nx-pro #tab-wainbox table th, body.nx.nx-pro #tab-track table th{background:#f8fafc !important; color:#64748b !important; font-size:10.5px !important; font-weight:700 !important; letter-spacing:.6px;
+  border:0 !important; border-bottom:1px solid #e6e9f0 !important; padding:9px 10px !important;}
+body.nx.nx-pro #tab-dash td, body.nx.nx-pro #tab-jobflow td, body.nx.nx-pro #tab-rpt td, body.nx.nx-pro #tab-docs td{border-left:0 !important; border-right:0 !important; border-bottom:1px solid #f1f3f7 !important; font-size:12.5px;}
+body.nx.nx-pro .sheet th, body.nx.nx-pro .sheet td{font-size:inherit; background:inherit !important; color:#000 !important; border:1px solid #000 !important; letter-spacing:0;}
+/* KPI tiles */
+body.nx.nx-pro .nxkpi{background:#ffffff !important; border:1px solid #e6e9f0 !important; box-shadow:0 1px 2px rgba(15,23,42,.04) !important; border-radius:12px !important; width:170px !important; padding:14px 16px !important;}
+body.nx.nx-pro .nxkpi::after{display:none !important;}
+body.nx.nx-pro .nxkpi .v{font-size:26px !important; font-weight:700 !important; font-family:'Inter',Arial,sans-serif !important;}
+body.nx.nx-pro .nxkpi .l{color:#64748b !important; letter-spacing:.5px !important; font-weight:600 !important;}
+body.nx.nx-pro .nxkpi > span{top:16px !important; bottom:auto !important; height:8px !important; width:8px !important; left:auto !important; right:14px !important; border-radius:50% !important;}
+body.nx.nx-pro .dgx_w, body.nx.nx-pro .jf_w{border-width:1px !important; border-radius:12px !important; background:#ffffff !important; border-color:#e6e9f0 !important;}
+body.nx.nx-pro .warnbar{border-radius:10px !important;}
+body.nx.nx-pro .nav .nxmode.m-air, body.nx.nx-pro .nav .nxmode.m-sea, body.nx.nx-pro .nav .nxmode.m-land{background:transparent !important;}
+body.nx.nx-pro .nav .nxmode.m-air:hover{background:#f1f5f9 !important;}
+body.nx.nx-pro #tab-dash table th, body.nx.nx-pro #tab-rpt table th, body.nx.nx-pro #tab-docs table th, body.nx.nx-pro #tab-jobflow table th, body.nx.nx-pro .dtable th{background:#f8fafc !important; color:#64748b !important;}
+
+  }
+
   `;
   const s = document.createElement("style"); s.id = "nx_css"; s.textContent = css; document.head.appendChild(s);
 })();
