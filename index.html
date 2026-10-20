@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-I</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-J</span></span>
           </div>
         </div>
       </div>
@@ -5205,6 +5205,7 @@ function _inboxRowsHtml(rows, adm){
       ? `<button class="smallbtn sb-green" onclick="inboxAccept('${r.id}')">&#10004; ACCEPT &amp; START</button>
          <button class="smallbtn sb-blue" onclick="inboxAccept('${r.id}','pl')">&#128196; CONVERT &rarr; PL</button>`
       : `<b style="color:#1d6b34;">&#10004; ACCEPTED</b> <span style="font-size:11px; color:#5b6b7d;">by ${esc(r.accepted_by||"")}</span>
+         <button class="smallbtn sb-green" onclick="inboxOpenJob('${r.id}')" title="Open this job in CREATE DGD">&#128194; OPEN</button>
          <button class="smallbtn sb-blue" onclick="inboxOpenPl('${r.id}')">&#128196; PL</button>`;
     // NEW = amber, ACCEPTED = green tint — easy to tell apart
     h += `<tr style="background:${r.status === "NEW" ? "#fff3d6" : "#e9f6ec"};">${admOn ? `<td style="${TD} text-align:center;"><input type="checkbox" class="adm_wh" data-id="${esc(r.id)}" data-job="${esc((r.payload||{}).job || r.job_no || "")}" onchange="admCount('adm_wh')"></td>` : ""}
@@ -5260,6 +5261,27 @@ function inboxAccept(id, after){
     " (" + ((p.totals||{}).plt||"?") + " PLT)";
 }
 
+/* v25.13-J: OPEN an accepted warehouse job — the saved job (DOCUMENTS) when there is one, else the packing list data in CREATE DGD */
+function inboxOpenJob(id){
+  const row = INBOX.find(r => r.id === id);
+  if(!row) return;
+  const p = row.payload || {};
+  const job = (p.job || row.job_no || "").toUpperCase();
+  const list = store("jfs_documents");
+  const i = job ? list.findIndex(d => (d.job || "").toUpperCase() === job) : -1;
+  if(i >= 0){
+    const gc = (list[i].snap && list[i].snap.jobtype) === "GC";
+    try{ if(typeof setJobType === "function") setJobType(gc ? "GC" : "DG"); }catch(e){}
+    docOpenTab(i, gc ? "gc" : "dgd");
+  } else {
+    try{ if(typeof setJobType === "function") setJobType("DG"); }catch(e){}
+    document.getElementById("f_job").value = job;
+    applyQueuePayload(p);
+    refresh();
+    showTab("dgd");
+  }
+  window.scrollTo(0, 0);
+}
 /* ---------- editable JFS packing list view (Excel-tool style) ---------- */
 function inboxOpenPl(id){
   const row = INBOX.find(r => r.id === id);
