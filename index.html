@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-J</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-K</span></span>
           </div>
         </div>
       </div>
@@ -10858,7 +10858,8 @@ function ek7Layout(o){
   const E = x => esc(String(x == null ? "" : x));
   const X0 = 16.6, Y0 = 10.6;                                    // frame origin on the page (mm)
   const box = (x, y, w, h, extra) => `<div style="position:absolute; left:${(X0 + x).toFixed(2)}mm; top:${(Y0 + y).toFixed(2)}mm; width:${w.toFixed(2)}mm; height:${h.toFixed(2)}mm; ${extra || ""}"></div>`;
-  const txt = (x, y, w, html, st) => `<div style="position:absolute; left:${(X0 + x).toFixed(2)}mm; top:${(Y0 + y).toFixed(2)}mm; width:${w.toFixed(2)}mm; ${st || ""}">${html}</div>`;
+  const txt = (x, y, w, html, st) => { const fit = (st || "").charAt(0) === "\x01"; if(fit) st = st.slice(1);
+    return `<div${fit ? ' data-ek7fit="1"' : ""} style="position:absolute; left:${(X0 + x).toFixed(2)}mm; top:${(Y0 + y).toFixed(2)}mm; width:${w.toFixed(2)}mm; ${st || ""}">${html}</div>`; };
   const L = "border:0.75pt solid #000;";
   const hl = (x, y, w) => box(x, y, w, 0, "border-top:0.75pt solid #000;");
   const vl = (x, y, h) => box(x, y, 0, h, "border-left:0.75pt solid #000;");
@@ -10886,13 +10887,13 @@ function ek7Layout(o){
   h += txt(1, 0.4, 50, "Shipper's Name and Address", lab);
   h += box(45.7, 0, 46.2, 8.7, L + " border-top:0; border-right:0;");
   h += txt(45.7, 0.4, 46.2, "Shipper's Account Number", lab + " text-align:center;");
-  h += txt(1.3, 9.6, 89, E(o.shipper), V + " max-height:15.4mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
+  h += txt(1.3, 9.6, 89, E(o.shipper), "\x01" + V + " max-height:15.4mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
   h += hl(0, 25.2, 91.9);
   // consignee
   h += txt(1, 25.6, 50, "Consignee's Name and Address", lab);
   h += box(45.7, 25.2, 46.2, 9.4, L + " border-right:0;");
   h += txt(45.7, 25.6, 46.2, "Consignee's Account Number", lab + " text-align:center;");
-  h += txt(1.3, 31.3, 89, E(o.consignee), Vs + " max-height:20.3mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
+  h += txt(1.3, 31.3, 89, E(o.consignee), "\x01" + Vs + " max-height:20.3mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
   h += hl(0, 51.7, W);
   // right top: Not negotiable / Air Waybill / issued by / logo
   h += txt(93.3, 0.4, 40, "Not Negotiable", lab);
@@ -10906,7 +10907,7 @@ function ek7Layout(o){
   h += txt(93.3, 26, 93.5, agree, lab + " font-size:6.2pt; line-height:1.16; text-align:justify;");
   // agent
   h += txt(1, 52.1, 80, "Issuing Carrier's Agent Name and City", lab);
-  h += txt(1.3, 56.5, 89, E(o.agent), V + " font-size:9.6pt; line-height:3.1mm; max-height:13.6mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
+  h += txt(1.3, 56.5, 89, E(o.agent), "\x01" + V + " font-size:9.6pt; line-height:3.1mm; max-height:13.6mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
   h += hl(0, 69.4, 91.9);
   h += txt(1, 69.8, 40, "Agent's IATA Code", lab);
   h += vl(45.7, 69.4, 7.7);
@@ -10960,7 +10961,7 @@ function ek7Layout(o){
   h += hl(0, 103.7, W);
   // handling
   h += txt(1, 104.1, 60, "Handling Information", lab);
-  h += txt(1.3, 107.6, 152, E(o.handl), V + " line-height:3.5mm; max-height:12.6mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
+  h += txt(1.3, 107.6, 152, E(o.handl), "\x01" + V + " line-height:3.5mm; max-height:12.6mm; overflow:hidden; padding-top:0.9mm; margin-top:-0.9mm;");
   h += box(157.1, 112.2, 30.9, 8.5, "border-left:0.75pt solid #000; border-top:0.75pt solid #000;");
   h += txt(157.1, 112.5, 30.9, "SCI", lab + " text-align:center;");
   h += txt(157.1, 115.4, 30.9, E(o.sci), V + " font-size:8.6pt; text-align:center;");
@@ -11050,7 +11051,25 @@ function ek7Layout(o){
   </div>`;
   return o.house ? page1 : page1 + page2;
 }
+/* v25.13-K: shipper / consignee / agent / handling — shrink the font until ALL lines fit the box (never cut text) */
+function ek7Fit(root){
+  [...(root || document).querySelectorAll("[data-ek7fit]")].forEach(el => {
+    el.style.fontSize = ""; el.style.lineHeight = "";
+    const probe = el.cloneNode(true);
+    probe.style.left = "-10000mm"; probe.style.top = "0"; probe.style.visibility = "hidden";
+    document.body.appendChild(probe);
+    const cs = getComputedStyle(probe);
+    let fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight) || fs * 1.2;
+    const ratio = lh / fs, mh = parseFloat(cs.maxHeight) || 0, min = fs * 0.6;
+    const over = () => mh && probe.scrollHeight > mh + 0.5;
+    let changed = false;
+    while(over() && fs > min){ fs *= 0.95; probe.style.fontSize = fs + "px"; probe.style.lineHeight = (fs * ratio) + "px"; changed = true; }
+    if(changed){ el.style.fontSize = fs.toFixed(2) + "px"; el.style.lineHeight = (fs * ratio).toFixed(2) + "px"; }
+    probe.remove();
+  });
+}
 async function ek7Barcodes(root){
+  try{ ek7Fit(root); }catch(e){}
   const els = [...(root || document).querySelectorAll("svg.ek7bc")]; if(!els.length) return;
   try{ await loadJsBarcode(); }catch(e){ return; }
   els.forEach(s => {
