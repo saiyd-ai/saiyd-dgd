@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-H</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-I</span></span>
           </div>
         </div>
       </div>
@@ -11598,9 +11598,9 @@ function dgxFiles(){
 function dgxStatusHtml(r){
   const t = s => { if(!s) return ""; try{ return new Date(s).toLocaleString("en-GB", {day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"}); }catch(e){ return String(s).slice(0, 16).replace("T", " "); } };
   const who = s => esc(String(s || "").split("@")[0]);
-  if(!r) return `<span style="color:#5b6b7d;">Not sent to SIMSAR yet</span>`;
-  if(r.status === "new") return `<b style="color:#8a5200;">&#128228; SENT to SIMSAR</b> <span style="color:#5b6b7d;">${t(r.sent_at)} by ${who(r.sent_by)} &mdash; waiting for TradeGate</span>`;
-  if(r.status === "opened") return `<b style="color:#1a5fb4;">&#128260; SIMSAR is working on it</b> <span style="color:#5b6b7d;">(${who(r.opened_by)}, ${t(r.opened_at)})</span>`;
+  if(!r) return `<span style="color:#5b6b7d;">Not sent yet</span>`;
+  if(r.status === "new") return `<b style="color:#8a5200;">&#128228; SENT for customs declaration</b> <span style="color:#5b6b7d;">${t(r.sent_at)} by ${who(r.sent_by)} &mdash; waiting for TradeGate</span>`;
+  if(r.status === "opened") return `<b style="color:#1a5fb4;">&#128260; Customs team is working on it</b> <span style="color:#5b6b7d;">(${who(r.opened_by)}, ${t(r.opened_at)})</span>`;
   if(r.status === "dt_ready") return `<b style="color:#1d6b34;">&#9989; DT FILE READY</b> <span style="color:#5b6b7d;">(${who(r.dt_by)}, ${t(r.dt_at)}) &mdash; upload it on Mirsal 2</span>`;
   if(r.status === "declared") return `<b style="color:#0e7c66;">&#127937; DECLARED &middot; ${esc(r.decl_no || "")}</b> <span style="color:#5b6b7d;">(${who(r.declared_by)}, ${t(r.declared_at)})</span>`;
   return esc(r.status || "");
@@ -11626,7 +11626,7 @@ function dgxMount(){
   const mk = () => {
     const w = document.createElement("div"); w.className = "dgx_w";
     w.setAttribute("style", "border:2px solid #0e7c66; border-radius:10px; padding:8px 12px; background:#effaf6; display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0; font-size:13px;");
-    w.innerHTML = `<button class="btn btn-save" style="background:#0e7c66; white-space:nowrap;" onclick="dgxOpen()" title="Send this export job to SIMSAR (TradeGate) for the Mirsal 2 DT file">&#129534; CUSTOMS DECLARATION &rarr; SIMSAR</button>
+    w.innerHTML = `<button class="btn btn-save" style="background:#0e7c66; white-space:nowrap;" onclick="dgxOpen()" title="Send this export job for customs declaration (Mirsal 2 DT file)">&#129534; CUSTOMS DECLARATION</button>
       <span class="dgx_st" style="flex:1 1 220px;"></span>
       <button class="smallbtn dgx_dt" style="display:none; background:#1d6b34; color:#fff;" onclick="dgxDt()">&#11015; DT FILE</button>
       <button class="smallbtn dgx_dc" style="display:none;" onclick="dgxDeclare()">&#9998; DECLARATION NO.</button>
@@ -11656,7 +11656,7 @@ function dgxOpen(){
   ov.setAttribute("style", "position:fixed; inset:0; z-index:10050; background:rgba(15,20,45,.55); display:flex; align-items:flex-start; justify-content:center; overflow:auto; padding:22px 12px;");
   ov.innerHTML = `<div style="background:#fff; border-radius:14px; max-width:760px; width:100%; box-shadow:0 24px 70px rgba(0,0,0,.35); overflow:hidden;">
     <div style="background:#0e7c66; color:#fff; padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
-      <b>&#129534; CUSTOMS DECLARATION &rarr; SIMSAR &mdash; ${esc(p.job)}</b><button onclick="dgxClose()" style="background:none; border:0; color:#fff; font-size:22px; cursor:pointer;">&times;</button></div>
+      <b>&#129534; CUSTOMS DECLARATION &mdash; ${esc(p.job)}</b><button onclick="dgxClose()" style="background:none; border:0; color:#fff; font-size:22px; cursor:pointer;">&times;</button></div>
     <div style="padding:14px 16px; font-size:13px; line-height:1.5;">
       <div style="background:#f1fbf8; border:1px solid #bfe6da; border-radius:8px; padding:8px 11px; margin-bottom:10px;">
         AWB <b>${esc(p.awb || "—")}</b>${p.hawb ? " &middot; HAWB " + esc(p.hawb) : ""} &middot; ${esc(p.dep || "—")} &rarr; ${esc(p.dest || "—")} &middot; <b>${esc(p.pcs || "—")}</b> pcs &middot; <b>${esc(p.kg || "—")}</b> kg${p.goods ? " &middot; " + esc(p.goods) : ""}</div>
@@ -11666,19 +11666,19 @@ function dgxOpen(){
       </div>
       <div style="margin-top:10px;"><label style="font-weight:bold;">Declaration type</label>
         <select id="dgx_type" style="${IN}">${DGX_TYPES.map(t => `<option${t === dgxGuessType(p.shipper) ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>
-        <div style="font-size:11.5px; color:#5b6b7d;">Suggested from the shipper address (free zone &rarr; FZ Transit Out, mainland &rarr; Export from Local to ROW). SIMSAR can change it.</div></div>
+        <div style="font-size:11.5px; color:#5b6b7d;">Suggested from the shipper address (free zone &rarr; FZ Transit Out, mainland &rarr; Export from Local to ROW). The customs team can change it.</div></div>
       <div style="margin-top:10px; border:1px solid ${lines.length ? "#bfe6da" : "#f0c27a"}; background:${lines.length ? "#f6fcfa" : "#fff8e6"}; border-radius:8px; padding:8px 11px;">
         ${lines.length ? `&#128203; <b>Export invoice</b> ${esc(p.inv.no || "")}: <b>${lines.length}</b> line(s), total <b>${esc(p.inv.cur || "")} ${tot.toFixed(2)}</b> (from the INVOICE tab).` +
-          (noHs ? ` <span style="color:#a40000;"><b>${noHs}</b> line(s) without an 8-digit HS code &mdash; SIMSAR finds them (AI suggestion, confirmed by staff).</span>` : ` All lines have an HS code.`)
-          : `&#9888; <b>No invoice lines in the INVOICE tab.</b> Attach the export invoice (PDF / Excel) below &mdash; SIMSAR's AI reads it.`}</div>
+          (noHs ? ` <span style="color:#a40000;"><b>${noHs}</b> line(s) without an 8-digit HS code &mdash; the customs team finds them (AI suggestion, confirmed by staff).</span>` : ` All lines have an HS code.`)
+          : `&#9888; <b>No invoice lines in the INVOICE tab.</b> Attach the export invoice (PDF / Excel) below &mdash; the AI reads it.`}</div>
       <div style="margin-top:10px;"><label style="font-weight:bold;">Documents to send</label>
         <div id="dgx_fl">${files.length ? files.map((f, i) => `<label style="display:flex; gap:8px; align-items:center; font-weight:normal; padding:3px 0;"><input type="checkbox" class="dgx_fc" data-i="${i}"${f.on ? " checked" : ""} style="width:auto;"> <span style="background:#eef1f6; border-radius:5px; padding:0 6px; font-size:11px;">${esc(f.kind)}</span> ${esc(f.file ? f.file.name : f.name)}</label>`).join("") : `<div style="color:#5b6b7d;">No documents in ADD DOCUMENTS.</div>`}</div>
         <div style="margin-top:4px;"><input type="file" id="dgx_add" multiple accept=".pdf,.xlsx,.xls,.csv,image/*" style="font-size:12px;"> <span style="font-size:11.5px; color:#5b6b7d;">+ add the export invoice / packing list / other</span></div></div>
-      <div style="margin-top:10px;"><label style="font-weight:bold;">Note for SIMSAR</label><textarea id="dgx_note" style="${IN} min-height:44px;" placeholder="optional"></textarea></div>
+      <div style="margin-top:10px;"><label style="font-weight:bold;">Note for customs team</label><textarea id="dgx_note" style="${IN} min-height:44px;" placeholder="optional"></textarea></div>
       <div id="dgx_err" style="color:#a40000; font-weight:bold; margin-top:8px;"></div>
       <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
         <button class="btn" style="background:#e9ebf5; color:#1c1c4e;" onclick="dgxClose()">Cancel</button>
-        <button class="btn btn-save" id="dgx_go" style="background:#0e7c66;" onclick="dgxSend()">&#128228; SEND TO SIMSAR</button></div>
+        <button class="btn btn-save" id="dgx_go" style="background:#0e7c66;" onclick="dgxSend()">&#128228; SEND FOR DECLARATION</button></div>
     </div></div>`;
   document.body.appendChild(ov);
   DGX.files = files;
@@ -11712,14 +11712,14 @@ async function dgxSend(){
     try{ j = await dgxCall({action: "send", pack: p, files}); }
     catch(e){
       if(e.code !== "already") throw e;
-      if(!confirm("This job was already processed by SIMSAR (" + (e.info.status === "declared" ? "DECLARED" : "DT FILE READY") + ").\n\nSend it AGAIN as a new declaration job?")) throw new Error("Not sent.");
+      if(!confirm("This job was already processed by the customs team (" + (e.info.status === "declared" ? "DECLARED" : "DT FILE READY") + ").\n\nSend it AGAIN as a new declaration job?")) throw new Error("Not sent.");
       j = await dgxCall({action: "send", pack: p, files, again: true});
     }
     DGX.row = j.row || null; DGX.job = p.job; DGX.at = Date.now();
     dgxClose(); dgxRender();
-    alert("✓ Sent to SIMSAR — " + p.job + "\n\n" + (p.lines.length ? p.lines.length + " invoice line(s)" : "no invoice lines") + " · " + files.length + " document(s).\nIn TradeGate (SIMSAR): BOE Passing → FROM DGDOC.");
+    alert("✓ Sent for customs declaration — " + p.job + "\n\n" + (p.lines.length ? p.lines.length + " invoice line(s)" : "no invoice lines") + " · " + files.length + " document(s).\nIn TradeGate: BOE Passing → FROM DGDOC.");
   }catch(e){ err(e.message || String(e)); }
-  finally{ DGX.busy = false; if(btn){ btn.disabled = false; btn.innerHTML = "&#128228; SEND TO SIMSAR"; } }
+  finally{ DGX.busy = false; if(btn){ btn.disabled = false; btn.innerHTML = "&#128228; SEND FOR DECLARATION"; } }
 }
 async function dgxDt(){
   const r = DGX.row; if(!r) return;
@@ -11934,7 +11934,7 @@ body.nx.nx-pro .smallbtn{border-radius:7px !important; font-weight:600 !importan
 body.nx.nx-pro .dtable th, body.nx.nx-pro #tab-dash table th, body.nx.nx-pro #tab-jobflow table th, body.nx.nx-pro #tab-rpt table th, body.nx.nx-pro #tab-docs table th, body.nx.nx-pro #tab-wainbox table th, body.nx.nx-pro #tab-track table th{background:#f8fafc !important; color:#64748b !important; font-size:10.5px !important; font-weight:700 !important; letter-spacing:.6px;
   border:0 !important; border-bottom:1px solid #e6e9f0 !important; padding:9px 10px !important;}
 body.nx.nx-pro #tab-dash td, body.nx.nx-pro #tab-jobflow td, body.nx.nx-pro #tab-rpt td, body.nx.nx-pro #tab-docs td{border-left:0 !important; border-right:0 !important; border-bottom:1px solid #f1f3f7 !important; font-size:12.5px;}
-body.nx.nx-pro .sheet th, body.nx.nx-pro .sheet td{font-size:inherit; background:inherit !important; color:#000 !important; border:1px solid #000 !important; letter-spacing:0;}
+body.nx.nx-pro .sheet th, body.nx.nx-pro .sheet td{color:#000 !important; letter-spacing:0;}   /* v25.13-I: keep the DGD own borders (no lines between qty blocks) */
 /* KPI tiles */
 body.nx.nx-pro .nxkpi{background:#ffffff !important; border:1px solid #e6e9f0 !important; box-shadow:0 1px 2px rgba(15,23,42,.04) !important; border-radius:12px !important; width:170px !important; padding:14px 16px !important;}
 body.nx.nx-pro .nxkpi::after{display:none !important;}
@@ -12075,7 +12075,7 @@ function jfStep(st, c){
       if(manual) return manual; if(/CONFIRM|PRINT|FINAL/.test(st2) || (c.e.prints || 0) > 0) return ["part", "printed — upload the signed copy"]; return c.d ? ["part", "DGD " + (st2 || "draft")] : ["todo", "no DGD"]; }
     case "s8": return (c.d && c.d.awbcopy) ? ["ok", "AWB copy uploaded"] : (manual || ((s.aw && (has(s.aw.flight) || has(s.aw.chwt))) ? ["part", "AWB filled — upload copy"] : ["todo", "AWB not prepared"]));
     case "s9": { const r = c.sim; if(r && r.status === "declared") return ["ok", "declared " + (r.decl_no || "")]; if(manual) return manual;
-      if(r) return ["part", r.status === "dt_ready" ? "DT file ready" : "sent to SIMSAR"]; return ["todo", "not declared"]; }
+      if(r) return ["part", r.status === "dt_ready" ? "DT file ready" : "sent for declaration"]; return ["todo", "not declared"]; }
     case "s10": return manual || ["todo", "tick when forms done"];
     case "s11": return (c.d && c.d.accept) ? ["ok", "acceptance uploaded"] : (manual || ["todo", "not delivered"]);
     case "s12": { const t = c.trk; const txt = t ? JSON.stringify([t.status, t.lastEvent, (t.manualEvents || []).map(x => x.code)]).toUpperCase() : "";
@@ -12623,7 +12623,9 @@ ekgcPrintAll = async function(){
 };
 (function(){ const b = document.querySelector('#alc_ekgc button[onclick="ekgcPrintAll()"]'); if(b) b.innerHTML = "&#128424; PRINT ALL (one click)"; })();
 /* ================= v25.13-H PRO tweak: light marble sidebar, teal accent, +1px font, compact (screen only) ================= */
-(function(){ const s = document.createElement("style"); s.id = "nx_pro_h"; s.textContent = "@media screen{\n/* v25.13-H PRO tweak: light marble sidebar, teal accent, +1px font, compact */\nbody.nx.nx-pro{font-size:14.5px;}\nbody.nx.nx-pro .nav{background-color:#f6f5f2 !important; border-right:1px solid #e3e1dc !important;\n  background-image:\n    linear-gradient(118deg, transparent 0 22%, rgba(150,150,160,.10) 22.4%, transparent 23.4% 100%),\n    linear-gradient(62deg, transparent 0 48%, rgba(140,140,150,.08) 48.3%, transparent 49.6% 100%),\n    linear-gradient(140deg, transparent 0 66%, rgba(160,155,150,.10) 66.3%, transparent 67.2% 100%),\n    linear-gradient(35deg, transparent 0 80%, rgba(150,150,160,.07) 80.4%, transparent 82% 100%),\n    radial-gradient(ellipse at 15% 10%, rgba(255,255,255,.95), transparent 55%),\n    radial-gradient(ellipse at 85% 45%, rgba(225,223,218,.55), transparent 60%),\n    radial-gradient(ellipse at 30% 85%, rgba(232,230,225,.6), transparent 55%),\n    linear-gradient(180deg, #faf9f7 0%, #f1efeb 100%) !important;\n  background-attachment:local !important;}\nbody.nx.nx-pro .navlogo{border-bottom:1px solid rgba(0,0,0,.07) !important;}\nbody.nx.nx-pro .nxwm .n1{color:#0d9488 !important;} body.nx.nx-pro .nxwm .n2{color:#0f172a !important;}\nbody.nx.nx-pro .nav button{color:#334155 !important; font-size:13px !important; padding:6px 10px !important;}\nbody.nx.nx-pro .nav button:hover{background:rgba(255,255,255,.75) !important; color:#0f172a !important;}\nbody.nx.nx-pro .nav button.on{background:rgba(13,148,136,.12) !important; color:#0f766e !important; box-shadow:inset 3px 0 0 #0d9488 !important;}\nbody.nx.nx-pro .nxgrp{color:#8a94a6 !important; font-size:10.5px !important; padding:10px 10px 3px !important;}\nbody.nx.nx-pro .nav .nxmode{color:#0f172a !important; font-size:11px !important; height:32px !important; min-height:32px !important; margin-top:8px !important;}\nbody.nx.nx-pro .nav .nxmode:hover, body.nx.nx-pro .nav .nxmode.m-air:hover{background:rgba(255,255,255,.75) !important;}\nbody.nx.nx-pro .nav .nxmode.m-air{color:#0f766e !important;}\nbody.nx.nx-pro .nav .nxmode.m-sea, body.nx.nx-pro .nav .nxmode.m-land{color:#94a3b8 !important;}\nbody.nx.nx-pro .nav .nxmode small{background:rgba(0,0,0,.05) !important; color:#64748b !important;}\n@media (min-width:901px){ body.nx.nx-pro .app{padding:10px 18px 18px 248px !important;} }\nbody.nx.nx-pro .topbar{padding:7px 16px !important;}\nbody.nx.nx-pro #tb_greet{font-size:16px !important;}\nbody.nx.nx-pro .card{margin:10px 0 !important;}\nbody.nx.nx-pro .card>h2{font-size:15px !important; padding:10px 16px !important;}\nbody.nx.nx-pro .card .body{padding:12px 16px !important;}\nbody.nx.nx-pro label{font-size:12px !important;}\nbody.nx.nx-pro input[type=text], body.nx.nx-pro input[type=number], body.nx.nx-pro input[type=email], body.nx.nx-pro input[type=password], body.nx.nx-pro textarea, body.nx.nx-pro select{font-size:14px !important; padding:6px 10px !important;}\nbody.nx.nx-pro input:focus, body.nx.nx-pro textarea:focus, body.nx.nx-pro select:focus{border-color:#0d9488 !important; box-shadow:0 0 0 3px rgba(13,148,136,.18) !important;}\nbody.nx.nx-pro .btn{font-size:14px !important; padding:7px 14px !important;}\nbody.nx.nx-pro .smallbtn{font-size:12.5px !important;}\nbody.nx.nx-pro table th, body.nx.nx-pro .dtable th{font-size:11.5px !important; padding:7px 9px !important;}\nbody.nx.nx-pro #tab-dash td, body.nx.nx-pro #tab-jobflow td, body.nx.nx-pro #tab-rpt td, body.nx.nx-pro #tab-docs td{font-size:13.5px; padding-top:6px; padding-bottom:6px;}\nbody.nx.nx-pro .nxkpi{padding:11px 14px !important;}\nbody.nx.nx-pro .nxkpi .v{font-size:27px !important;}\nbody.nx.nx-pro a{color:#0d9488;}\n}\n@media screen and (max-width:900px){  }\n"; document.head.appendChild(s); })();
+(function(){ const s = document.createElement("style"); s.id = "nx_pro_h"; s.textContent = "@media screen{\n/* v25.13-H PRO tweak: light marble sidebar, teal accent, +1px font, compact */\nbody.nx.nx-pro{font-size:14.5px;}\nbody.nx.nx-pro .nav{background-color:#f6f5f2 !important; border-right:1px solid #e3e1dc !important;\n  background-image:\n    linear-gradient(118deg, transparent 0 22%, rgba(150,150,160,.10) 22.4%, transparent 23.4% 100%),\n    linear-gradient(62deg, transparent 0 48%, rgba(140,140,150,.08) 48.3%, transparent 49.6% 100%),\n    linear-gradient(140deg, transparent 0 66%, rgba(160,155,150,.10) 66.3%, transparent 67.2% 100%),\n    linear-gradient(35deg, transparent 0 80%, rgba(150,150,160,.07) 80.4%, transparent 82% 100%),\n    radial-gradient(ellipse at 15% 10%, rgba(255,255,255,.95), transparent 55%),\n    radial-gradient(ellipse at 85% 45%, rgba(225,223,218,.55), transparent 60%),\n    radial-gradient(ellipse at 30% 85%, rgba(232,230,225,.6), transparent 55%),\n    linear-gradient(180deg, #faf9f7 0%, #f1efeb 100%) !important;\n  background-attachment:local !important;}\nbody.nx.nx-pro .navlogo{border-bottom:1px solid rgba(0,0,0,.07) !important;}\nbody.nx.nx-pro .nxwm .n1{color:#0d9488 !important;} body.nx.nx-pro .nxwm .n2{color:#0f172a !important;}\nbody.nx.nx-pro .nav button{color:#334155 !important; font-size:13px !important; padding:6px 10px !important;}\nbody.nx.nx-pro .nav button:hover{background:rgba(255,255,255,.75) !important; color:#0f172a !important;}\nbody.nx.nx-pro .nav button.on{background:rgba(13,148,136,.12) !important; color:#0f766e !important; box-shadow:inset 3px 0 0 #0d9488 !important;}\nbody.nx.nx-pro .nxgrp{color:#8a94a6 !important; font-size:10.5px !important; padding:10px 10px 3px !important;}\nbody.nx.nx-pro .nav .nxmode{color:#0f172a !important; font-size:11px !important; height:32px !important; min-height:32px !important; margin-top:8px !important;}\nbody.nx.nx-pro .nav .nxmode:hover, body.nx.nx-pro .nav .nxmode.m-air:hover{background:rgba(255,255,255,.75) !important;}\nbody.nx.nx-pro .nav .nxmode.m-air{color:#0f766e !important;}\nbody.nx.nx-pro .nav .nxmode.m-sea, body.nx.nx-pro .nav .nxmode.m-land{color:#94a3b8 !important;}\nbody.nx.nx-pro .nav .nxmode small{background:rgba(0,0,0,.05) !important; color:#64748b !important;}\n@media (min-width:901px){ body.nx.nx-pro .app{padding:10px 18px 18px 248px !important;} }\nbody.nx.nx-pro .topbar{padding:7px 16px !important;}\nbody.nx.nx-pro #tb_greet{font-size:16px !important;}\nbody.nx.nx-pro .card{margin:10px 0 !important;}\nbody.nx.nx-pro .card>h2{font-size:15px !important; padding:10px 16px !important;}\nbody.nx.nx-pro .card .body{padding:12px 16px !important;}\nbody.nx.nx-pro label{font-size:12px !important;}\nbody.nx.nx-pro input[type=text], body.nx.nx-pro input[type=number], body.nx.nx-pro input[type=email], body.nx.nx-pro input[type=password], body.nx.nx-pro textarea, body.nx.nx-pro select{font-size:14px !important; padding:6px 10px !important;}\nbody.nx.nx-pro input:focus, body.nx.nx-pro textarea:focus, body.nx.nx-pro select:focus{border-color:#0d9488 !important; box-shadow:0 0 0 3px rgba(13,148,136,.18) !important;}\nbody.nx.nx-pro .btn{font-size:14px !important; padding:7px 14px !important;}\nbody.nx.nx-pro .smallbtn{font-size:12.5px !important;}\nbody.nx.nx-pro .dtable th, body.nx.nx-pro #tab-dash table th, body.nx.nx-pro #tab-jobflow table th, body.nx.nx-pro #tab-rpt table th, body.nx.nx-pro #tab-docs table th, body.nx.nx-pro #tab-wainbox table th, body.nx.nx-pro #tab-track table th{font-size:11.5px !important; padding:7px 9px !important;}\nbody.nx.nx-pro #tab-dash td, body.nx.nx-pro #tab-jobflow td, body.nx.nx-pro #tab-rpt td, body.nx.nx-pro #tab-docs td{font-size:13.5px; padding-top:6px; padding-bottom:6px;}\nbody.nx.nx-pro .nxkpi{padding:11px 14px !important;}\nbody.nx.nx-pro .nxkpi .v{font-size:27px !important;}\nbody.nx.nx-pro a{color:#0d9488;}\n}\n@media screen and (max-width:900px){  }\n"; document.head.appendChild(s); })();
+/* ================= v25.13-I menu hover teal highlight + CUSTOMS DECLARATION label (no SIMSAR name in DGDOC) (screen only) ================= */
+(function(){ const s = document.createElement("style"); s.id = "nx_pro_i"; s.textContent = "@media screen{\nbody.nx.nx-pro .nav button:hover, body.nx.nx-pro .nav .nxmode:hover, body.nx.nx-pro .nav .nxmode.m-air:hover{background:rgba(13,148,136,.13) !important; color:#0f766e !important; box-shadow:inset 3px 0 0 rgba(13,148,136,.55) !important;}\nbody.nx.nx-pro .nav button.on:hover{background:rgba(13,148,136,.18) !important; box-shadow:inset 3px 0 0 #0d9488 !important;}\nbody.nx.nx-pro .nav button{transition:background .15s, color .15s;}\nbody.nx.nx-pro .btn, body.nx.nx-pro .smallbtn{transition:filter .15s, transform .15s, box-shadow .15s;}\nbody.nx.nx-pro .btn:hover, body.nx.nx-pro .smallbtn:hover{filter:brightness(1.12) saturate(1.1); transform:translateY(-1px); box-shadow:0 4px 10px rgba(15,23,42,.15) !important;}\nbody.nx.nx-pro .nxkpi{transition:border-color .15s, box-shadow .15s;} body.nx.nx-pro .nxkpi:hover{border-color:#0d9488 !important; box-shadow:0 4px 12px rgba(13,148,136,.15) !important;}\n}"; document.head.appendChild(s); })();
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
