@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-K</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-L</span></span>
           </div>
         </div>
       </div>
@@ -3987,17 +3987,25 @@ function ptFillLoose(){
   // group consecutive same-weight overpacked cartons
   const groups = [];
   overIdx.forEach(([i, r]) => {
-    const key = String(r.w);
+    const key = String(r.w) + "@" + (parseInt(r.q) || 1);
     const prev = groups[groups.length - 1];
     if(prev && prev.key === key && prev.idx[prev.idx.length - 1] === i - 1) prev.idx.push(i);
     else{
       let g = groups.find(x => x.key === key);
       if(g && g.idx[g.idx.length - 1] !== i - 1) g = null;                  // keep runs contiguous like the manual DGD
-      if(g) g.idx.push(i); else groups.push({key, w: r.w, idx: [i]});
+      if(g) g.idx.push(i); else groups.push({key, w: r.w, q: parseInt(r.q) || 1, idx: [i]});
     }
   });
   const blocks = groups.map(g => {
     const wf = fmt1(g.w);
+    if(g.q > 1){
+      // v25.13-L: W = several boxes wrapped together = ONE overpack; weight on the sheet = FULL weight of the wrap (no tare)
+      const avg = ptTrunc3((parseFloat(g.w) || 0) / g.q), tot = Math.round(avg * g.q * 1000) / 1000;
+      const scList = g.idx.length === 1 ? sc(g.idx[0]) : sc(g.idx[0]) + " - " + sc(g.idx[g.idx.length - 1]);
+      return `${g.q} FIBREBOARD BOXES\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(avg)} kg G\n` + (g.idx.length > 1
+        ? `OVERPACK USED x ${String(g.idx.length).padStart(2, "0")}\n${scList}\nTOTAL QUANTITY PER\nOVERPACK ${fmtDot(tot)} kg G`
+        : `OVERPACK USED ${scList}\nTOTAL QUANTITY ${fmtDot(tot)} kg G`);
+    }
     const scList = g.idx.length === 1 ? sc(g.idx[0]) : sc(g.idx[0]) + " - " + sc(g.idx[g.idx.length - 1]);
     return g.idx.length > 1
       ? `${box1}\nx ${wf} kg G\nOVERPACK USED x ${g.idx.length}\n${scList}\nTOTAL QUANTITY PER\nOVERPACK ${wf} kg G`
@@ -4022,7 +4030,7 @@ function ptFillLoose(){
   document.getElementById("op_start") && (document.getElementById("op_start").value = String(1 + (window.PT_SC_OFFSET || 0)));
   refresh();
   document.getElementById("pt_summary").textContent =
-    "✓ LOOSE CARTONS DGD filled — " + overIdx.length + " overpacked carton(s) with SC numbers, " +
+    "✓ LOOSE CARTONS DGD filled — " + overIdx.length + " overpack(s) (wrapped / over packed) with SC numbers, " +
     (avgRows.length ? avgRows.reduce((a,r)=>a+(parseInt(r.q)||1),0) + " loose box(es) as AVERAGE GROSS (no overpack)." : "no loose-average boxes.");
 }
 /* which DGD item + qty format a pallet row belongs to (for labels) */
@@ -4054,7 +4062,8 @@ function ptCompute(){
   const tare = parseFloat(v("pt_tare")) || 0;
   PT.forEach((r, i) => {
     const gw = (r.aw != null && r.aw > 0) ? r.aw : r.w;   // averaged weight when set, else actual (actual stays as record)
-    r.dgd = (gw > tare && r.q > 0) ? ptTrunc3((gw - tare) / r.q) : 0;
+    const tr = /OVER\s?PACK|AVERAGE\s?WT/i.test(r.rm || "") ? 0 : tare;   // v25.13-L: L / W lines have no pallet -> no tare
+    r.dgd = (gw > tr && r.q > 0) ? ptTrunc3((gw - tr) / r.q) : 0;
     r.sc = ptR3(r.dgd * r.q);
     r.label = "OVERPACK#SC" + String(i + 1 + (window.PT_SC_OFFSET || 0)).padStart(2, "0");
   });
@@ -4356,6 +4365,12 @@ function ptParseJfsXlsx(wb){
       const first = String(row[0] == null ? "" : row[0]).trim().toUpperCase();
       if(/^TOTAL/.test(first)) break;
       const w = parseFloat(row[ci.w]); const q = parseInt(row[ci.qty]);
+      // v25.13-L: a row with QTY but no WEIGHT under a merged WEIGHT cell = more boxes of the SAME line (one wrap / one weight)
+      if(!w && q > 0 && rows.length){
+        const pv = rows[rows.length - 1], d2 = ci.dims >= 0 ? String(row[ci.dims] || "").trim() : "";
+        pv.q += q; if(d2) pv.d = (pv.d ? pv.d + " + " : "") + d2;
+        continue;
+      }
       if(!w || !q){ if(rows.length) break; else continue; }
       let rm = ci.rm >= 0 ? String(row[ci.rm] == null ? "" : row[ci.rm]).trim().toUpperCase() : "";
       const plw = ci.plw >= 0 ? String(row[ci.plw] == null ? "" : row[ci.plw]).trim().toUpperCase() : "";
