@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-M</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-N</span></span>
           </div>
         </div>
       </div>
@@ -12708,8 +12708,8 @@ ptFillLoose = function(){
   const sc = n => "#SC" + String(n + 1 + (window.PT_SC_OFFSET || 0)).padStart(2, "0");
   const groups = ptLooseGroups(PT);
   const blocks = groups.map(g => g.n > 1
-    ? `01 FIBREBOARD BOXES\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(g.w)} kg G\nOVERPACK USED x ${String(g.n).padStart(2, "0")}\n${sc(g.from)} - ${sc(g.from + g.n - 1)}\nTOTAL QUANTITY PER\nOVERPACK ${fmtDot(g.w)} kg G`
-    : `01 FIBREBOARD BOX\nx ${fmt1(g.w)} kg G\nOVERPACK USED ${sc(g.from)}\nTOTAL QUANTITY ${fmt1(g.w)} kg G`);
+    ? `01 FIBREBOARD BOX\nx ${fmtDot(g.w)} kg G\nOVERPACK USED x ${g.n}\n${sc(g.from)} - ${sc(g.from + g.n - 1)}\nTOTAL QUANTITY PER\nOVERPACK ${fmtDot(g.w)} kg G`   // v25.13-N: one box per overpack -> box weight, no AVERAGE wording; count as is (x 5, x 15)
+    : `01 FIBREBOARD BOX\nX ${fmt1(g.w)} kg G\nOVERPACK USED ${sc(g.from)}\nTOTAL QUANTITY ${fmt1(g.w)} kg G`);   // single box exactly like the manual DGD
   const nOps = groups.reduce((a, g) => a + g.n, 0);
   // plain loose cartons (L / AVERAGE WT) — one average gross block, NO overpack
   const avgRows = PT.filter(r => !/OVER\s?PACK/i.test(r.rm || ""));
