@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DGDOC — Complete DGD Solution | Powered by sAiyd.ai</title>
 <link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icon-192.png">
 <meta name="theme-color" content="#0f2b4c">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -389,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-Q</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-R</span></span>
           </div>
         </div>
       </div>
@@ -12787,6 +12788,51 @@ cloudPush = (function(r0){ return async function(key){
   }
   return r0.apply(this, arguments);
 }; })(cloudPush);
+/* ================= v25.13-R — (1) job log: ONE entry per job number. The login "merge" used to keep two copies of the
+   same job when one PC had an older version (e.g. prints 0 vs 1), so the dashboard counted DGS-C00455 twice.
+   Now merge/pull keeps the newest entry per job (first = earliest, prints / month counts = highest).
+   (2) phone: menu button no longer covers the FreightPilot name; KPI tiles 2 per row. ================= */
+function jlDedupe(arr){
+  if(!Array.isArray(arr)) return arr;
+  const idx = new Map(), out = [];
+  arr.forEach(x => {
+    if(!x || typeof x !== "object" || !x.job){ out.push(x); return; }
+    const k = String(x.job).trim().toUpperCase();
+    if(!idx.has(k)){ idx.set(k, out.length); out.push(Object.assign({}, x)); return; }
+    const p = out[idx.get(k)];
+    const months = Object.assign({}, p.months || {});
+    Object.keys(x.months || {}).forEach(m => { months[m] = Math.max(+months[m] || 0, +x.months[m] || 0); });
+    const firsts = [p.first, x.first].map(Number).filter(n => n > 0);
+    const prints = Math.max(+p.prints || 0, +x.prints || 0);
+    const base = (+x.last || 0) > (+p.last || 0) ? Object.assign({}, x) : Object.assign({}, p);
+    base.months = months; base.prints = prints; if(firsts.length) base.first = Math.min.apply(null, firsts);
+    out[idx.get(k)] = base;
+  });
+  return out;
+}
+sharedMerge = (function(r0){ return function(key, loc, cld){
+  const r = r0.apply(this, arguments);
+  return key === "jfs_joblog" ? jlDedupe(r) : r;
+}; })(sharedMerge);
+cloudPullShared = (function(r0){ return async function(mode){
+  const r = await r0.apply(this, arguments);
+  try{
+    const raw = localStorage.getItem("jfs_joblog"), log = JSON.parse(raw || "[]");
+    const d = jlDedupe(log);
+    if(Array.isArray(d) && d.length !== log.length){
+      localStorage.setItem("jfs_joblog", JSON.stringify(d));
+      await cloudPush("jfs_joblog");
+      if(typeof renderDash === "function") renderDash();
+    }
+  }catch(e){}
+  return r;
+}; })(cloudPullShared);
+(function(){
+  const st = document.createElement("style"); st.id = "nx_r_mobile";
+  st.textContent = "@media screen and (max-width:900px){ #tb_brand{ margin-left:46px !important; } }" +
+    "@media screen and (max-width:600px){ #dashkpi > .nxkpi, .nxkpi{ flex:1 1 calc(50% - 7px) !important; min-width:0 !important; max-width:calc(50% - 7px) !important; box-sizing:border-box !important; } }";
+  document.head.appendChild(st);
+})();
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
