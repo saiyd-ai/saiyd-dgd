@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-N</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-O</span></span>
           </div>
         </div>
       </div>
@@ -6014,7 +6014,7 @@ function buildOpStickers(){
   const loose = usePT && typeof ptIsLoose === "function" && ptIsLoose();
   const looseRows = loose ? ptLooseOps().map(o => ({w: o.w})) : [];   // v25.13-M: one label per wrapped box
   const rows = loose ? looseRows : (usePT ? PT : []);
-  const n = usePT ? Math.min(loose ? 300 : 60, rows.length) : Math.max(1, Math.min(20, parseInt(v("f_opcount")) || 1));
+  const n = usePT ? Math.min(500, rows.length) : Math.max(1, Math.min(500, parseInt(v("f_opcount")) || 1));   // v25.13-O: no 60 / 20 label limit (DGS-C00455 = 64)
   const prefix = (document.getElementById("op_prefix").value || "SC").toUpperCase();
   const start = parseInt(document.getElementById("op_start").value) || 1;
   const qtyOverride = document.getElementById("op_qty").value.trim();
