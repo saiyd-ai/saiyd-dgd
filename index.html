@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-P</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-Q</span></span>
           </div>
         </div>
       </div>
@@ -12759,6 +12759,34 @@ ptCompute = (function(r0){ return function(){
     }
   }catch(e){}
   return r; }; })(ptCompute);
+/* ================= v25.13-Q CLEAN START (reset) — the owner archives + clears job data on the server and writes
+   saiyad_shared "jfs_reset_at" = {at}. Every browser then drops its OLD local job data for these keys (never merges it
+   back up) and takes the cloud copy. Settings, customers, items, signatures, users, counters are never touched. ================= */
+const RESET_KEYS = ["jfs_joblog","jfs_documents","jfs_dgd_drafts","jfs_wh_drafts","jfs_tracking","jfs_hidden_awbs","jfs_deleted_jobs","jfs_deleted_wh","jfs_jobflow"];
+const RESET_OBJ_KEYS = ["jfs_dgd_drafts","jfs_wh_drafts","jfs_tracking","jfs_jobflow"];
+async function resetCheck(){
+  if(!sb || !sbUser) return false;
+  let at = 0;
+  try{ const { data } = await sb.from("saiyad_shared").select("value").eq("key", "jfs_reset_at").maybeSingle();
+    at = data && data.value && data.value.at ? Date.parse(data.value.at) : 0; }catch(e){ return false; }
+  const seen = parseInt(localStorage.getItem("jfs_reset_seen") || "0") || 0;
+  if(!at || at <= seen) return false;
+  RESET_KEYS.forEach(k => { if(syncTimers[k]){ clearTimeout(syncTimers[k]); delete syncTimers[k]; }
+    localStorage.setItem(k, RESET_OBJ_KEYS.includes(k) ? "{}" : "[]"); });
+  localStorage.setItem("jfs_reset_seen", String(at));
+  return true;
+}
+cloudPullShared = (function(r0){ return async function(mode){
+  await resetCheck();                                             // old local job data is emptied first, so a merge cannot bring it back
+  return r0.call(this, mode);
+}; })(cloudPullShared);
+cloudPush = (function(r0){ return async function(key){
+  if(RESET_KEYS.includes(key) && await resetCheck()){            // this browser still had pre-reset data: never push it
+    try{ await cloudPullShared("merge"); if(typeof renderDash === "function") renderDash(); }catch(e){}
+    return;
+  }
+  return r0.apply(this, arguments);
+}; })(cloudPush);
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
