@@ -389,7 +389,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-O</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-P</span></span>
           </div>
         </div>
       </div>
@@ -2718,10 +2718,19 @@ function admSelAll(cb, cls){ cls = cls || "adm_sel"; const tb = cb.closest("tabl
 function admTombstones(){ try{ const a = JSON.parse(localStorage.getItem("jfs_deleted_jobs")||"[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
 /* remove every trace of the deleted jobs from local shared stores; returns keys that changed (to push) */
 function admApplyTombstones(){
-  const dead = new Set(admTombstones().map(x => String((x && x.job) || x || "").toUpperCase()).filter(Boolean));
+  /* v25.13-P: a deletion removes only what existed BEFORE it. If the same job number is used again later
+     (new job log entry / DGD saved after the delete time) the job is ALIVE and nothing is removed. */
+  const delAt = {};
+  admTombstones().forEach(x => { const j = String((x && x.job) || x || "").trim().toUpperCase(); if(!j) return;
+    const t = (x && x.at) ? Date.parse(x.at) : Infinity; delAt[j] = Math.max(delAt[j] || 0, isNaN(t) ? Infinity : t); });
+  const arr = k => { try{ const a = JSON.parse(localStorage.getItem(k)||"[]"); return Array.isArray(a) ? a : null; }catch(e){ return null; } };
+  const alive = new Set();
+  const tsOf = v => { const n = typeof v === "number" ? v : Date.parse(v); return isNaN(n) ? 0 : n; };
+  (arr("jfs_joblog") || []).forEach(e => { const j = String((e && e.job) || "").toUpperCase(); if(delAt[j] && tsOf(e.last || e.first) > delAt[j]) alive.add(j); });
+  (arr("jfs_documents") || []).forEach(d => { const j = String((d && (d.job || (d.snap && d.snap.job))) || "").toUpperCase(); if(delAt[j] && tsOf(d.ts) > delAt[j]) alive.add(j); });
+  const dead = new Set(Object.keys(delAt).filter(j => !alive.has(j)));
   const changed = [];
   const isDead = j => dead.has(String(j||"").trim().toUpperCase());
-  const arr = k => { try{ const a = JSON.parse(localStorage.getItem(k)||"[]"); return Array.isArray(a) ? a : null; }catch(e){ return null; } };
   const obj = k => { try{ const o = JSON.parse(localStorage.getItem(k)||"{}"); return (o && typeof o === "object" && !Array.isArray(o)) ? o : null; }catch(e){ return null; } };
   const log = arr("jfs_joblog");
   if(log){ const f = log.filter(e => !isDead(e && e.job)); if(f.length !== log.length){ localStorage.setItem("jfs_joblog", JSON.stringify(f)); changed.push("jfs_joblog"); } }
