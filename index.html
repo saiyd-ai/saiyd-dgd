@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-X</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-Y</span></span>
           </div>
         </div>
       </div>
@@ -13425,6 +13425,98 @@ jobNew = async function(){
     }
   }
   return _jobNewX0.apply(this, arguments);
+};
+/* ================= v25.13-Y — ADMIN: DELETE EMPTY JOBS (DOCUMENT REPORT). Finds every job in the job log with nothing
+   in it (no AWB / shipper / consignee / customer / UN / prints / saved document / filled draft / warehouse draft /
+   job-flow tick / warehouse inbox row) — not the job open now. Admin ticks/unticks, types DELETE; a JSON backup file is
+   downloaded first and every removed job is also kept (with its log entry) in the deleted-jobs list. ================= */
+function admEmptyJobs(){
+  const U = s => String(s || "").trim().toUpperCase();
+  const cur = U(v("f_job"));
+  const docs = new Set(); try{ store("jfs_documents").forEach(d => docs.add(U(d && (d.job || (d.snap && d.snap.job))))); }catch(e){}
+  const drafts = new Set(); try{ const a = draftsAll(); Object.keys(a).forEach(k => { const s = a[k] || {};
+    if(s.awb || s.shipper || s.consignee || s.customer || (Array.isArray(s.pt) && s.pt.length) || (Array.isArray(s.hawbs) && s.hawbs.length)){ drafts.add(U(k)); drafts.add(U(s.job)); } }); }catch(e){}
+  const wh = new Set(); try{ Object.keys(whDrafts()).forEach(k => wh.add(U(k))); }catch(e){}
+  let jf = {}; try{ jf = typeof jfAll === "function" ? jfAll() : {}; }catch(e){}
+  return store("jfs_joblog").filter(e => {
+    const j = U(e && e.job); if(!j || j === cur) return false;
+    if(e.awb || e.shipper || e.consignee || e.customer || e.un || e.route || Number(e.prints) > 0) return false;
+    if(docs.has(j) || drafts.has(j) || wh.has(j)) return false;
+    if(jf[j] && Object.keys(jf[j]).length) return false;
+    return true;
+  });
+}
+async function admDeleteEmpty(){
+  if(!isAdmin()){ alert("Only the admin can delete jobs."); return; }
+  let list = admEmptyJobs();
+  // jobs that came from the warehouse inbox are kept
+  if(list.length && typeof sb !== "undefined" && sb && sbUser){
+    try{ const { data } = await sb.from("dgd_queue").select("job_no").in("job_no", list.map(e => String(e.job).toUpperCase()));
+      const q = new Set((data || []).map(r => String(r.job_no || "").toUpperCase())); list = list.filter(e => !q.has(String(e.job).toUpperCase())); }catch(e){}
+  }
+  if(!list.length){ alert("No empty jobs found — nothing to delete."); return; }
+  const fmt = t => { const d = new Date(t); return isNaN(d) ? "" : d.toLocaleDateString("en-GB"); };
+  const ok = await new Promise(res => {
+    const bg = document.createElement("div"); bg.id = "admempty_dlg";
+    bg.style.cssText = "position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:99999; display:flex; align-items:center; justify-content:center; padding:16px;";
+    bg.innerHTML = `<div style="background:#fff; border-radius:12px; max-width:520px; width:100%; max-height:86vh; display:flex; flex-direction:column; padding:18px 20px; box-shadow:0 12px 40px rgba(0,0,0,.25);">
+      <div style="font-weight:bold; font-size:16px; color:#a40000; margin-bottom:4px;">&#129529; DELETE EMPTY JOBS</div>
+      <div style="font-size:12.5px; color:#475569; margin-bottom:10px;">These jobs have nothing in them (no AWB, shipper, consignee, customer, document, draft or print). Untick any job you want to keep. A backup file is downloaded first.</div>
+      <label style="font-size:12.5px; margin-bottom:6px;"><input type="checkbox" id="ae_all" checked> Select all (<span id="ae_n">${list.length}</span>)</label>
+      <div style="overflow:auto; border:1px solid #e2e8f0; border-radius:8px; padding:6px 10px; flex:1; min-height:80px;">
+        ${list.map(e => `<label style="display:flex; gap:8px; align-items:center; font-size:13px; padding:3px 0;"><input type="checkbox" class="ae_cb" data-job="${esc(e.job)}" checked><b>${esc(e.job)}</b><span style="color:#64748b;">${e.type === "GC" ? "CREATE AWB" : "CREATE DGD"} &middot; ${fmt(e.first)}</span></label>`).join("")}
+      </div>
+      <div style="font-size:12px; margin:10px 0 4px;">Type <b>DELETE</b> to confirm:</div>
+      <input type="text" id="ae_typed" autocomplete="off" style="width:100%; margin-bottom:12px;">
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" data-a="cancel" class="smallbtn" style="background:#e2e8f0; color:#1e293b;">CANCEL</button>
+        <button type="button" data-a="go" class="smallbtn" style="background:#b91c1c; color:#fff;">&#128465; DELETE TICKED</button>
+      </div></div>`;
+    document.body.appendChild(bg);
+    const cnt = () => { const n = bg.querySelectorAll(".ae_cb:checked").length; bg.querySelector("#ae_n").textContent = n; };
+    bg.querySelector("#ae_all").onchange = ev => { bg.querySelectorAll(".ae_cb").forEach(c => c.checked = ev.target.checked); cnt(); };
+    bg.querySelectorAll(".ae_cb").forEach(c => c.onchange = cnt);
+    bg.addEventListener("click", ev => {
+      const a = ev.target && ev.target.dataset ? ev.target.dataset.a : "";
+      if(a === "cancel" || ev.target === bg){ bg.remove(); res(null); return; }
+      if(a === "go"){
+        if(String(bg.querySelector("#ae_typed").value || "").trim().toUpperCase() !== "DELETE"){ alert("Type DELETE to confirm."); return; }
+        const jobs = [...bg.querySelectorAll(".ae_cb:checked")].map(c => c.dataset.job);
+        if(!jobs.length){ alert("Tick at least one job."); return; }
+        bg.remove(); res(jobs);
+      }
+    });
+  });
+  if(!ok) return;
+  const jobs = new Set(ok.map(j => String(j).toUpperCase()));
+  const entries = store("jfs_joblog").filter(e => jobs.has(String(e.job || "").toUpperCase()));
+  // 1) backup file
+  try{
+    const blob = new Blob([JSON.stringify({deleted_at: new Date().toISOString(), by: (sbUser && sbUser.email) || "", jobs: entries}, null, 1)], {type: "application/json"});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "DGDOC_empty_jobs_backup_" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  }catch(e){}
+  // 2) tombstones (sync to every user) with the log entry as backup
+  const by = (typeof sbUser !== "undefined" && sbUser) ? sbUser.email : "";
+  const tomb = admTombstones(); const at = new Date().toISOString();
+  entries.forEach(e => tomb.push({job: String(e.job).toUpperCase(), at, by, reason: "EMPTY", entry: e}));
+  localStorage.setItem("jfs_deleted_jobs", JSON.stringify(tomb));
+  const changed = admApplyTombstones();
+  if(typeof cloudPush === "function"){ try{ await cloudPush("jfs_deleted_jobs"); for(const k of changed) await cloudPush(k); }catch(e){} }
+  try{ rptRender(); }catch(e){} try{ if(typeof renderDash === "function") renderDash(); }catch(e){}
+  alert("✓ Deleted " + entries.length + " empty job(s). Backup file downloaded.");
+}
+(function(){
+  const b = document.getElementById("adm_delbtn"); if(!b || document.getElementById("adm_emptybtn")) return;
+  const x = document.createElement("button"); x.id = "adm_emptybtn"; x.className = "smallbtn sb-red"; x.style.cssText = "display:none; font-weight:800;";
+  x.innerHTML = "&#129529; DELETE EMPTY JOBS"; x.onclick = admDeleteEmpty;
+  b.insertAdjacentElement("afterend", x);
+})();
+const _rptRenderY0 = rptRender;
+rptRender = function(){
+  const r = _rptRenderY0.apply(this, arguments);
+  try{ const x = document.getElementById("adm_emptybtn"); if(x){ const on = isAdmin(); x.style.display = on ? "" : "none"; if(on){ const n = admEmptyJobs().length; x.innerHTML = "&#129529; DELETE EMPTY JOBS (" + n + ")"; } } }catch(e){}
+  return r;
 };
 aiKeyCloudPull();
 authInit();
