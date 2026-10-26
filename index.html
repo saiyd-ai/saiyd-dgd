@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-Y</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-Z</span></span>
           </div>
         </div>
       </div>
@@ -13518,6 +13518,132 @@ rptRender = function(){
   try{ const x = document.getElementById("adm_emptybtn"); if(x){ const on = isAdmin(); x.style.display = on ? "" : "none"; if(on){ const n = admEmptyJobs().length; x.innerHTML = "&#129529; DELETE EMPTY JOBS (" + n + ")"; } } }catch(e){}
   return r;
 };
+/* ================= v25.13-Z — (1) SIGNATURE PER SIGNATORY: each DG staff has an own signature (SETTINGS → DGD SIGNATURE,
+   pick the name, upload). The DGD prints the signature of the "Name of Signatory" — never someone else's. If no
+   per-person signatures are saved yet, the old company signature is used. Bigger, over the Signature box (manual DGD style).
+   (2) ⬇ DGD PDF: the same pages as PRINT (same checks, saved + logged like a print) downloaded as an A4 PDF file to send. ================= */
+function dgdSignsAll(){ try{ const o = JSON.parse(localStorage.getItem("jfs_dgd_signs") || "null"); return (o && o.map && typeof o.map === "object") ? o.map : {}; }catch(e){ return {}; } }
+const _dgdSignZ0 = dgdSign;
+dgdSign = function(){
+  const m = dgdSignsAll(), n = String(v("f_signname") || "").split(",")[0].trim().toUpperCase();
+  if(!Object.keys(m).length) return _dgdSignZ0();
+  return (n && m[n]) || "";
+};
+async function dgdSignsPull(){
+  if(typeof sb === "undefined" || !sb || !sbUser) return;
+  try{ const { data } = await sb.from("company_settings").select("value").eq("key", "dgd_signs").maybeSingle();
+    if(data && data.value && data.value.map){ localStorage.setItem("jfs_dgd_signs", JSON.stringify(data.value)); dgdSignsUi(); refresh(); } }catch(e){}
+}
+async function dgdSignsSave(clear){
+  const name = String(v("dgdsign_who") || "").toUpperCase(), msg = document.getElementById("dgdsignsmsg");
+  if(!name){ alert("Pick the signatory name first."); return; }
+  const map = dgdSignsAll();
+  if(clear){ if(!confirm("Remove the signature of " + name + "?")) return; delete map[name]; }
+  else {
+    const f = document.getElementById("dgdsign_file").files[0];
+    if(!f){ alert("Choose the signature image first."); return; }
+    const url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+    const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, 600 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+    c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+    const g = c.getContext("2d"); g.drawImage(im, 0, 0, c.width, c.height);
+    // light paper → transparent (a PNG that is already transparent stays as it is)
+    try{ const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+      for(let i = 0; i < p.length; i += 4){ if(p[i + 3] === 0) continue; const l = (p[i] + p[i + 1] + p[i + 2]) / 3, blue = p[i + 2] - (p[i] + p[i + 1]) / 2;
+        if(l > 175 && blue < 25) p[i + 3] = 0; else if(l > 140 && blue < 25) p[i + 3] = Math.round(p[i + 3] * (175 - l) / 35); }
+      g.putImageData(d, 0, 0); }catch(e){}
+    map[name] = c.toDataURL("image/png");
+  }
+  const rec = {map};
+  localStorage.setItem("jfs_dgd_signs", JSON.stringify(rec));
+  if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key: "dgd_signs", value: rec, updated_by: sbUser.email}); }catch(e){} }
+  if(msg) msg.textContent = clear ? "Removed: " + name : "✓ Signature saved for " + name + " (all users).";
+  dgdSignsUi(); refresh();
+}
+function dgdSignsUi(){
+  const box = document.getElementById("dgdsigns_list"); if(!box) return;
+  const m = dgdSignsAll();
+  box.innerHTML = DGD_STAFF.map(n => `<span style="display:inline-flex; align-items:center; gap:6px; border:1px solid #d7dee8; border-radius:8px; padding:4px 8px; background:#fff;">
+    <b style="font-size:12px;">${esc(n)}</b>${m[n] ? `<img src="${m[n]}" style="height:12mm;">` : `<span style="font-size:11.5px; color:#a40000;">no signature</span>`}</span>`).join(" ");
+}
+(function(){
+  const f = document.getElementById("dgdsignfile"); const card = f ? f.closest(".body") : null;
+  if(!card || document.getElementById("dgdsign_who")) return;
+  const d = document.createElement("div");
+  d.style.cssText = "margin:0 0 12px; padding:10px 12px; border:1px dashed #1a5fb4; border-radius:8px; background:#f3f7fd;";
+  d.innerHTML = `<div style="font-weight:bold; font-size:12.5px; color:#1a5fb4; margin-bottom:6px;">SIGNATURE PER SIGNATORY (the DGD prints the signature of the "Name of Signatory")</div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <select id="dgdsign_who" style="width:auto;">${DGD_STAFF.map(n => `<option>${esc(n)}</option>`).join("")}</select>
+      <input type="file" id="dgdsign_file" accept="image/*" style="font-size:12.5px;">
+      <button class="btn btn-save" onclick="dgdSignsSave(false)">&#128190; SAVE SIGNATURE</button>
+      <button class="smallbtn sb-red" onclick="dgdSignsSave(true)">Remove</button>
+      <span id="dgdsignsmsg" style="font-size:12.5px; font-weight:bold; color:#1d6b34;"></span>
+    </div>
+    <div id="dgdsigns_list" style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;"></div>`;
+  card.insertBefore(d, card.firstChild);
+  dgdSignsUi();
+})();
+/* signature drawn big over the Signature box, like the manual JFS DGD */
+refresh = (function(r0){ return function(){
+  const r = r0.apply(this, arguments);
+  try{ const sbx = document.getElementById("p_signbox"), im = sbx && sbx.querySelector("img");
+    if(im){ const td = sbx.closest("td"); if(td && getComputedStyle(td).position === "static") td.style.position = "relative";
+      im.setAttribute("style", "position:absolute; right:8mm; bottom:2mm; height:25mm; max-width:50mm; object-fit:contain; pointer-events:none; z-index:4;"); } }catch(e){}
+  return r;
+}; })(refresh);
+authInit = (function(r0){ return function(){ const r = r0.apply(this, arguments); setTimeout(() => { try{ dgdSignsPull(); }catch(e){} }, 4500); return r; }; })(authInit);
+
+/* ---------- ⬇ DGD PDF ---------- */
+function dgdLoadJs(src, test){
+  return new Promise((res, rej) => { if(test()) return res(); const s = document.createElement("script"); s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error("Could not load " + src)); document.head.appendChild(s); });
+}
+function dgdHatchUrl(){
+  const c = document.createElement("canvas"); c.width = 64; c.height = 64; const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, 64, 64); g.fillStyle = "#c00000";
+  for(let k = -64; k < 128; k += 32){ g.beginPath(); g.moveTo(k, 64); g.lineTo(k + 16, 64); g.lineTo(k + 80, 0); g.lineTo(k + 64, 0); g.closePath(); g.fill(); }
+  return c.toDataURL("image/png");
+}
+async function dgdPdf(){
+  const btn = document.getElementById("dgdpdf_btn");
+  let printed = false;
+  const p0 = window.print;
+  window.print = function(){ printed = true; };
+  try{ printDGD(); } finally { window.print = p0; }
+  if(!printed) return;                                  // a check stopped it (job no / label / airport ...)
+  const done = () => { document.body.classList.remove("pm-alt"); const pz = document.getElementById("printzone"); if(pz) pz.innerHTML = ""; try{ _pvSync(); }catch(e){} if(btn){ btn.disabled = false; btn.innerHTML = "&#11015; DGD PDF"; } };
+  if(btn){ btn.disabled = true; btn.textContent = "Making PDF..."; }
+  const box = document.createElement("div");
+  try{
+    await dgdLoadJs("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", () => typeof window.html2canvas === "function");
+    await dgdLoadJs("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", () => !!(window.jspdf && window.jspdf.jsPDF));
+    const pz = document.getElementById("printzone");
+    const src = pz && pz.children.length ? [...pz.children] : [document.getElementById("sheet")];
+    box.style.cssText = "position:fixed; left:-30000px; top:0; width:210mm; background:#fff; z-index:-1;";
+    document.body.appendChild(box);
+    const hatch = dgdHatchUrl();
+    const pdf = new window.jspdf.jsPDF({orientation: "p", unit: "mm", format: "a4", compress: true});
+    for(let i = 0; i < src.length; i++){
+      const pg = src[i].cloneNode(true); pg.removeAttribute("id"); pg.querySelectorAll("[id]").forEach(e => e.removeAttribute("id"));
+      pg.style.display = "block"; pg.style.margin = "0"; pg.style.width = "210mm"; pg.style.height = "297mm"; pg.style.minHeight = "0"; pg.style.overflow = "hidden"; pg.style.pageBreakAfter = "";
+      pg.querySelectorAll(".hatch").forEach(h => { h.style.background = "url(" + hatch + ") repeat"; h.style.backgroundSize = "8.49mm 8.49mm"; });
+      box.innerHTML = ""; box.appendChild(pg);
+      await new Promise(r => setTimeout(r, 60));
+      const cv = await window.html2canvas(pg, {scale: 2.5, backgroundColor: "#ffffff", useCORS: true, logging: false});
+      if(i) pdf.addPage();
+      pdf.addImage(cv.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 210, 297);
+    }
+    const nm = ["DGD", v("f_job"), (v("f_awb") || "").replace(/[^0-9A-Za-z-]/g, "")].filter(Boolean).join("_") + ".pdf";
+    pdf.save(nm);
+  }catch(e){ alert("PDF failed: " + (e && e.message || e) + "\n\nUse 3. PRINT / SAVE AS PDF instead."); }
+  finally{ box.remove(); done(); }
+}
+(function(){
+  const pb = [...document.querySelectorAll("button")].find(b => /printDGD\(\)/.test(b.getAttribute("onclick") || "") && /PRINT \/ SAVE AS PDF/.test(b.textContent));
+  if(!pb || document.getElementById("dgdpdf_btn")) return;
+  const b = document.createElement("button"); b.id = "dgdpdf_btn"; b.className = "btn btn-print"; b.style.background = "#a40000";
+  b.innerHTML = "&#11015; DGD PDF"; b.title = "Download this DGD as a PDF file (to send by mail / WhatsApp)"; b.onclick = dgdPdf;
+  pb.insertAdjacentElement("afterend", b);
+})();
 aiKeyCloudPull();
 authInit();
 </script>
