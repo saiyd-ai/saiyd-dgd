@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-U</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-V</span></span>
           </div>
         </div>
       </div>
@@ -953,7 +953,8 @@
             <option>MURSHID MOHAMED</option>
           </select>
           <input type="text" id="f_signname" placeholder="Name, Designation">
-          <label style="display:block; font-size:12px; font-weight:normal; margin-top:5px;"><input type="checkbox" id="f_stampsign" checked onchange="refresh()"> Print with company <b>SIGN</b> (stamp goes on manually)</label></div>
+          <label style="display:block; font-size:12px; font-weight:normal; margin-top:5px;"><input type="checkbox" id="f_stampsign" checked onchange="refresh()"> Print with company <b>SIGN</b></label>
+          <label style="display:block; font-size:12px; font-weight:normal; margin-top:3px;"><input type="checkbox" id="f_stampon" onchange="try{localStorage.setItem('jfs_stampon', this.checked ? '1' : '0')}catch(e){} refresh()"> Print with JFS <b>STAMP</b> (untick = stamp by hand)</label></div>
         <div><label>Place</label><input type="text" id="f_place" placeholder="Dubai"></div>
         <div><label>Date</label><input type="text" id="f_date"></div>
       </div>
@@ -1666,6 +1667,13 @@
           <button class="btn btn-save" onclick="dgdSignSave()">&#128190; SAVE SIGNATURE</button>
           <button class="smallbtn sb-red" onclick="dgdSignClear()">Remove</button>
           <span id="dgdsignmsg" style="font-size:12.5px; font-weight:bold; color:#1d6b34;"></span>
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <b style="font-size:12.5px;">DGD STAMP (PNG, clear background):</b>
+          <input type="file" id="dgdstampfile" accept="image/*" style="font-size:12.5px;">
+          <button class="btn btn-save" onclick="dgdStampSave()">&#128190; SAVE STAMP</button>
+          <img id="dgdstampprev" alt="" style="height:16mm; display:none; background:#fff; border:1px solid #ddd; border-radius:4px;">
+          <span id="dgdstampmsg" style="font-size:12.5px; font-weight:bold; color:#1d6b34;"></span>
         </div>
       </div></div>
 
@@ -13140,6 +13148,10 @@ function bkOpen(){
         <textarea id="bk_shipper" rows="5" style="width:100%; margin-top:6px; text-transform:uppercase;" placeholder="Shipper name & address"></textarea></div>
       <div style="margin-top:10px;"><label>Consignee</label>
         <textarea id="bk_consignee" rows="6" style="width:100%; text-transform:uppercase;" placeholder="Consignee name, address, TEL"></textarea></div>
+      <div style="margin-top:10px; display:flex; gap:18px; flex-wrap:wrap; font-weight:bold;">
+        <label><input type="checkbox" id="bk_stamp_on" checked> Add JFS STAMP</label>
+        <label><input type="checkbox" id="bk_sign_on" checked> Add SIGNATURE</label>
+        <span style="font-weight:normal; color:#5b6b7d;">untick = stamp / sign by hand on paper</span></div>
       <div id="bk_prev" style="margin-top:10px; background:#f6f8fb; border:1px solid #dde3ea; border-radius:8px; padding:8px 10px; white-space:pre-wrap; font-family:Consolas,monospace; font-size:12px; max-height:220px; overflow:auto;"></div>
       <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
         <button class="btn btn-save" style="background:#a40000;" onclick="bkPrint()">&#128424; PRINT / SAVE AS PDF</button>
@@ -13152,7 +13164,8 @@ function bkOpen(){
       if(c){ document.getElementById("bk_shipper").value = c.addr && c.addr.toUpperCase().startsWith(c.name.toUpperCase()) ? c.addr : (c.name + "\n" + (c.addr || "")); } bkPreview(); };
     document.getElementById("bk_shipname").addEventListener("change", pick);
     ["bk_awb","bk_dest","bk_dep","bk_plts","bk_kg","bk_boxes","bk_shipper","bk_consignee"].forEach(id => document.getElementById(id).addEventListener("input", bkPreview));
-    try{ const last = JSON.parse(localStorage.getItem("jfs_bk_last") || "{}"); if(last.shipname){ document.getElementById("bk_shipname").value = last.shipname; document.getElementById("bk_shipper").value = last.shipper || ""; } }catch(e){}
+    try{ const last = JSON.parse(localStorage.getItem("jfs_bk_last") || "{}"); if(last.shipname){ document.getElementById("bk_shipname").value = last.shipname; document.getElementById("bk_shipper").value = last.shipper || ""; }
+      if(last.stamp === false) document.getElementById("bk_stamp_on").checked = false; if(last.sign === false) document.getElementById("bk_sign_on").checked = false; }catch(e){}
   }
   m.style.display = "flex"; bkPreview();
 }
@@ -13173,6 +13186,7 @@ function bkRestore(){
   document.querySelectorAll('input[name=f_radio]').forEach(r => r.checked = r.value === S.radio);
   document.querySelectorAll('input[name=f_overpack]').forEach(r => r.checked = r.value === S.overpack);
   const ss = document.getElementById("f_stampsign"); if(ss) ss.checked = S.stampsign;
+  const so0 = document.getElementById("f_stampon"); if(so0) so0.checked = !!S.stampon;
   document.getElementById("items").innerHTML = ""; (S.items.length ? S.items : [null]).forEach(it => addItem(it));
   window._labelSC = S.labelsc;
   const st = document.getElementById("bk_stamp"); if(st) st.remove();
@@ -13187,12 +13201,13 @@ function bkPrint(){
   const awb = v("bk_awb").trim(), dest = v("bk_dest").trim().toUpperCase(), shp = v("bk_shipper").trim(), cne = v("bk_consignee").trim();
   if(!awb || !dest || !shp || !cne){ alert("AWB, destination, shipper and consignee are required."); return; }
   if(Math.abs(p.rounded - parseFloat(v("bk_kg"))) >= 0.0005 && !confirm("DGD + tare = " + p.rounded + " kg, booking says " + v("bk_kg") + " kg. Print anyway?")) return;
-  try{ localStorage.setItem("jfs_bk_last", JSON.stringify({shipname: v("bk_shipname"), shipper: v("bk_shipper")})); }catch(e){}
+  try{ localStorage.setItem("jfs_bk_last", JSON.stringify({shipname: v("bk_shipname"), shipper: v("bk_shipper"), stamp: document.getElementById("bk_stamp_on").checked, sign: document.getElementById("bk_sign_on").checked})); }catch(e){}
   const ids = ["f_shipper","f_consignee","f_awb","f_page","f_ref","f_dep","f_dest","f_handling","f_emergency","f_signname","f_place","f_date","f_opcount","f_opqty"];
   const f = {}; ids.forEach(id => { const e = document.getElementById(id); if(e) f[id] = e.value; });
   const curTab = (document.querySelector(".tab.on") || {id: "tab-dgd"}).id.replace(/^tab-/, "");
   _bkSave = {f, items: getItems(), pax: rv("f_pax"), radio: rv("f_radio"), overpack: rv("f_overpack"), labelsc: !!window._labelSC,
     stampsign: document.getElementById("f_stampsign") ? document.getElementById("f_stampsign").checked : true, tab: curTab,
+    stampon: document.getElementById("f_stampon") ? document.getElementById("f_stampon").checked : false,
     auto: (typeof autosaveCurrent === "function") ? autosaveCurrent : null};
   try{ autosaveCurrent = function(){}; }catch(e){}                   // the booking DGD never touches the saved job
   const set = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
@@ -13202,7 +13217,8 @@ function bkPrint(){
   document.querySelectorAll('input[name=f_pax]').forEach(r => r.checked = r.value === "PAX");
   document.querySelectorAll('input[name=f_radio]').forEach(r => r.checked = r.value === "NONRADIO");
   document.querySelectorAll('input[name=f_overpack]').forEach(r => r.checked = r.value === "Y");
-  const ss = document.getElementById("f_stampsign"); if(ss) ss.checked = true;
+  const ss = document.getElementById("f_stampsign"); if(ss) ss.checked = document.getElementById("bk_sign_on") ? document.getElementById("bk_sign_on").checked : true;
+  const so = document.getElementById("f_stampon"); if(so) so.checked = document.getElementById("bk_stamp_on") ? document.getElementById("bk_stamp_on").checked : true;
   window._labelSC = true;
   document.getElementById("items").innerHTML = "";
   addItem({un: "ID8000", psn: "CONSUMER COMMODITY", cls: "9", sub: "", pg: "", pi: "Y963", qty: p.text, auth: "", op: false});
@@ -13211,14 +13227,7 @@ function bkPrint(){
   refresh();
   const n = buildPrintPages();
   // JFS stamp on the right of the goods box, just above Additional Handling Information (like the signed DGD)
-  const stamp = typeof dnataStamp === "function" ? dnataStamp() : "";
-  const hand = document.getElementById("p_handling"), cell = hand ? (hand.closest("td") || hand.parentElement) : null;
-  if(stamp && cell){
-    if(getComputedStyle(cell).position === "static"){ cell.dataset.bkpos = "1"; cell.style.position = "relative"; }
-    const img = document.createElement("img"); img.id = "bk_stamp"; img.src = stamp;
-    img.setAttribute("style", "position:absolute; width:32mm; height:auto; right:6mm; bottom:calc(100% + 3mm); opacity:.92; transform:rotate(-8deg); pointer-events:none; z-index:5;");
-    cell.appendChild(img);
-  }
+  try{ dgdStampPaint(); }catch(e){}
   const t0 = document.title; document.title = awb + "_BOOKING_DGD";
   const done = () => { window.removeEventListener("afterprint", done); document.title = t0; setTimeout(bkRestore, 50); };
   window.addEventListener("afterprint", done);
@@ -13252,6 +13261,75 @@ function bkPrint(){
   setTimeout(all, 1500);
 })();
 printAlt = (function(r0){ return function(srcId){ try{ const src = document.getElementById(srcId); if(src && src.querySelector("[data-ek7fit]")) ek7Fit(src); }catch(e){} return r0.apply(this, arguments); }; })(printAlt);
+/* ================= v25.13-V STAMP + SIGN options (Sayid): every DGD (normal + BOOKING) has two tick boxes — JFS STAMP and
+   SIGNATURE. Ticked = printed on the DGD; unticked = stamp / sign by hand. Stamp = company_settings "dgd_stamp" (transparent
+   PNG, falls back to the old JFS stamp); it sits on the right of the goods box, above Additional Handling Information. ================= */
+function dgdStamp(){ try{ const x = (JSON.parse(localStorage.getItem("jfs_dgd_stamp") || "null") || {}).img; if(x) return x; }catch(e){} return typeof dnataStamp === "function" ? dnataStamp() : ""; }
+async function dgdStampPull(){
+  if(!sb || !sbUser) return;
+  try{ const { data } = await sb.from("company_settings").select("key,value").in("key", ["dgd_stamp", "dgd_sign"]);
+    (data || []).forEach(r => { if(r.value && r.value.img) localStorage.setItem(r.key === "dgd_stamp" ? "jfs_dgd_stamp" : "jfs_dgd_sign", JSON.stringify(r.value)); });
+    const p = document.getElementById("dgdstampprev"), im = dgdStamp(); if(p && im){ p.src = im; p.style.display = ""; }
+    refresh(); }catch(e){}
+}
+function dgdStampPaint(){
+  const old = document.getElementById("dgd_stampimg"); if(old) old.remove();
+  const on = document.getElementById("f_stampon"); if(!on || !on.checked) return;
+  const img = dgdStamp(), hand = document.getElementById("p_handling"), cell = hand ? (hand.closest("td") || hand.parentElement) : null;
+  if(!img || !cell) return;
+  if(getComputedStyle(cell).position === "static") cell.style.position = "relative";
+  const el = document.createElement("img"); el.id = "dgd_stampimg"; el.src = img;
+  el.setAttribute("style", "position:absolute; width:32mm; height:auto; right:6mm; bottom:calc(100% + 3mm); opacity:.95; transform:rotate(-8deg); pointer-events:none; z-index:5;");
+  cell.appendChild(el);
+}
+refresh = (function(r0){ return function(){ const r = r0.apply(this, arguments); try{ dgdStampPaint(); }catch(e){} return r; }; })(refresh);
+snapshot = (function(r0){ return function(){ const s = r0.apply(this, arguments); const e = document.getElementById("f_stampon"); s.stampon = e ? e.checked : false; return s; }; })(snapshot);
+applySnapshot = (function(r0){ return function(s){ const r = r0.apply(this, arguments); const e = document.getElementById("f_stampon"); if(e && s && s.stampon !== undefined){ e.checked = !!s.stampon; try{ refresh(); }catch(x){} } return r; }; })(applySnapshot);
+async function dgdStampSave(){
+  const f = document.getElementById("dgdstampfile").files[0], msg = document.getElementById("dgdstampmsg");
+  if(!f){ alert("Choose the stamp image first."); return; }
+  const url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+  const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+  const k = Math.min(1, 600 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+  c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+  const rec = {img: c.toDataURL("image/png")};
+  localStorage.setItem("jfs_dgd_stamp", JSON.stringify(rec));
+  if(sb && sbUser){ try{ await sb.from("company_settings").upsert({key: "dgd_stamp", value: rec, updated_by: sbUser.email}); }catch(e){} }
+  const p = document.getElementById("dgdstampprev"); if(p){ p.src = rec.img; p.style.display = ""; }
+  if(msg) msg.textContent = "✓ Stamp saved (whole company).";
+  refresh();
+}
+(function(){
+  const init = () => { const e = document.getElementById("f_stampon"); if(e && !e.dataset.init){ e.dataset.init = "1"; try{ e.checked = localStorage.getItem("jfs_stampon") === "1"; }catch(x){} }
+    const p = document.getElementById("dgdstampprev"), im = dgdStamp(); if(p && im){ p.src = im; p.style.display = ""; } try{ refresh(); }catch(x){} };
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+})();
+authInit = (function(r0){ return function(){ const r = r0.apply(this, arguments); setTimeout(() => { try{ dgdStampPull(); }catch(e){} }, 4000); return r; }; })(authInit);
+/* v25.13-V AIRLINE LABELS for CONSOL / general cargo: no pallet table → pieces come from the HOUSES (CREATE AWB) or the AWB
+   pieces. One label per piece, TOTAL NO. OF PIECES n / all pieces, HAWB NO. = that piece's house + its own count (1/4 ...). */
+buildAwbLabels = (function(r0){ return async function(){
+  const box = document.getElementById("bl_count"), manual = box && box.value.trim();
+  let plan = null;
+  try{
+    if(!manual && !(typeof PT !== "undefined" && PT.length)){
+      const hs = (typeof HAWBS !== "undefined" ? HAWBS : []).filter(h => h && (parseInt(h.pcs) || 0) > 0);
+      if(hs.length){ plan = []; hs.forEach(h => { const n = parseInt(h.pcs) || 0; for(let k = 1; k <= n; k++) plan.push({hawb: String(h.no || "").toUpperCase(), k, n}); }); }
+      else { const pcs = parseInt(v("gc_pcs")) || 0; if(pcs > 1) plan = Array.from({length: pcs}, () => null); }
+    }
+  }catch(e){ plan = null; }
+  if(plan && plan.length && box) box.value = String(Math.min(99, plan.length));
+  try{ await r0.apply(this, arguments); }
+  finally{ if(plan && box) box.value = ""; }
+  if(plan && plan.some(x => x)){
+    const out = document.getElementById("awblblArea");
+    [...out.children].forEach((lab, i) => {
+      const x = plan[i]; if(!x) return;
+      const cell = [...lab.querySelectorAll("td")].find(td => /HAWB NO\./.test(td.textContent));
+      const val = cell && cell.querySelectorAll("div")[1];
+      if(val) val.innerHTML = `<span style="font-size:15pt; font-weight:900;">${esc(x.hawb)}</span> <span style="font-size:11pt; font-weight:bold; margin-left:3mm;">PCS ${x.k}/${x.n}</span>`;
+    });
+  }
+}; })(buildAwbLabels);
 aiKeyCloudPull();
 authInit();
 </script>
