@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-T</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-U</span></span>
           </div>
         </div>
       </div>
@@ -11104,7 +11104,7 @@ function ek7Fit(root){
     document.body.appendChild(probe);
     const cs = getComputedStyle(probe);
     let fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight) || fs * 1.2;
-    const ratio = lh / fs, mh = parseFloat(cs.maxHeight) || 0, min = fs * 0.6;
+    const ratio = lh / fs, mh = parseFloat(cs.maxHeight) || 0, min = fs * 0.5;
     const over = () => mh && probe.scrollHeight > mh + 0.5;
     let changed = false;
     while(over() && fs > min){ fs *= 0.95; probe.style.fontSize = fs + "px"; probe.style.lineHeight = (fs * ratio) + "px"; changed = true; }
@@ -12984,6 +12984,274 @@ aiReview = (function(r0){ return async function(){
   try{ await p; }catch(e){}
   paint();
 }; })(aiReview);
+/* ================= v25.13-U LOOSE CARTONS EXACT (Sayid): the DGD total of loose boxes must EXACTLY equal the packing list.
+   Per-box weights are cut to 3 decimals, so the small rest goes on ONE box of that line:
+   W (OVER PACKED) 15 boxes 340 kg → 14 × 22.666 + 1 × 22.676 (that box is its own SC, single → last, SC rule 2).
+   L (AVERAGE WT) B boxes → (B-1) × average + 01 box with the rest. No rest → format unchanged. ================= */
+function ptBoxSplit(w, q){
+  w = parseFloat(w) || 0; q = parseInt(q) || 1;
+  if(q <= 1) return {base: w, extra: 0};
+  const base = ptTrunc3(w / q), rest = ptR3(w - base * q);
+  return rest > 0 ? {base, extra: ptR3(base + rest)} : {base, extra: 0};
+}
+function ptAvgSplit(rows){
+  const B = rows.reduce((a, r) => a + (parseInt(r.q) || 1), 0), W = ptR3(rows.reduce((a, r) => a + (parseFloat(r.w) || 0), 0));
+  const s = ptBoxSplit(W, B);
+  return {B, W, base: s.base, extra: B > 1 ? s.extra : 0};
+}
+ptLooseOps = function(rows){
+  rows = rows || PT;
+  const groups = [], gi = w => { let g = groups.find(x => x.w === w); if(!g){ g = {w, n: 0, lines: [], first: Infinity, boxes: []}; groups.push(g); } return g; };
+  rows.forEach((r, li) => {
+    if(!/OVER\s?PACK/i.test(r.rm || "")) return;
+    const q = parseInt(r.q) || 1, sp = ptBoxSplit(r.w, q);
+    const put = (w, k) => { if(k <= 0) return; const g = gi(w); g.n += k; if(!g.lines.includes(li)) g.lines.push(li); g.first = Math.min(g.first, li); for(let x = 0; x < k; x++) g.boxes.push(li); };
+    if(sp.extra){ put(sp.base, q - 1); put(sp.extra, 1); } else put(sp.base, q);
+  });
+  groups.sort((a, b) => (b.n - a.n) || (a.first - b.first));
+  const ops = []; groups.forEach((g, k) => g.boxes.forEach(li => ops.push({w: g.w, g: k, lines: g.lines, line: li})));
+  return ops;
+};
+ptFillLoose = function(){
+  const sc = n => "#SC" + String(n + 1 + (window.PT_SC_OFFSET || 0)).padStart(2, "0");
+  const groups = ptLooseGroups(PT);
+  const blocks = groups.map(g => g.n > 1
+    ? `01 FIBREBOARD BOX\nx ${fmtDot(g.w)} kg G\nOVERPACK USED x ${g.n}\n${sc(g.from)} - ${sc(g.from + g.n - 1)}\nTOTAL QUANTITY PER\nOVERPACK ${fmtDot(g.w)} kg G`   // v25.13-N: one box per overpack -> box weight, no AVERAGE wording; count as is (x 5, x 15)
+    : `01 FIBREBOARD BOX\nX ${fmt1(g.w)} kg G\nOVERPACK USED ${sc(g.from)}\nTOTAL QUANTITY ${fmt1(g.w)} kg G`);   // single box exactly like the manual DGD
+  const nOps = groups.reduce((a, g) => a + g.n, 0);
+  // plain loose cartons (L / AVERAGE WT) — one average gross block, NO overpack
+  const avgRows = PT.filter(r => !/OVER\s?PACK/i.test(r.rm || ""));
+  if(avgRows.length){
+    const B = avgRows.reduce((a, r) => a + (parseInt(r.q) || 1), 0);
+    const L = ptAvgSplit(avgRows);
+    if(L.extra){
+      blocks.push(`${B - 1} FIBREBOARD BOX${B - 1 > 1 ? "ES" : ""}\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(L.base)} kg G`);
+      blocks.push(`01 FIBREBOARD BOX\nX ${fmt1(L.extra)} kg G`);
+    } else blocks.push(`${B} FIBREBOARD BOXES\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmtDot(L.base)} kg G`);
+  }
+  if(!document.querySelectorAll(".item").length) addItem();
+  const first = document.querySelector(".item");
+  first.querySelector(".i_qty").value = blocks.join("\n\n");
+  first.querySelector(".i_op").checked = false;
+  document.querySelector('input[name=f_overpack][value=' + (nOps ? 'Y' : 'N') + ']').checked = true;
+  document.getElementById("f_opcount").value = String(nOps || 1);
+  document.getElementById("f_opqty").value = "";
+  document.getElementById("op_start") && (document.getElementById("op_start").value = String(1 + (window.PT_SC_OFFSET || 0)));
+  refresh();
+  try{ ptRender(); }catch(e){}
+  document.getElementById("pt_summary").textContent =
+    "✓ LOOSE CARTONS DGD filled — " + nOps + " wrapped box(es) = " + nOps + " overpack(s) / SC numbers in " + groups.length + " DGD line(s)" +
+    (avgRows.length ? ", " + avgRows.reduce((a,r)=>a+(parseInt(r.q)||1),0) + " loose box(es) as AVERAGE GROSS (no overpack)." : ".");
+};
+/* SC numbers per W line (a line can now sit in two groups: its boxes + the rest box) */
+ptCompute = (function(r0){ return function(){
+  const r = r0.apply(this, arguments);
+  try{
+    if(ptIsLoose()){
+      const off = window.PT_SC_OFFSET || 0, lab = n => "SC" + String(n + 1 + off).padStart(2, "0"), by = {};
+      ptLooseOps(PT).forEach((o, i) => { (by[o.line] = by[o.line] || []).push(i); });
+      PT.forEach((row, li) => {
+        if(!/OVER\s?PACK/i.test(row.rm || "")) return;
+        const ix = (by[li] || []).sort((a, b) => a - b), parts = [];
+        ix.forEach(n => { const last = parts[parts.length - 1]; if(last && n === last[1] + 1) last[1] = n; else parts.push([n, n]); });
+        row.label = parts.length ? "OVERPACK#" + parts.map(([a, b]) => a === b ? lab(a) : lab(a) + " - " + lab(b)).join(", ") : row.label;
+      });
+    }
+  }catch(e){}
+  return r; }; })(ptCompute);
+/* AWB WEIGHT CHECK — pallets: DGD + 16 kg × pallets, rounded UP to full kg = AWB.  Loose (W + L): DGD = packing list EXACTLY. */
+function dgWeightCheck(){
+  const num = x => { const t = String(x == null ? "" : x).replace(/,/g, "").replace(/\s*\.\s*/g, ".").match(/\d+(?:\.\d+)?/); return t ? parseFloat(t[0]) : 0; };
+  const f = x => String(ptR3(x)).replace(".", " . ");
+  const awb = num(v("gc_wt")), tare = parseFloat(v("pt_tare")) || 0;
+  let sets = [], src = "";
+  try{ if(typeof HOUSES !== "undefined" && HOUSES.list && HOUSES.list.length > 1){ sets = HOUSES.list.map(h => h.rows || []).filter(r => r.length); if(sets.length) src = sets.length + " houses"; } }catch(e){}
+  if(!sets.length && typeof PT !== "undefined" && PT.length){ sets = [PT]; src = PT.length + " line(s)"; }
+  let palDgd = 0, plts = 0, looseDgd = 0, looseReal = 0, nLoose = 0;
+  sets.forEach(rows => {
+    rows.forEach(r => {
+      if(/OVER\s?PACK|AVERAGE\s?WT/i.test(r.rm || "")){ looseReal += parseFloat(r.w) || 0; nLoose += parseInt(r.q) || 1; return; }
+      const gw = (r.aw != null && r.aw > 0) ? r.aw : (parseFloat(r.w) || 0), q = parseInt(r.q) || 0; plts++;
+      if(gw > tare && q > 0) palDgd += ptTrunc3((gw - tare) / q) * q;
+    });
+    looseDgd += ptLooseOps(rows).reduce((a, o) => a + o.w, 0);
+    const L = rows.filter(r => /AVERAGE\s?WT/i.test(r.rm || "")); if(L.length){ const s = ptAvgSplit(L); looseDgd += s.extra ? s.base * (s.B - 1) + s.extra : s.base * s.B; }
+  });
+  palDgd = ptR3(palDgd); looseDgd = ptR3(looseDgd); looseReal = ptR3(looseReal);
+  const issues = [];
+  if(nLoose && Math.abs(looseDgd - looseReal) >= 0.0005)
+    issues.push("LOOSE cartons: DGD " + f(looseDgd) + " kg ≠ packing list " + f(looseReal) + " kg (difference " + f(Math.abs(looseDgd - looseReal)) + " kg) — press FILL DGD again.");
+  const gross = ptR3(palDgd + plts * tare + looseDgd), up = Math.ceil(gross - 1e-6);
+  const calc = (plts ? "pallets DGD " + f(palDgd) + " + tare " + plts + " × " + f(tare) : "") + (plts && nLoose ? " + " : "") +
+               (nLoose ? "loose " + f(looseDgd) : "") + " = " + f(gross) + " kg → rounded up " + up + " kg (" + f(gross) + " / " + f(Math.ceil(gross * 2 - 1e-6) / 2) + " also accepted)";
+  if(!sets.length) return {level: awb ? "WARNING" : "WARNING", text: awb ? "AWB gross weight " + f(awb) + " kg — DGD has no pallet / overpack table, check by hand." : "No AWB gross weight and no DGD pallet / overpack lines found."};
+  if(!awb) issues.unshift("AWB gross weight is missing — enter it in CREATE AWB (PIECES / WEIGHT KG). DGD: " + calc + ".");
+  else if(Math.abs(up - awb) >= 0.0005 && Math.abs(gross - awb) >= 0.0005 && Math.abs(Math.ceil(gross * 2 - 1e-6) / 2 - awb) >= 0.0005) issues.unshift("AWB " + f(awb) + " kg does NOT match DGD: " + calc + " (difference " + f(Math.abs(up - awb)) + " kg). Correct the AWB or the DGD before printing.");
+  if(issues.length) return {level: "ERROR", text: issues.join("  •  ")};
+  return {level: "OK", text: "AWB " + f(awb) + " kg = DGD: " + calc + (nLoose ? " • loose cartons exact" : "") + " (" + src + ")."};
+}
+/* ================= v25.13-U BOOKING DGD (Sayid) — a DGD only for the AIRLINE BOOKING / reference.
+   AWB + destination + shipper (customer list) + consignee + pallets + total kg (+ boxes optional) → a full DGD with the JFS
+   stamp and the company signature, printed / saved as PDF. NO job number, NOT saved in DOCUMENTS / job log, the open DGD is
+   put back exactly after printing. Weights: pallet tare 16 kg removed; DGD + tare rounded up = booking kg. ================= */
+function bkPlan(totalKg, plts, boxes, tare){
+  totalKg = parseFloat(totalKg) || 0; plts = parseInt(plts) || 0; tare = tare == null ? 16 : tare;
+  if(!(totalKg > 0) || !(plts > 0)) throw new Error("Enter pallets and total weight.");
+  const net = (totalKg - tare * plts) / plts;                       // DGD weight per pallet (tare removed)
+  if(!(net > 0)) throw new Error("Weight too small for " + plts + " pallets (16 kg tare each).");
+  let B = parseInt(boxes) || 0;
+  if(!B){ const per = Math.max(Math.ceil(net / 30), Math.round(net / 23.5), 1); B = per * plts; }
+  if(B < plts) throw new Error("Boxes must be at least one per pallet.");
+  const lo = Math.floor(B / plts), hi = lo + 1, nHi = B - lo * plts, nLo = plts - nHi;
+  const groups = [];
+  if(nLo) groups.push({b: lo, k: nLo});
+  if(nHi) groups.push({b: hi, k: nHi});
+  groups.forEach(g => { g.w = ptTrunc3(net / g.b); g.tq = ptR3(g.w * g.b); });
+  if(groups.some(g => g.w > 30)) throw new Error("More than 30 kg per box (Y963 limit) — enter more boxes.");
+  groups.sort((a, b) => b.k - a.k || b.b - a.b);                    // JFS SC rule: biggest group first
+  let n = 0; const sc = i => "#SC" + String(i).padStart(2, "0"), p2 = i => String(i).padStart(2, "0");
+  const blocks = groups.map(g => { const from = n + 1; n += g.k;
+    return `${g.b} FIBREBOARD BOXES\nx AVERAGE GROSS WEIGHT\nPER PACKAGE ${fmt1(g.w)} kg G\n` + (g.k > 1
+      ? `OVERPACK USED x ${p2(g.k)}\n${sc(from)} - ${sc(n)}\nTOTAL QUANTITY PER\nOVERPACK ${fmt1(g.tq)} kg G`
+      : `OVERPACK USED ${sc(from)}\nTOTAL QUANTITY ${fmt1(g.tq)} kg G`); });
+  const dgd = ptR3(groups.reduce((a, g) => a + g.tq * g.k, 0)), gross = ptR3(dgd + tare * plts);
+  return {blocks, text: blocks.join("\n\n"), boxes: B, dgd, gross, rounded: Math.ceil(gross - 1e-6), groups};
+}
+function bkOpen(){
+  let m = document.getElementById("bkdgd");
+  if(!m){
+    m = document.createElement("div"); m.id = "bkdgd";
+    m.setAttribute("style", "position:fixed; inset:0; background:rgba(10,20,40,.55); z-index:9800; display:flex; align-items:flex-start; justify-content:center; overflow:auto; padding:30px 12px;");
+    m.innerHTML = `<div style="background:#fff; border-radius:12px; max-width:640px; width:100%; padding:18px 20px; box-shadow:0 10px 40px rgba(0,0,0,.35); font-size:13px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;"><b style="font-size:16px; color:#a40000;">&#128196; BOOKING DGD — for the airline booking only</b>
+        <button class="smallbtn" onclick="document.getElementById('bkdgd').style.display='none'">✕</button></div>
+      <div style="color:#5b6b7d; margin:4px 0 12px;">No job is created and nothing is saved. Prints a full DGD with the JFS stamp + signature.</div>
+      <div class="grid g3" style="gap:10px;">
+        <div><label>AWB No.</label><input type="text" id="bk_awb" placeholder="020-18226784"></div>
+        <div><label>Destination (code)</label><input type="text" id="bk_dest" placeholder="JFK" style="text-transform:uppercase;"></div>
+        <div><label>Departure</label><input type="text" id="bk_dep" value="DXB" style="text-transform:uppercase;"></div>
+        <div><label>Pallets</label><input type="text" id="bk_plts" placeholder="13"></div>
+        <div><label>Total weight kg</label><input type="text" id="bk_kg" placeholder="9000"></div>
+        <div><label>Total boxes (optional)</label><input type="text" id="bk_boxes" placeholder="auto"></div>
+      </div>
+      <div style="margin-top:10px;"><label>Shipper (customer list)</label>
+        <input type="text" id="bk_shipname" list="bk_custlist" placeholder="type / pick a customer" style="width:100%;">
+        <datalist id="bk_custlist"></datalist>
+        <textarea id="bk_shipper" rows="5" style="width:100%; margin-top:6px; text-transform:uppercase;" placeholder="Shipper name & address"></textarea></div>
+      <div style="margin-top:10px;"><label>Consignee</label>
+        <textarea id="bk_consignee" rows="6" style="width:100%; text-transform:uppercase;" placeholder="Consignee name, address, TEL"></textarea></div>
+      <div id="bk_prev" style="margin-top:10px; background:#f6f8fb; border:1px solid #dde3ea; border-radius:8px; padding:8px 10px; white-space:pre-wrap; font-family:Consolas,monospace; font-size:12px; max-height:220px; overflow:auto;"></div>
+      <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+        <button class="btn btn-save" style="background:#a40000;" onclick="bkPrint()">&#128424; PRINT / SAVE AS PDF</button>
+        <button class="btn btn-load" onclick="document.getElementById('bkdgd').style.display='none'">CLOSE</button>
+      </div></div>`;
+    document.body.appendChild(m);
+    const cl = customers();
+    document.getElementById("bk_custlist").innerHTML = cl.map(c => `<option value="${esc(c.name)}">`).join("");
+    const pick = () => { const c = customers().find(x => x.name.toUpperCase() === v("bk_shipname").trim().toUpperCase());
+      if(c){ document.getElementById("bk_shipper").value = c.addr && c.addr.toUpperCase().startsWith(c.name.toUpperCase()) ? c.addr : (c.name + "\n" + (c.addr || "")); } bkPreview(); };
+    document.getElementById("bk_shipname").addEventListener("change", pick);
+    ["bk_awb","bk_dest","bk_dep","bk_plts","bk_kg","bk_boxes","bk_shipper","bk_consignee"].forEach(id => document.getElementById(id).addEventListener("input", bkPreview));
+    try{ const last = JSON.parse(localStorage.getItem("jfs_bk_last") || "{}"); if(last.shipname){ document.getElementById("bk_shipname").value = last.shipname; document.getElementById("bk_shipper").value = last.shipper || ""; } }catch(e){}
+  }
+  m.style.display = "flex"; bkPreview();
+}
+function bkPreview(){
+  const out = document.getElementById("bk_prev"); if(!out) return;
+  try{
+    const p = bkPlan(v("bk_kg"), v("bk_plts"), v("bk_boxes"), 16);
+    out.textContent = p.text + "\n\n— check: DGD " + fmt1(p.dgd) + " + 16 kg × " + v("bk_plts") + " pallets = " + fmt1(p.gross) +
+      " kg → " + p.rounded + " kg" + (Math.abs(p.rounded - parseFloat(v("bk_kg"))) < 0.0005 ? "  ✓ = booking" : "  ✗ ≠ booking " + v("bk_kg")) + " • " + p.boxes + " boxes";
+  }catch(e){ out.textContent = e.message; }
+}
+let _bkSave = null;
+function bkRestore(){
+  if(!_bkSave) return;
+  const S = _bkSave; _bkSave = null;
+  Object.entries(S.f).forEach(([id, val]) => { const e = document.getElementById(id); if(e) e.value = val; });
+  document.querySelectorAll('input[name=f_pax]').forEach(r => r.checked = r.value === S.pax);
+  document.querySelectorAll('input[name=f_radio]').forEach(r => r.checked = r.value === S.radio);
+  document.querySelectorAll('input[name=f_overpack]').forEach(r => r.checked = r.value === S.overpack);
+  const ss = document.getElementById("f_stampsign"); if(ss) ss.checked = S.stampsign;
+  document.getElementById("items").innerHTML = ""; (S.items.length ? S.items : [null]).forEach(it => addItem(it));
+  window._labelSC = S.labelsc;
+  const st = document.getElementById("bk_stamp"); if(st) st.remove();
+  document.querySelectorAll("[data-bkpos]").forEach(e => { e.style.position = ""; delete e.dataset.bkpos; });
+  if(typeof autosaveCurrent === "function" && S.auto) autosaveCurrent = S.auto;
+  refresh();
+  if(S.tab && S.tab !== "dgd" && typeof showTab === "function") showTab(S.tab);
+}
+function bkPrint(){
+  let p;
+  try{ p = bkPlan(v("bk_kg"), v("bk_plts"), v("bk_boxes"), 16); }catch(e){ alert(e.message); return; }
+  const awb = v("bk_awb").trim(), dest = v("bk_dest").trim().toUpperCase(), shp = v("bk_shipper").trim(), cne = v("bk_consignee").trim();
+  if(!awb || !dest || !shp || !cne){ alert("AWB, destination, shipper and consignee are required."); return; }
+  if(Math.abs(p.rounded - parseFloat(v("bk_kg"))) >= 0.0005 && !confirm("DGD + tare = " + p.rounded + " kg, booking says " + v("bk_kg") + " kg. Print anyway?")) return;
+  try{ localStorage.setItem("jfs_bk_last", JSON.stringify({shipname: v("bk_shipname"), shipper: v("bk_shipper")})); }catch(e){}
+  const ids = ["f_shipper","f_consignee","f_awb","f_page","f_ref","f_dep","f_dest","f_handling","f_emergency","f_signname","f_place","f_date","f_opcount","f_opqty"];
+  const f = {}; ids.forEach(id => { const e = document.getElementById(id); if(e) f[id] = e.value; });
+  const curTab = (document.querySelector(".tab.on") || {id: "tab-dgd"}).id.replace(/^tab-/, "");
+  _bkSave = {f, items: getItems(), pax: rv("f_pax"), radio: rv("f_radio"), overpack: rv("f_overpack"), labelsc: !!window._labelSC,
+    stampsign: document.getElementById("f_stampsign") ? document.getElementById("f_stampsign").checked : true, tab: curTab,
+    auto: (typeof autosaveCurrent === "function") ? autosaveCurrent : null};
+  try{ autosaveCurrent = function(){}; }catch(e){}                   // the booking DGD never touches the saved job
+  const set = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
+  set("f_shipper", shp.toUpperCase()); set("f_consignee", cne.toUpperCase()); set("f_awb", awb); set("f_page", "1 of 1"); set("f_ref", "");
+  set("f_dep", (v("bk_dep") || "DXB").toUpperCase()); set("f_dest", dest); set("f_handling", ""); set("f_emergency", "");
+  set("f_signname", f.f_signname || "MUHAMMED HAFEEL"); set("f_place", ""); set("f_date", dgdDate()); set("f_opcount", String(parseInt(v("bk_plts")) || 1)); set("f_opqty", "");
+  document.querySelectorAll('input[name=f_pax]').forEach(r => r.checked = r.value === "PAX");
+  document.querySelectorAll('input[name=f_radio]').forEach(r => r.checked = r.value === "NONRADIO");
+  document.querySelectorAll('input[name=f_overpack]').forEach(r => r.checked = r.value === "Y");
+  const ss = document.getElementById("f_stampsign"); if(ss) ss.checked = true;
+  window._labelSC = true;
+  document.getElementById("items").innerHTML = "";
+  addItem({un: "ID8000", psn: "CONSUMER COMMODITY", cls: "9", sub: "", pg: "", pi: "Y963", qty: p.text, auth: "", op: false});
+  document.getElementById("bkdgd").style.display = "none";
+  if(typeof showTab === "function") showTab("dgd");
+  refresh();
+  const n = buildPrintPages();
+  // JFS stamp on the right of the goods box, just above Additional Handling Information (like the signed DGD)
+  const stamp = typeof dnataStamp === "function" ? dnataStamp() : "";
+  const hand = document.getElementById("p_handling"), cell = hand ? (hand.closest("td") || hand.parentElement) : null;
+  if(stamp && cell){
+    if(getComputedStyle(cell).position === "static"){ cell.dataset.bkpos = "1"; cell.style.position = "relative"; }
+    const img = document.createElement("img"); img.id = "bk_stamp"; img.src = stamp;
+    img.setAttribute("style", "position:absolute; width:32mm; height:auto; right:6mm; bottom:calc(100% + 3mm); opacity:.92; transform:rotate(-8deg); pointer-events:none; z-index:5;");
+    cell.appendChild(img);
+  }
+  const t0 = document.title; document.title = awb + "_BOOKING_DGD";
+  const done = () => { window.removeEventListener("afterprint", done); document.title = t0; setTimeout(bkRestore, 50); };
+  window.addEventListener("afterprint", done);
+  if(n > 1) document.body.classList.add("pm-alt");
+  window.print();
+}
+(function(){
+  const add = () => {
+    if(document.getElementById("bk_btn")) return;
+    const ref = document.querySelector('button[onclick="aiReview()"]');
+    if(ref){ const b = document.createElement("button"); b.id = "bk_btn"; b.className = "btn btn-save"; b.style.background = "#a40000";
+      b.innerHTML = "&#128196; BOOKING DGD"; b.title = "DGD for the airline booking only — no job, not saved"; b.onclick = bkOpen; ref.after(b); }
+    const dash = document.getElementById("dashkpi");
+    if(dash && !document.getElementById("bk_btn2")){ const b = document.createElement("button"); b.id = "bk_btn2"; b.className = "btn btn-save";
+      b.setAttribute("style", "background:#a40000; margin:0 0 10px 0;"); b.innerHTML = "&#128196; BOOKING DGD (airline booking only)"; b.onclick = bkOpen; dash.before(b); }
+  };
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", add); else add();
+  setTimeout(add, 2000);
+})();
+/* v25.13-U: EK AWB shipper / consignee / agent / handling were printed CUT when the AWB was redrawn without the fit step
+   (e.g. preview / AWB tab refresh). Now every redraw of the AWB boxes runs the fit automatically. */
+(function(){
+  const watch = id => {
+    const el = document.getElementById(id); if(!el || el.dataset.ek7watch) return; el.dataset.ek7watch = "1";
+    let t = null;
+    new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { try{ if(el.querySelector("[data-ek7fit]")) ek7Fit(el); }catch(e){} }, 0); })
+      .observe(el, {childList: true, subtree: true});
+  };
+  const all = () => ["aw_doc", "hb_doc", "printzone", "awv_body"].forEach(watch);
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", all); else all();
+  setTimeout(all, 1500);
+})();
+printAlt = (function(r0){ return function(srcId){ try{ const src = document.getElementById(srcId); if(src && src.querySelector("[data-ek7fit]")) ek7Fit(src); }catch(e){} return r0.apply(this, arguments); }; })(printAlt);
 aiKeyCloudPull();
 authInit();
 </script>
