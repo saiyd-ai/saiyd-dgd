@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-R</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-S</span></span>
           </div>
         </div>
       </div>
@@ -10622,8 +10622,27 @@ function gcbParty(block, lab, stops){
   if(stop >= 0) rest = rest.slice(0, stop);
   return gcbClean(rest.split("\n").filter(l => !/^\s*(ED\s*&\s*VAT|VAT\s+REQ|ED\s+REQ|REMARKS?\b|NOTE\b|\d+\s*(PALLETS?|PLTS?|CARTONS?|CTNS?))/i.test(l)).join("\n"));
 }
+/* v25.13-S: booking text written as "MAWB SHIPPER / MAWB CNEE / HAWB #1 SHIPPER / CNEE / CARGO DETAILS" is turned into
+   the "MAWB DETAILS / HAWB DETAILS" blocks the reader below understands */
+function gcbNorm(t){
+  let mSeen = false;
+  return String(t || "").split("\n").map(line => {
+    const L = line.trim(); let m;
+    if((m = L.match(/^(?:MAWB|MASTER\s*AWB)\s*(SHIPPER|CNEE|CONSIGNEE)\b\s*:?\s*(.*)$/i))){
+      const lab = /^SH/i.test(m[1]) ? "SHIPPER" : "CONSIGNEE", pre = mSeen ? "" : "MAWB DETAILS\n"; mSeen = true;
+      return pre + lab + (m[2] ? "\n" + m[2] : "");
+    }
+    if((m = L.match(/^(?:HAWB|H\.\s*AWB|HOUSE\s*AWB)\s*(?:NO\.?|#)?\s*(\d{1,2})\b\s*[:\-]?\s*(SHIPPER|CNEE|CONSIGNEE)?\b\s*:?\s*(.*)$/i))){
+      const lab = m[2] ? (/^SH/i.test(m[2]) ? "\nSHIPPER" : "\nCONSIGNEE") : "";
+      return "HAWB DETAILS #" + m[1] + lab + (m[3] ? "\n" + m[3] : "");
+    }
+    if(/^(?:CNEE|CONSIGNEE)\s*:?\s*$/i.test(L)) return "CONSIGNEE";
+    if((m = L.match(/^CNEE\s*:\s*(.+)$/i))) return "CONSIGNEE\n" + m[1];
+    return line;
+  }).join("\n");
+}
 function gcbParseText(raw){
-  const t = String(raw || "").replace(/\r/g, "").replace(/[–—]/g, "-");
+  const t = gcbNorm(String(raw || "").replace(/\r/g, "").replace(/[–—]/g, "-"));
   const U = t.toUpperCase();
   const heads = []; const hre = /(?:^|\n)[^\n]*?\b(MAWB|MASTER\s*AWB|H\.?\s*AWB|HOUSE\s*AWB)\s*DETAILS?\b[^\n]*/gi; let m;
   while((m = hre.exec(t))) heads.push({i: m.index, kind: /^(MAWB|MASTER)/i.test(m[1]) ? "M" : "H", end: m.index + m[0].length});
@@ -10631,9 +10650,9 @@ function gcbParseText(raw){
   const top = t.slice(0, heads[0].i).toUpperCase();
   const out = {awb: "", org: "", dest: "", job: "", master: null, houses: []};
   const aw = top.match(/AWB[^\d\n]{0,12}(\d{3})[-\s]?(\d{4})\s?(\d{4})\b/) || U.match(/AWB[^\d\n]{0,12}(\d{3})[-\s]?(\d{4})\s?(\d{4})\b/) || U.match(/\b(\d{3})-(\d{4})\s?(\d{4})\b/); if(aw) out.awb = aw[1] + "-" + aw[2] + aw[3];
-  const rt = (top || U).match(/\b([A-Z]{3})\s*(?:-|TO|>|\/)+\s*([A-Z]{3})\b/); if(rt && !/^(AWB|DGS|GEN)$/.test(rt[1])){ out.org = rt[1]; out.dest = rt[2]; }
+  const rt = U.match(/(?:^|\n)\s*([A-Z]{3})\s*(?:-|TO|>|\/)\s*([A-Z]{3})\s*(?:\n|$)/) || (top || U).match(/\b([A-Z]{3})\s*(?:-|TO|>|\/)+\s*([A-Z]{3})\b/); if(rt && !/^(AWB|DGS|GEN)$/.test(rt[1])){ out.org = rt[1]; out.dest = rt[2]; }
   const jb = U.match(/\b([A-Z]{3}-C\d{4,6})\b/); if(jb) out.job = jb[1];
-  const stops = "CONSIGNEE|SHIPPER|NOTIFY|ED\\s*&\\s*VAT|VAT\\s+REQ|REMARK|\\d+\\s*(?:ST|ND|RD|TH)?\\s*H\\.?\\s*AWB|MAWB";
+  const stops = "CONSIGNEE|SHIPPER|NOTIFY|CARGO\\s*DETAILS|NO\\.?\\s*OF\\s*(?:PKGS|PIECES|PACKAGES|PCS)|GROSS\\s*WEIGHT|DIMS?\\b|VOL\\.?\\s*WEIGHT|CHARGEABLE|AWB\\s*\\d|ED\\s*&\\s*VAT|VAT\\s+REQ|REMARK|\\d+\\s*(?:ST|ND|RD|TH)?\\s*H\\.?\\s*AWB|MAWB";
   heads.forEach((h, k) => {
     const body = t.slice(h.i, k + 1 < heads.length ? heads[k + 1].i : t.length);
     const B = body.toUpperCase();
@@ -12833,6 +12852,103 @@ cloudPullShared = (function(r0){ return async function(mode){
     "@media screen and (max-width:600px){ #dashkpi > .nxkpi, .nxkpi{ flex:1 1 calc(50% - 7px) !important; min-width:0 !important; max-width:calc(50% - 7px) !important; box-sizing:border-box !important; } }";
   document.head.appendChild(st);
 })();
+/* ================= v25.13-S — AI KEY STAYS ON THE SERVER. Every AI call goes through the Supabase Edge Function
+   "dg-ai" (checks: signed in + active staff + approved device). Browsers never download the Anthropic key any more;
+   only the owner can save a new key (SETTINGS → AI). The model is chosen on the server from the saved company setting. ================= */
+try{ localStorage.removeItem("jfs_ai_key"); }catch(e){}
+aiKey = function(){ return (typeof sb !== "undefined" && sb && sbUser) ? "server" : ""; };
+aiKeyCloudPull = async function(){
+  try{ localStorage.removeItem("jfs_ai_key"); }catch(e){}
+  const el = document.getElementById("ai_key"); if(el){ el.value = ""; el.placeholder = "Saved on the server — paste a NEW key here only to replace it"; }
+  const st = document.getElementById("ai_status"); if(st && sbUser) st.textContent = "AI key is kept on the server — AI is ON.";
+  const isOwner = typeof dg_isOwnerEmail === "function" ? dg_isOwnerEmail() : (sbUser && sbUser.email === "ms@jfslogistics.com");
+  if(el){ el.disabled = !isOwner; }
+};
+aiKeyCloudPush = async function(){};
+aiSave = async function(){
+  const el = document.getElementById("ai_key"), st = document.getElementById("ai_status");
+  const k = el ? el.value.trim() : "", model = document.getElementById("ai_model").value;
+  try{ localStorage.setItem("jfs_ai_model", model); }catch(e){}
+  if(!sb || !sbUser){ if(st) st.textContent = "Sign in first."; return; }
+  if(sbUser.email !== "ms@jfslogistics.com"){ if(st) st.textContent = "Only the owner can change the AI key / model."; return; }
+  let val = null;
+  try{ const { data } = await sb.from("company_settings").select("value").eq("key", "ai_key").maybeSingle(); val = data && data.value ? data.value : {}; }catch(e){ val = {}; }
+  if(k){ if(!/^sk-ant-/.test(k)){ if(st) st.textContent = "That does not look like an Anthropic key (sk-ant-...)."; return; } val.key = k; }
+  val.model = model;
+  const { error } = await sb.from("company_settings").upsert({key: "ai_key", value: val, updated_by: sbUser.email});
+  if(el) el.value = "";
+  if(st) st.textContent = error ? "Save failed: " + error.message : (k ? "New key saved on the server for the whole company." : "Model saved.");
+};
+aiCall = async function(system, userText, maxTokens){
+  if(!sb || !sbUser) throw new Error("NO_KEY");
+  const { data: sd } = await sb.auth.getSession();
+  const tok = sd && sd.session ? sd.session.access_token : "";
+  if(!tok) throw new Error("Sign in again to use AI.");
+  const resp = await fetch(SB_URL + "/functions/v1/dg-ai", {
+    method: "POST",
+    headers: { "content-type": "application/json", "apikey": SB_KEY, "Authorization": "Bearer " + tok },
+    body: JSON.stringify({ system: system, content: userText, max_tokens: maxTokens || 2000 })
+  });
+  if(!resp.ok){
+    let msg = ""; try{ const j = await resp.json(); msg = j.error || ""; }catch(e){}
+    if(msg === "NO_KEY") throw new Error("NO_KEY");
+    throw new Error((msg || ("AI error " + resp.status)).slice(0, 220));
+  }
+  const data = await resp.json();
+  try{ if(data.model) localStorage.setItem("jfs_ai_model", data.model); }catch(e){}
+  try{ if(typeof aicLog === "function") aicLog(data, system); }catch(e){}
+  return (data.content || []).map(c => c.text || "").join("");
+};
+aiTest = async function(){
+  const st = document.getElementById("ai_status");
+  if(document.getElementById("ai_key").value.trim()) await aiSave();
+  st.textContent = "Testing..."; st.style.color = "#7a4b00";
+  try{
+    const r = await aiCall("Reply with exactly: OK", "ping", 64);
+    st.textContent = "✓ Connected through the server — AI is ON (" + (localStorage.getItem("jfs_ai_model") || "") + ")";
+    st.style.color = "#1d6b34";
+  }catch(e){ st.textContent = "Failed: " + (e.message === "NO_KEY" ? "no company key saved yet" : e.message); st.style.color = "#a40000"; }
+};
+/* v25.13-S: CREATE AWB jobs are SAVED — 💾 SAVE JOB button + auto-save (4 s after any change / AUTO-FILL).
+   Saves the same way as a DGD draft: drafts + DOCUMENTS + job log → company cloud, so every PC sees the job. */
+function gcSaveJob(silent){
+  try{ if(typeof gchSyncMaster === "function") gchSyncMaster(); }catch(e){}
+  const s = snapshot();
+  const job = (s.job || "").trim();
+  if(!job){ if(!silent) alert("Create the job first — press NEW JOB."); return false; }
+  if(!s.awb && !s.shipper && !s.consignee && !(s.hawbs || []).length){ if(!silent) alert("Nothing to save yet — fill the AWB first."); return false; }
+  saveDraft(job);
+  saveDocument(false);
+  jobLogTouch();
+  const st = document.getElementById("gc_savestat");
+  if(st) st.textContent = "✓ Saved " + new Date().toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit"}) + " — " + job;
+  try{ if(typeof renderDash === "function") renderDash(); }catch(e){}
+  if(!silent) alert("✓ " + job + " saved — it shows in DOCUMENTS and on the DASHBOARD on every PC.");
+  return true;
+}
+let _gcAutoT = null;
+function gcAutoSave(){ clearTimeout(_gcAutoT); _gcAutoT = setTimeout(() => { try{ gcSaveJob(true); }catch(e){} }, 4000); }
+(function(){
+  const add = () => {
+    const ref = document.getElementById("gc_senddgd");
+    if(ref && !document.getElementById("gc_savejob")){
+      const b = document.createElement("button"); b.id = "gc_savejob"; b.className = "btn btn-save";
+      b.setAttribute("style", "background:#1d6b34; font-size:14px; padding:12px 18px; white-space:nowrap;");
+      b.innerHTML = "&#128190; SAVE JOB"; b.title = "Save this CREATE AWB job for the whole company (also saves automatically)";
+      b.onclick = () => gcSaveJob(false);
+      ref.parentElement.appendChild(b);
+      const sp = document.createElement("div"); sp.id = "gc_savestat";
+      sp.setAttribute("style", "grid-column:1/-1; font-size:12px; font-weight:bold; color:#1d6b34;");
+      ref.parentElement.appendChild(sp);
+    }
+    const tab = document.getElementById("tab-gc");
+    if(tab && !tab.dataset.autosave){ tab.dataset.autosave = "1"; tab.addEventListener("input", gcAutoSave); tab.addEventListener("change", gcAutoSave); }
+  };
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", add); else add();
+  setTimeout(add, 1500);
+})();
+dcRun = (function(r0){ return async function(mode){ const r = await r0.apply(this, arguments); if(mode === "gc") gcAutoSave(); return r; }; })(dcRun);
+aiKeyCloudPull();
 authInit();
 </script>
 <script src="/msds-plus.js?v=muki3j3g"></script>
