@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-V</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-X</span></span>
           </div>
         </div>
       </div>
@@ -13330,6 +13330,102 @@ buildAwbLabels = (function(r0){ return async function(){
     });
   }
 }; })(buildAwbLabels);
+/* ================= v25.13-W — NO EMPTY JOBS. NEW JOB on CREATE DGD / CREATE AWB: if the job that is open now is still
+   EMPTY (no AWB, shipper, consignee, customer, pallets, houses, added documents, saved document or print) and has the
+   same job type, the SAME number is used again — no new number, no gap, no empty row on the dashboard. ================= */
+function jobIsEmpty(j){
+  j = String(j || "").trim().toUpperCase(); if(!j) return false;
+  const val = id => { const e = document.getElementById(id); return e ? String(e.value || "").trim() : ""; };
+  if(["f_awb","f_shipper","f_consignee","f_customer","gc_awb","gc_shipper","gc_consignee","gc_customer","aw_no"].some(id => val(id))) return false;
+  try{ if(Array.isArray(PT) && PT.length) return false; }catch(e){}
+  try{ if(typeof HAWBS !== "undefined" && Array.isArray(HAWBS) && HAWBS.length) return false; }catch(e){}
+  try{ if(typeof WH !== "undefined" && Array.isArray(WH) && WH.length && val("wh_job").toUpperCase() === j) return false; }catch(e){}
+  try{ if(typeof DC !== "undefined" && ((DC.dg && DC.dg.files.length) || (DC.gc && DC.gc.files.length))) return false; }catch(e){}
+  try{ if(store("jfs_documents").some(d => String((d && (d.job || (d.snap && d.snap.job))) || "").toUpperCase() === j)) return false; }catch(e){}
+  try{ const e = store("jfs_joblog").find(x => String(x.job || "").toUpperCase() === j); if(e && (e.prints || e.awb || e.shipper)) return false; }catch(e){}
+  try{ const d = draftsAll(); if(Object.keys(d).some(k => { const s = d[k]; return String((s && s.job) || "").toUpperCase() === j && (s.awb || s.shipper || s.consignee); })) return false; }catch(e){}
+  return true;
+}
+const _jobNewW0 = jobNew;
+jobNew = function(){
+  const cur = String((document.getElementById("f_job") || {}).value || "").trim().toUpperCase();
+  const onGc = document.getElementById("tab-gc").classList.contains("on");
+  const sel = document.getElementById(onGc ? "job_type_gc" : "job_type_dg");
+  const code = String(sel ? sel.value : (onGc ? "AEXP" : "DGS")).toUpperCase();
+  if(cur && new RegExp("^" + code + "-C\\d+$").test(cur) && jobIsEmpty(cur)){
+    _acceptRow = null;
+    document.getElementById("jg_job").value = cur;
+    jobStart(onGc ? "GC" : (document.getElementById("tab-dgd").classList.contains("on") ? "DG" : (typeof JOBTYPE !== "undefined" ? JOBTYPE : "DG")));
+    const msg = "Job " + cur + " is still empty — same number used (no new number taken).";
+    const jm = document.getElementById("jobmsg"); if(jm) jm.textContent = msg;
+    const gm = document.getElementById("gc_jobmsg"); if(gm && onGc) gm.textContent = msg;
+    return;
+  }
+  return _jobNewW0.apply(this, arguments);
+};
+/* ================= v25.13-X — CLOSE A JOB = ASK. NEW JOB while a job WITH data is open (and not saved as a document):
+   SAVE DRAFT (job stays, draft under the job number) / DISCARD (job removed for all users, number freed if it was the
+   last one — a backup copy stays in the deleted-jobs list) / CANCEL (stay on the job). ================= */
+function jobAskClose(job){
+  return new Promise(res => {
+    const bg = document.createElement("div");
+    bg.id = "jobclose_dlg";
+    bg.style.cssText = "position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:99999; display:flex; align-items:center; justify-content:center; padding:16px;";
+    bg.innerHTML = `<div style="background:#fff; border-radius:12px; max-width:420px; width:100%; padding:20px 22px; box-shadow:0 12px 40px rgba(0,0,0,.25); font-family:inherit;">
+      <div style="font-weight:bold; font-size:16px; color:#1e3a5f; margin-bottom:6px;">Close job ${esc(job)}?</div>
+      <div style="font-size:13px; color:#475569; margin-bottom:16px;">This job is not saved as a document yet. Keep it as a DRAFT, or discard it?</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+        <button type="button" data-a="cancel" class="smallbtn" style="background:#e2e8f0; color:#1e293b;">CANCEL</button>
+        <button type="button" data-a="discard" class="smallbtn" style="background:#b91c1c; color:#fff;">DISCARD</button>
+        <button type="button" data-a="save" class="smallbtn" style="background:#1d6b34; color:#fff;">SAVE DRAFT</button>
+      </div></div>`;
+    bg.addEventListener("click", e => { const a = e.target && e.target.dataset ? e.target.dataset.a : ""; if(a || e.target === bg){ bg.remove(); res(a || "cancel"); } });
+    document.body.appendChild(bg);
+  });
+}
+async function jobDiscard(job){
+  job = String(job || "").trim().toUpperCase(); if(!job) return;
+  const by = (typeof sbUser !== "undefined" && sbUser) ? sbUser.email : "";
+  let snap = null; try{ snap = snapshot(); }catch(e){}
+  const tomb = admTombstones();
+  tomb.push({job, at: new Date(Date.now() - 5).toISOString(), by, reason: "DISCARDED", snap});   // backup copy kept here
+  localStorage.setItem("jfs_deleted_jobs", JSON.stringify(tomb));
+  const changed = admApplyTombstones();
+  // free the number if it was the last one taken for this job type
+  try{
+    const m = /^([A-Z]+)-C(\d+)$/.exec(job);
+    if(m){
+      let c = {}; try{ c = JSON.parse(localStorage.getItem("jfs_job_counter") || "{}") || {}; }catch(e){}
+      if(Number(c[m[1]]) === parseInt(m[2], 10)){ c[m[1]] = parseInt(m[2], 10) - 1; localStorage.setItem("jfs_job_counter", JSON.stringify(c)); changed.push("jfs_job_counter"); }
+    }
+  }catch(e){}
+  try{ localStorage.removeItem("jfs_dgd_current"); }catch(e){}
+  if(typeof cloudPush === "function"){ try{ await cloudPush("jfs_deleted_jobs"); for(const k of changed) await cloudPush(k); }catch(e){} }
+  try{ if(typeof refreshDraftList === "function") refreshDraftList(); }catch(e){}
+}
+const _jobNewX0 = jobNew;
+jobNew = async function(){
+  const cur = String((document.getElementById("f_job") || {}).value || "").trim().toUpperCase();
+  let saved = false;
+  try{ saved = store("jfs_documents").some(d => String((d && (d.job || (d.snap && d.snap.job))) || "").toUpperCase() === cur); }catch(e){}
+  if(cur && !saved && !jobIsEmpty(cur) && !document.getElementById("jobclose_dlg")){
+    const a = await jobAskClose(cur);
+    if(a === "cancel") return;
+    if(a === "save"){
+      try{ saveDraft(cur); }catch(e){}
+      const r = _jobNewX0.apply(this, arguments);
+      const jm = document.getElementById("jobmsg"); if(jm) jm.textContent = "Draft saved: " + cur + " — " + jm.textContent;
+      return r;
+    }
+    if(a === "discard"){
+      await jobDiscard(cur);
+      const r = _jobNewX0.apply(this, arguments);
+      const jm = document.getElementById("jobmsg"); if(jm) jm.textContent = "Job " + cur + " discarded — " + jm.textContent;
+      return r;
+    }
+  }
+  return _jobNewX0.apply(this, arguments);
+};
 aiKeyCloudPull();
 authInit();
 </script>
