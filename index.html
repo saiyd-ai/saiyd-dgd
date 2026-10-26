@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-Z</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.14-A</span></span>
           </div>
         </div>
       </div>
@@ -13643,6 +13643,76 @@ async function dgdPdf(){
   const b = document.createElement("button"); b.id = "dgdpdf_btn"; b.className = "btn btn-print"; b.style.background = "#a40000";
   b.innerHTML = "&#11015; DGD PDF"; b.title = "Download this DGD as a PDF file (to send by mail / WhatsApp)"; b.onclick = dgdPdf;
   pb.insertAdjacentElement("afterend", b);
+})();
+/* ================= v25.14-A — CONSIGNEE LIST. (1) Every consignee on a printed / confirmed / saved job (DGD PRINT or PDF,
+   CONFIRM DGD, CREATE AWB "SAVE JOB", BOOKING DGD print) is added to the CUSTOMER DATABASE automatically — exactly as
+   typed (label verbatim), only when that company is NOT already in the list (a saved address is never overwritten).
+   (2) CREATE AWB and BOOKING DGD get a "pick saved consignee" box like the DGD tab. ================= */
+function custKey(n){ return String(n || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
+function custAutoAdd(addr, role){
+  addr = String(addr || "").trim(); role = role || "consignee";
+  if(!addr) return false;
+  const name = (addr.split("\n")[0] || "").trim();
+  if(name.length < 3 || custKey(name).length < 3) return false;
+  if(/account number|name and address|not negotiable|^to order$|^same as/i.test(name)) return false;
+  const list = customers(), k = custKey(name);
+  const i = list.findIndex(c => custKey(c.name) === k);
+  const type = role === "shipper" ? "SHIPPER" : "CONSIGNEE";
+  if(i >= 0){
+    if(list[i].type !== type && list[i].type !== "BOTH"){ list[i].type = "BOTH"; setStore("jfs_customers", list); try{ fillPickers(); }catch(e){} }
+    return false;
+  }
+  list.push({name, addr, type, auto: true, added: new Date().toISOString().slice(0, 10)});
+  setStore("jfs_customers", list);
+  try{ fillPickers(); }catch(e){} try{ if(typeof renderCustomers === "function") renderCustomers(); }catch(e){}
+  return true;
+}
+function custAutoFromForm(){ try{ custAutoAdd(v("f_consignee"), "consignee"); }catch(e){} }
+jobLogPrint = (function(r0){ return function(){ const r = r0.apply(this, arguments); custAutoFromForm(); return r; }; })(jobLogPrint);
+dgdConfirm = (function(r0){ return function(){ const r = r0.apply(this, arguments); custAutoFromForm(); return r; }; })(dgdConfirm);
+gcSaveJob = (function(r0){ return function(silent){ const r = r0.apply(this, arguments); if(r && !silent) custAutoFromForm(); return r; }; })(gcSaveJob);
+bkPrint = (function(r0){ return function(){
+  const cne = v("bk_consignee").trim().toUpperCase();
+  const r = r0.apply(this, arguments);
+  try{ if(cne && v("bk_awb").trim() && v("bk_dest").trim() && v("bk_shipper").trim()) custAutoAdd(cne, "consignee"); }catch(e){}
+  return r;
+}; })(bkPrint);
+/* pick box (CREATE AWB + BOOKING DGD) */
+function cneListFill(){
+  const dl = document.getElementById("cne_list"); if(!dl) return;
+  const seen = new Set(), out = [];
+  customers().forEach(c => { if(!["CONSIGNEE", "BOTH"].includes(c.type)) return; const n = String(c.name || "").trim(); const k = custKey(n);
+    if(!n || seen.has(k)) return; seen.add(k); out.push(n); });
+  out.sort((a, b) => a.localeCompare(b));
+  dl.innerHTML = out.map(n => `<option value="${esc(n)}"></option>`).join("");
+}
+function cnePick(inp, targetId){
+  const k = custKey(inp.value); if(!k) return;
+  const c = customers().find(x => custKey(x.name) === k && ["CONSIGNEE", "BOTH"].includes(x.type)) || customers().find(x => custKey(x.name) === k);
+  if(!c) return;
+  const t = document.getElementById(targetId); if(!t) return;
+  t.value = targetId === "bk_consignee" ? String(c.addr).toUpperCase() : c.addr;
+  t.dispatchEvent(new Event("input", {bubbles: true}));
+  inp.value = "";
+}
+function cnePickAttach(targetId){
+  const t = document.getElementById(targetId); if(!t || document.getElementById("cnepick_" + targetId)) return;
+  if(!document.getElementById("cne_list")){ const dl = document.createElement("datalist"); dl.id = "cne_list"; document.body.appendChild(dl); }
+  const i = document.createElement("input");
+  i.type = "text"; i.id = "cnepick_" + targetId; i.setAttribute("list", "cne_list"); i.autocomplete = "off";
+  i.placeholder = "Pick saved consignee (type to search)...";
+  i.style.cssText = "width:100%; margin-bottom:4px; font-size:12.5px;";
+  i.addEventListener("focus", cneListFill);
+  i.addEventListener("change", () => cnePick(i, targetId));
+  i.addEventListener("input", () => { if(customers().some(x => custKey(x.name) === custKey(i.value))) cnePick(i, targetId); });
+  t.parentNode.insertBefore(i, t);
+}
+(function(){
+  cnePickAttach("gc_consignee");
+  const tryBk = () => cnePickAttach("bk_consignee");
+  tryBk();
+  if(typeof bkOpen === "function") bkOpen = (function(r0){ return function(){ const r = r0.apply(this, arguments); try{ tryBk(); }catch(e){} return r; }; })(bkOpen);
+  cneListFill();
 })();
 aiKeyCloudPull();
 authInit();
