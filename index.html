@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.14-C</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.14-E</span></span>
           </div>
         </div>
       </div>
@@ -13793,6 +13793,89 @@ async function bkPdf(){
   add();
   if(typeof bkOpen === "function") bkOpen = (function(r0){ return function(){ const r = r0.apply(this, arguments); try{ add(); }catch(e){} return r; }; })(bkOpen);
 })();
+/* ================= v25.14-D — SIGNATURE: Sayid's rule — the SIGN tick decides. If the signatory has no own signature,
+   the company signature (MUHAMMED HAFEEL) prints. A signatory's own signature, when uploaded, is used first. ================= */
+dgdSign = function(){
+  const m = dgdSignsAll(), n = String(v("f_signname") || "").split(",")[0].trim().toUpperCase();
+  return (n && m[n]) || m["MUHAMMED HAFEEL"] || _dgdSignZ0() || Object.values(m)[0] || "";
+};
+/* ================= v25.14-E — (1) DOCUMENTS: ONE row per job. Older copies of the same job are not deleted — they move
+   into the newest record as "versions" (VIEW → Version list) and their uploads (signed DGD / AWB copy ...) are kept.
+   (2) VIEW showed only the first DGD page: the DGD sheet was measured while its tab was hidden (width 0). It is now
+   measured off-screen, so VIEW shows every page. ================= */
+function docDedupe(){
+  const list = store("jfs_documents"); if(!Array.isArray(list) || list.length < 2) return false;
+  const J = d => String((d && (d.job || (d.snap && d.snap.job))) || "").trim().toUpperCase();
+  const groups = {}; list.forEach((d, i) => { const j = J(d); if(j) (groups[j] = groups[j] || []).push(i); });
+  const drop = new Set(); let changed = false;
+  Object.keys(groups).forEach(j => {
+    const idx = groups[j]; if(idx.length < 2) return;
+    const sorted = idx.slice().sort((a, b) => (Number(list[b].ts) || 0) - (Number(list[a].ts) || 0));
+    const main = list[sorted[0]];
+    const vers = Array.isArray(main.versions) ? main.versions.slice() : [];
+    sorted.slice(1).forEach(k => {
+      const o = list[k];
+      vers.push({ts: o.ts, when: o.when, status: o.status, awb: o.awb, snap: o.snap});
+      (o.versions || []).forEach(x => vers.push(x));
+      Object.keys(o).forEach(key => { if(["id", "ts", "when", "snap", "versions", "status", "awb", "job", "shipper", "consignee"].includes(key)) return;
+        if(main[key] === undefined || main[key] === null || main[key] === "") main[key] = o[key]; });   // signed / awbcopy / accept uploads stay
+      drop.add(k);
+    });
+    const seen = new Set();
+    main.versions = vers.filter(x => x && x.snap && !seen.has(String(x.ts)) && seen.add(String(x.ts)) && String(x.ts) !== String(main.ts))
+      .sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0)).slice(0, 10);
+    changed = true;
+  });
+  if(!changed) return false;
+  setStore("jfs_documents", list.filter((d, i) => !drop.has(i)));
+  return true;
+}
+renderDocs = (function(r0){ return function(){ try{ docDedupe(); }catch(e){} return r0.apply(this, arguments); }; })(renderDocs);
+setTimeout(() => { try{ if(docDedupe() && typeof renderDocs === "function") renderDocs(); }catch(e){} }, 6000);
+/* measure the DGD off-screen while another tab is open */
+function dgdMeasurable(fn){
+  const sh = document.getElementById("sheet");
+  if(!sh || sh.offsetWidth > 0) return fn();
+  const hid = []; let e = sh.parentElement;
+  while(e && e !== document.body){ if(getComputedStyle(e).display === "none") hid.push(e); e = e.parentElement; }
+  if(!hid.length) return fn();
+  const bak = hid.map(x => x.getAttribute("style"));
+  hid.forEach((x, k) => { x.style.setProperty("display", "block", "important");
+    if(k === hid.length - 1){ x.style.setProperty("position", "absolute", "important"); x.style.setProperty("left", "-40000px", "important"); x.style.setProperty("top", "0", "important"); x.style.setProperty("width", "1400px", "important"); x.style.setProperty("visibility", "hidden", "important"); } });
+  try{ return fn(); } finally { hid.forEach((x, k) => { if(bak[k] === null) x.removeAttribute("style"); else x.setAttribute("style", bak[k]); }); }
+}
+docViewer = (function(r0){ return async function(){
+  const bp = buildPrintPages;
+  buildPrintPages = function(){ const a = arguments; return dgdMeasurable(() => bp.apply(this, a)); };
+  let r; try{ r = await r0.apply(this, arguments); } finally { buildPrintPages = bp; }
+  try{ dvVersionsUi(); }catch(e){}
+  return r;
+}; })(docViewer);
+function dvVersionsUi(){
+  const t = document.getElementById("dv_title"); if(!t) return;
+  let sel = document.getElementById("dv_ver");
+  const d = store("jfs_documents")[_dv.i] || {}, vs = Array.isArray(d.versions) ? d.versions : [];
+  if(!vs.length){ if(sel) sel.remove(); return; }
+  if(!sel){ sel = document.createElement("select"); sel.id = "dv_ver"; sel.style.cssText = "width:auto; margin-left:10px; font-size:12px; padding:3px 6px;"; sel.onchange = () => dvVersion(sel.value); t.insertAdjacentElement("afterend", sel); }
+  sel.innerHTML = `<option value="">LATEST — ${esc(d.when || "")}</option>` + vs.map((x, k) => `<option value="${k}">Older version — ${esc(x.when || "")}${x.status ? " (" + esc(x.status) + ")" : ""}</option>`).join("");
+  sel.value = "";
+}
+function dvVersion(k){
+  const d = store("jfs_documents")[_dv.i] || {};
+  const snap = k === "" ? d.snap : ((d.versions || [])[+k] || {}).snap;
+  if(!snap) return;
+  const bak = snapshot();
+  try{
+    applySnapshot(snap);
+    dgdMeasurable(() => { try{ buildPrintPages(); }catch(e){} });
+    const pz = document.getElementById("printzone");
+    _dv.dgd = _stripIds(pz.children.length ? pz.innerHTML : document.getElementById("sheet").outerHTML);
+  } finally {
+    applySnapshot(bak);
+    document.getElementById("printzone").innerHTML = ""; document.body.classList.remove("pm-alt");
+  }
+  dvShow("dgd");
+}
 aiKeyCloudPull();
 authInit();
 </script>
