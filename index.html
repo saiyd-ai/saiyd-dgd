@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-S</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.13-T</span></span>
           </div>
         </div>
       </div>
@@ -12948,6 +12948,42 @@ function gcAutoSave(){ clearTimeout(_gcAutoT); _gcAutoT = setTimeout(() => { try
   setTimeout(add, 1500);
 })();
 dcRun = (function(r0){ return async function(mode){ const r = await r0.apply(this, arguments); if(mode === "gc") gcAutoSave(); return r; }; })(dcRun);
+/* v25.13-T: AI REVIEW first runs a FIXED check (no AI): AWB gross weight (CREATE AWB "PIECES / WEIGHT KG") must equal the
+   DGD total gross weight (pallet / overpack table, all houses). Shown on top of the AI result, also when the AI fails. */
+function dgWeightCheck(){
+  const num = x => { const t = String(x == null ? "" : x).replace(/,/g, "").replace(/\s*\.\s*/g, ".").match(/\d+(?:\.\d+)?/); return t ? parseFloat(t[0]) : 0; };
+  const awb = num(v("gc_wt"));
+  let dgd = 0, src = "";
+  try{
+    if(typeof HOUSES !== "undefined" && HOUSES.list && HOUSES.list.length > 1){
+      const rows = HOUSES.list.reduce((a, h) => a.concat(h.rows || []), []);
+      if(rows.length){ dgd = ptR3(rows.reduce((a, r) => a + (r.w || 0), 0)); src = HOUSES.list.length + " houses"; }
+    }
+  }catch(e){}
+  if(!dgd && typeof PT !== "undefined" && PT.length){ dgd = ptR3(PT.reduce((a, r) => a + (r.w || 0), 0)); src = PT.length + " pallet / overpack line(s)"; }
+  const f = x => String(x).replace(".", " . ");
+  if(!awb && !dgd) return {level: "WARNING", text: "AWB weight check: no AWB gross weight and no DGD pallet / overpack weights found."};
+  if(!awb) return {level: "ERROR", text: "AWB gross weight is missing — enter it in CREATE AWB (PIECES / WEIGHT KG) so it can be matched with the DGD total " + f(dgd) + " kg."};
+  if(!dgd) return {level: "WARNING", text: "AWB gross weight " + f(awb) + " kg — DGD total not found (no pallet / overpack table), check by hand."};
+  const diff = ptR3(Math.abs(awb - dgd));
+  if(diff <= 0.5) return {level: "OK", text: "AWB gross weight " + f(awb) + " kg = DGD total " + f(dgd) + " kg (" + src + ")."};
+  return {level: "ERROR", text: "AWB gross weight " + f(awb) + " kg does NOT match DGD total " + f(dgd) + " kg (difference " + f(diff) + " kg, " + src + "). Correct the AWB or the DGD before printing."};
+}
+function dgWeightHtml(){
+  const c = dgWeightCheck();
+  const col = c.level === "OK" ? "#1d6b34" : c.level === "ERROR" ? "#a40000" : "#b45309";
+  return "<div id='aiwtcheck' style='margin:0 0 8px 0; padding:8px 10px; border-radius:6px; background:" + (c.level === "OK" ? "#e3f4e8" : c.level === "ERROR" ? "#fde2e2" : "#fdf0dc") +
+    "; border:1px solid " + col + ";'><b style='color:" + col + ";'>⚖ AWB WEIGHT CHECK — " + (c.level === "OK" ? "✓ MATCH" : c.level) + ":</b> " + esc(c.text) + "</div>";
+}
+aiReview = (function(r0){ return async function(){
+  const box = document.getElementById("aireviewbox");
+  if(box){ box.style.display = "block"; }
+  const p = r0.apply(this, arguments);
+  const paint = () => { if(!box) return; const old = document.getElementById("aiwtcheck"); if(old) old.remove(); box.insertAdjacentHTML("afterbegin", dgWeightHtml()); };
+  paint();
+  try{ await p; }catch(e){}
+  paint();
+}; })(aiReview);
 aiKeyCloudPull();
 authInit();
 </script>
