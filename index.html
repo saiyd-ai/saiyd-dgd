@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.14-E</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.14-F</span></span>
           </div>
         </div>
       </div>
@@ -13876,6 +13876,61 @@ function dvVersion(k){
   }
   dvShow("dgd");
 }
+/* ================= v25.14-F — HOUSE LABELS: every label gets its OWN house. Before: a 2nd label with the same / an
+   unknown consignee landed on the house that already had a label (or was dropped as "same label"), so the next house
+   stayed "no label". Now: house no. on the label → that house; else consignee match among houses that have no label
+   yet; else the next house without a label (in order). The chosen house is remembered on the label (click the label
+   chip to change it). Two houses with the same consignee each get their own label. ================= */
+hdAddLabel = function(L){
+  if(!L || !(L.shipper || L.consignee)) return;
+  const same = x => hdNorm(x.consignee) === hdNorm(L.consignee) && hdNorm(x.shipper) === hdNorm(L.shipper) && (!L.no || !x.no || hdNorm(x.no) === hdNorm(L.no));
+  const i = HOUSES.labels.findIndex(same);
+  // the very same label again (all houses already have one) = replace, otherwise it is the label of another house
+  if(i >= 0 && HOUSES.labels.length >= Math.max(1, HOUSES.list.length)){ L.no = L.no || HOUSES.labels[i].no; HOUSES.labels[i] = L; }
+  else HOUSES.labels.push(L);
+};
+hdApplyLabels = function(){
+  if(!HOUSES.list.length) return 0;
+  const H = HOUSES.list, claimed = new Set(); let n = 0;
+  const byNo = no => H.findIndex(h => hdNorm(h.no) === hdNorm(no));
+  const order = HOUSES.labels.map((L, k) => k).sort((a, b) => (HOUSES.labels[b].no ? 1 : 0) - (HOUSES.labels[a].no ? 1 : 0));
+  order.forEach(k => {
+    const L = HOUSES.labels[k];
+    if(!String(L.consignee || "").trim()) return;            // unreadable label never overwrites a house
+    let i = L.no ? byNo(L.no) : -1;
+    if(i >= 0 && claimed.has(i)) i = -1;
+    if(i < 0){
+      const key = hdLabelKey(L.consignee);
+      if(key) i = H.findIndex((h, j) => { if(claimed.has(j)) return false; const hw = hdHawb(h.no); return hdNorm((hw && hw.consignee) || "").includes(key); });
+    }
+    if(i < 0) i = H.findIndex((h, j) => !claimed.has(j) && !HOUSES.labels.some(o => o !== L && o.no && hdNorm(o.no) === hdNorm(h.no)));
+    if(i < 0) return;
+    claimed.add(i); L.no = H[i].no;
+    const f = H[i].f = H[i].f || {};
+    f.shipper = L.shipper || f.shipper; f.consignee = L.consignee || f.consignee; f.labelsc = true; n++;
+  });
+  return n;
+};
+hdMatchHouse = function(label){
+  if(label && label.no){ const j = HOUSES.list.findIndex(h => hdNorm(h.no) === hdNorm(label.no)); if(j >= 0) return j; }
+  return -1;
+};
+hdLabelIntoHouse = async function(file, msgId){
+  const msg = document.getElementById(msgId || "awbpdfmsg");
+  if(!aiKey()){ msg.textContent = "AI key not loaded yet — reload the page once."; return; }
+  msg.textContent = "🤖 AI reading the label for the HOUSE DGDs...";
+  try{
+    const L = await hdReadLabel(file);
+    if(!L.consignee){ msg.innerHTML = "<b style='color:#a40000;'>&#9888; AI could not read the CONSIGNEE on this label — paste a clearer / closer photo of the label.</b>"; return; }
+    hdStore();
+    hdAddLabel(L);
+    hdApplyLabels();
+    let i = hdMatchHouse(L); if(i < 0) i = Math.max(0, HOUSES.ix);
+    hdLoad(i, true);
+    try{ hdAttachRender(); }catch(e){}
+    msg.textContent = "✓ Label → HOUSE " + HOUSES.list[i].no + ": shipper & consignee copied verbatim — CHECK them! (wrong house? click the label chip)";
+  }catch(e){ msg.textContent = "Label read failed: " + String(e.message || e).slice(0, 80); }
+};
 aiKeyCloudPull();
 authInit();
 </script>
