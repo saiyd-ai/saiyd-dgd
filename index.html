@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.14-F</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.14-G</span></span>
           </div>
         </div>
       </div>
@@ -13931,6 +13931,15 @@ hdLabelIntoHouse = async function(file, msgId){
     msg.textContent = "✓ Label → HOUSE " + HOUSES.list[i].no + ": shipper & consignee copied verbatim — CHECK them! (wrong house? click the label chip)";
   }catch(e){ msg.textContent = "Label read failed: " + String(e.message || e).slice(0, 80); }
 };
+/* ================= v25.14-G — PAPER PRINT like before: the side hatch is NOT forced on paper any more (staff print on
+   pre-printed DGD paper / black-white printer). PRINT prints the border only when Chrome "Background graphics" is on
+   (old behaviour). ⬇ DGD PDF and BOOKING ⬇ PDF always carry the red/white border (for mail / WhatsApp). ================= */
+(function(){
+  const st = document.createElement("style");
+  st.textContent = "@media print{ .sheet .hatch svg{display:none !important;} .sheet .hatch{-webkit-print-color-adjust:economy !important; print-color-adjust:economy !important;} }";
+  document.head.appendChild(st);
+  document.querySelectorAll(".sheet .hatch").forEach(h => { h.style.background = ""; });
+})();
 aiKeyCloudPull();
 authInit();
 </script>
