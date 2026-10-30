@@ -390,7 +390,7 @@
           <h1 class="dgwm" style="font-size:30px;"><span class="b1">dg</span><span class="b2">doc</span></h1>
           <div class="sub" style="margin-top:5px;">
             <span class="pwrd on-dark">Powered by <b class="s1">s</b><b class="s2">Ai</b><b class="s1">yd</b><b class="s3">.ai</b>
-              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.14-J</span></span>
+              <span style="font-size:10px; color:#8f8fc9; margin-left:8px;">v25.14-K</span></span>
           </div>
         </div>
       </div>
@@ -3981,7 +3981,7 @@ function ptModesRender(){
           <option value="NET"${m.mode === "NET" && m.unit !== "L" ? " selected" : ""}>NET kg / carton</option>
           <option value="NETL"${m.mode === "NET" && m.unit === "L" ? " selected" : ""}>NET L (litre) / carton</option>
         </select>
-        ${m.fromList ? `<b style="color:#1d6b34;">NET QTY from packing list: ${esc(PT.filter(r => r.nq > 0).map(r => "PLT" + (r.plt || "?") + " " + fmtNet(r.nq) + " " + r.nu).join(", "))}</b>` : m.mode === "NET" ? `<input type="text" value="${m.net}" style="width:55px; padding:3px 6px;" oninput="PT_MODES['${kq}'].net=parseFloat(this.value)||0; PT_MODES['${kq}'].auto=false;"> ${m.unit === "L" ? "L" : "kg"} net/ctn${!(m.net > 0) ? ' <b style="color:#a40000;">&#9888; type the NET per carton (or give NET QTY in the packing list)</b>' : ""}` : ""}</span>`;
+        ${m.fromList ? `<span style="font-size:11.5px; color:#1d6b34;">from the packing list (NET QTY / CTN column)</span>` : m.mode === "NET" ? `<input type="text" value="${m.net}" style="width:55px; padding:3px 6px;" oninput="PT_MODES['${kq}'].net=parseFloat(this.value)||0; PT_MODES['${kq}'].auto=false;"> ${m.unit === "L" ? "L" : "kg"} net/ctn${!(m.net > 0) ? ' <b style="color:#a40000;">&#9888; type the NET per carton (or give NET QTY in the packing list)</b>' : ""}` : ""}</span>`;
     }).join("") + `<span style="font-size:11px; color:#8a97a5;">NET auto = carton gross × 8.5/22 (editable) &bull; liquids (UN1266 ...) = NET L &mdash; type the LITRES per carton from the invoice / packing list</span></div>`;
 }
 /* groups with GLOBAL SC numbers; NET mode groups by qty only (net/carton is the same for the item) */
@@ -4181,7 +4181,7 @@ function ptRender(){
   if(!tb) return;
   const TH = "padding:5px 8px; font-size:11.5px; background:#efe6d6; border:1px solid #d8cdb8; color:#5b4a1e;";
   const TD = "padding:3px 6px; border:1px solid #e2dccd; font-size:12.5px;";
-  let h = `<tr><th style="${TH}">PLT</th><th style="${TH}">GROSS WT (KGS)</th><th style="${TH}">AVG WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QTY (CTNS)</th><th style="${TH}">DGD WT (kg G)</th><th style="${TH}">SC WT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>`;
+  let h = `<tr><th style="${TH}">PLT</th><th style="${TH}">GROSS WT (KGS)</th><th style="${TH}">AVG WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QTY (CTNS)</th><th style="${TH}">NET QTY / CTN</th><th style="${TH}">DGD WT (kg G)</th><th style="${TH}">SC WT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>`;
   ptViewIdx().forEach(i => { const r = PT[i];
     h += `<tr>
       <td style="${TD} text-align:center; font-weight:bold;">${esc(String(r.plt || (i + 1)))}</td>
@@ -4189,6 +4189,7 @@ function ptRender(){
       <td style="${TD} text-align:center; font-weight:bold; color:#1a5fb4;" id="pt_aw_${i}"></td>
       <td style="${TD}"><input type="text" value="${esc(r.d || "")}" style="width:120px;" oninput="PT[${i}].d=this.value;"></td>
       <td style="${TD}"><input type="text" value="${r.q || ""}" style="width:70px;" oninput="PT[${i}].q=parseInt(this.value)||0; PT[${i}].aw=null; ptRecalc();"></td>
+      <td style="${TD}"><input type="text" value="${r.nq > 0 ? esc(String(r.nq) + " " + (r.nu || "L")) : ""}" placeholder="e.g. 7 L" title="NET quantity per carton (from the packing list) — 7 L, 500 ML, 8 KG" style="width:80px; font-weight:bold; color:#1d6b34;" onchange="ptNetEdit(${i}, this.value)"></td>
       <td style="${TD} text-align:center; font-weight:bold;" id="pt_dgd_${i}"></td>
       <td style="${TD} text-align:center; font-weight:bold;" id="pt_sc_${i}"></td>
       <td style="${TD} text-align:center;" id="pt_lb_${i}"></td>
@@ -4374,6 +4375,13 @@ function ptParseNetQty(t){
   let v = parseFloat(m[1].replace(",", ".")), u = /^K/.test(m[2]) ? "kg" : "L";
   if(m[2] === "ML"){ v = v / 1000; }
   return v > 0 ? {v: Math.round(v * 1000) / 1000, u} : null;
+}
+function ptNetEdit(i, val){   // v25.14-K: NET QTY / CTN column in the pallet table (editable)
+  const r = PT[i]; if(!r) return;
+  const pq = ptParseNetQty(val);
+  if(pq){ r.nq = pq.v; r.nu = pq.u; } else { delete r.nq; delete r.nu; if(String(val || "").trim()) alert("Type the NET per carton like 7 L, 500 ML or 8 KG."); }
+  Object.values(PT_MODES).forEach(m => { if(m) m.fromList = 0; });
+  ptRender();
 }
 function ptParseJfsXlsx(wb){
   for(const name of wb.SheetNames){
@@ -5386,6 +5394,7 @@ function plvRender(){
       <td style="${TD}"><input id="plv_awin_${i}" style="${IN} width:82px; text-align:center; font-weight:bold; color:#1a5fb4;" value="${(r.aw != null && r.aw > 0) ? r.aw : ""}" placeholder="${r.w || ""}" oninput="plvAdjTotals()"></td>
       <td style="${TD}"><input style="${IN} width:112px; text-align:center;" value="${esc(r.d || "")}" oninput="PT[${i}].d=this.value;"></td>
       <td style="${TD}"><input style="${IN} width:64px; text-align:center;" value="${r.q || ""}" oninput="PT[${i}].q=parseInt(this.value)||0; PT[${i}].aw=null; plvCalc();"></td>
+      <td style="${TD}"><input style="${IN} width:72px; text-align:center; font-weight:bold; color:#1d6b34;" value="${r.nq > 0 ? esc(String(r.nq) + " " + (r.nu || "L")) : ""}" placeholder="7 L" onchange="ptNetEdit(${i}, this.value); plvRender();"></td>
       <td style="${TD} font-weight:bold;" id="plv_sc_${i}"></td>
       <td style="${TD}" id="plv_q2_${i}"></td>
       <td style="${TD} font-weight:bold;" id="plv_dgd_${i}"></td>
@@ -5424,10 +5433,10 @@ function plvRender(){
     </div>
     <div style="font-size:10.5px; color:#5b6b7d; margin:8px 0 4px;">DGD WEIGHT = (PLT WEIGHT &minus; pallet tare) &divide; QTY, 3 decimals <b>cut</b> &nbsp;&bull;&nbsp; SC WEIGHT = DGD WEIGHT &times; QTY = exact declared quantity on the label.</div>
     <table style="border-collapse:collapse; width:100%;">
-      <tr><th style="${TH}">PLT</th><th style="${TH}">WEIGHT (KGS)</th><th style="${TH}">AVG WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QNTY (CTNS)</th><th style="${TH}">SC WEIGHT (KGS)</th><th style="${TH}">QTY</th><th style="${TH}">DGD WEIGHT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>
+      <tr><th style="${TH}">PLT</th><th style="${TH}">WEIGHT (KGS)</th><th style="${TH}">AVG WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QNTY (CTNS)</th><th style="${TH}">NET QTY / CTN</th><th style="${TH}">SC WEIGHT (KGS)</th><th style="${TH}">QTY</th><th style="${TH}">DGD WEIGHT (kg G)</th><th style="${TH}">LABEL NO</th><th style="${TH}"></th></tr>
       ${rows}
       <tr><td style="${TD} font-weight:bold;">TOTAL</td><td style="${TD} font-weight:bold;" id="plv_tw"></td><td style="${TD}"></td><td style="${TD}"></td>
-          <td style="${TD} font-weight:bold;" id="plv_tq"></td><td style="${TD} font-weight:bold;" id="plv_ts"></td>
+          <td style="${TD} font-weight:bold;" id="plv_tq"></td><td style="${TD} font-weight:bold; color:#1d6b34;">${(() => { const t = {}; PT.forEach(r => { if(r.nq > 0){ const u = r.nu || "L"; t[u] = (t[u] || 0) + r.nq * (r.q || 0); } }); return Object.keys(t).map(u => fmtNet(t[u]) + " " + u).join(" + "); })()}</td><td style="${TD} font-weight:bold;" id="plv_ts"></td>
           <td style="${TD} font-weight:bold;" id="plv_tq2"></td><td style="${TD} font-weight:bold;" id="plv_ts2"></td>
           <td style="${TD} font-weight:bold;">${PT.length} LABELS</td><td style="${TD}"></td></tr>
     </table>
@@ -5525,7 +5534,7 @@ function plvPrint(){
   const TH = `padding:4px 6px; font-size:9.5pt; background:#efe6d6; border:1px solid #888; text-align:center; ${PC}`;
   const TD = "padding:3px 5px; border:1px solid #888; font-size:9.5pt; text-align:center;";
   let rows = "";
-  ptViewIdx().map(i => [PT[i], i]).forEach(([r, i]) => rows += `<tr><td style="${TD}">${esc(String(r.plt || (i+1)))}</td><td style="${TD}">${r.w||""}</td><td style="${TD}"><b>${(r.aw != null && r.aw > 0) ? r.aw : ""}</b></td><td style="${TD}">${esc(r.d||"")}</td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.sc||""}</b></td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.dgd||""}</b></td><td style="${TD}">${esc(r.label||"")}</td></tr>`);
+  ptViewIdx().map(i => [PT[i], i]).forEach(([r, i]) => rows += `<tr><td style="${TD}">${esc(String(r.plt || (i+1)))}</td><td style="${TD}">${r.w||""}</td><td style="${TD}"><b>${(r.aw != null && r.aw > 0) ? r.aw : ""}</b></td><td style="${TD}">${esc(r.d||"")}</td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.nq > 0 ? esc(fmtNet(r.nq) + " " + (r.nu || "L")) : ""}</b></td><td style="${TD}"><b>${r.sc||""}</b></td><td style="${TD}">${r.q||""}</td><td style="${TD}"><b>${r.dgd||""}</b></td><td style="${TD}">${esc(r.label||"")}</td></tr>`);
   const tw = ptR3(PT.reduce((a,r) => a+(r.w||0), 0)), tq = PT.reduce((a,r) => a+(r.q||0), 0),
         ts = ptR3(PT.reduce((a,r) => a+(r.sc||0), 0)), maxD = Math.max(0, ...PT.map(r => r.dgd||0));
   document.getElementById("plvprint").innerHTML = `
@@ -5540,9 +5549,9 @@ function plvPrint(){
       <td style="${TD} text-align:left; width:50%; vertical-align:top;"><b>SHIPPER:</b><br><span style="white-space:pre-wrap; font-weight:bold;">${esc(s.shipper||"")}</span></td>
       <td style="${TD} text-align:left; vertical-align:top;"><b>CONSIGNEE:</b><br><span style="white-space:pre-wrap; font-weight:bold;">${esc(s.consignee||"")}</span></td></tr></table>
     <table style="width:100%; border-collapse:collapse; margin-top:3mm;">
-      <tr><th style="${TH}">PLT</th><th style="${TH}">WEIGHT (KGS)</th><th style="${TH}">AVG WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QNTY (CTNS)</th><th style="${TH}">SC WEIGHT (KGS)</th><th style="${TH}">QTY</th><th style="${TH}">DGD WEIGHT (kg G)</th><th style="${TH}">LABEL NO</th></tr>
+      <tr><th style="${TH}">PLT</th><th style="${TH}">WEIGHT (KGS)</th><th style="${TH}">AVG WT (KGS)</th><th style="${TH}">DIMENSIONS (cm)</th><th style="${TH}">QNTY (CTNS)</th><th style="${TH}">NET QTY / CTN</th><th style="${TH}">SC WEIGHT (KGS)</th><th style="${TH}">QTY</th><th style="${TH}">DGD WEIGHT (kg G)</th><th style="${TH}">LABEL NO</th></tr>
       ${rows}
-      <tr><td style="${TD}"><b>TOTAL</b></td><td style="${TD}"><b>${tw}</b></td><td style="${TD}"></td><td style="${TD}"></td><td style="${TD}"><b>${tq}</b></td><td style="${TD}"><b>${ts}</b></td><td style="${TD}"><b>${tq}</b></td><td style="${TD}"><b>${ts}</b></td><td style="${TD}"><b>${PT.length} LABELS</b></td></tr>
+      <tr><td style="${TD}"><b>TOTAL</b></td><td style="${TD}"><b>${tw}</b></td><td style="${TD}"></td><td style="${TD}"></td><td style="${TD}"><b>${tq}</b></td><td style="${TD}"><b>${(() => { const t = {}; PT.forEach(r => { if(r.nq > 0){ const u = r.nu || "L"; t[u] = (t[u] || 0) + r.nq * (r.q || 0); } }); return Object.keys(t).map(u => fmtNet(t[u]) + " " + u).join(" + "); })()}</b></td><td style="${TD}"><b>${ts}</b></td><td style="${TD}"><b>${tq}</b></td><td style="${TD}"><b>${ts}</b></td><td style="${TD}"><b>${PT.length} LABELS</b></td></tr>
     </table>
     <div style="font-size:8pt; margin-top:2mm;">DGD WEIGHT = (PLT WEIGHT &minus; tare) &divide; QTY, 3 decimals cut &nbsp;&bull;&nbsp; SC WEIGHT = DGD WEIGHT &times; QTY &nbsp;&bull;&nbsp; Max DGD wt: <b>${maxD} kg G/pkg</b></div>
     <div style="display:flex; justify-content:space-between; font-size:9pt; margin-top:10mm;">
